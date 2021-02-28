@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  bot:
+    image: public.ecr.aws/t5m8k1a3/grocer-discord-bot:latest
+    restart: always
+    volumes:
+      - type: bind
+        source: ./db
+        target: /go/bin/db
+    env_file:
+      - .env
