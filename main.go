@@ -19,6 +19,22 @@ import (
 
 const cmdPrefix = "!gro "
 
+var (
+	errCannotConvertInt   = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
+	errNotValidListNumber = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
+)
+
+var db *gorm.DB
+
+type groceryEntry struct {
+	ID          uint `gorm:"primaryKey"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	ItemDesc    string `gorm:"not null"`
+	GuildID     string `gorm:"index;not null"`
+	UpdatedByID *string
+}
+
 func fmtItemNotFoundErrorMsg(itemIndex int) string {
 	return fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex)
 }
@@ -29,27 +45,17 @@ type messageHandler struct {
 }
 
 func (m *messageHandler) sendMessage(msg string) error {
-	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, msg)
+	_, sErr := m.sess.ChannelMessageSendComplex(m.msg.ChannelID, &discordgo.MessageSend{
+		Content: msg,
+		AllowedMentions: &discordgo.MessageAllowedMentions{
+			// do not allow mentions by default
+			Parse: []discordgo.AllowedMentionType{},
+		},
+	})
 	if sErr != nil {
 		log.Println("Unable to send message.", sErr.Error())
 	}
 	return sErr
-}
-
-var (
-	errCannotConvertInt   = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
-	errNotValidListNumber = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
-)
-
-var db *gorm.DB
-
-type groceryEntry struct {
-	ID        uint `gorm:"primaryKey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	ItemDesc  string `gorm:"not null"`
-	GuildID   string `gorm:"index;not null"`
-	CreatorID *string
 }
 
 func toItemIndex(argStr string) (int, error) {
@@ -72,7 +78,7 @@ func (m *messageHandler) onError(err error) error {
 }
 
 func (m *messageHandler) OnAdd(argStr string) error {
-	if r := db.Create(&groceryEntry{ItemDesc: argStr, GuildID: m.msg.GuildID}); r.Error != nil {
+	if r := db.Create(&groceryEntry{ItemDesc: argStr, GuildID: m.msg.GuildID, UpdatedByID: &m.msg.Author.ID}); r.Error != nil {
 		return m.onError(r.Error)
 	}
 	return m.sendMessage(fmt.Sprintf("Added *%s* into your grocery list!", argStr))
@@ -85,7 +91,11 @@ func (m *messageHandler) OnList() error {
 	}
 	msg := "Here's your grocery list:\n"
 	for i, grocery := range groceries {
-		msg += fmt.Sprintf("%d: %s\n", i+1, grocery.ItemDesc)
+		updatedByString := ""
+		if grocery.UpdatedByID != nil {
+			updatedByString = fmt.Sprintf(" (<@%s>)", *grocery.UpdatedByID)
+		}
+		msg += fmt.Sprintf("%d: %s%s\n", i+1, grocery.ItemDesc, updatedByString)
 	}
 	return m.sendMessage(msg)
 }
@@ -145,6 +155,7 @@ func (m *messageHandler) OnEdit(argStr string) error {
 		return m.sendMessage(msg)
 	}
 	g.ItemDesc = newItemDesc
+	g.UpdatedByID = &m.msg.Author.ID
 	if sr := db.Save(g); sr.Error != nil {
 		log.Println(sr.Error)
 		return m.sendMessage("Welp, something went wrong while saving. Please try again :)")
@@ -161,9 +172,9 @@ func (m *messageHandler) OnBulk(argStr string) error {
 	for i, item := range items {
 		aID := m.msg.Author.ID
 		toInsert[i] = groceryEntry{
-			ItemDesc:  strings.Trim(item, " \n\t"),
-			GuildID:   m.msg.GuildID,
-			CreatorID: &aID,
+			ItemDesc:    strings.Trim(item, " \n\t"),
+			GuildID:     m.msg.GuildID,
+			UpdatedByID: &aID,
 		}
 	}
 	r := db.Create(&toInsert)
