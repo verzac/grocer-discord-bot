@@ -91,11 +91,11 @@ func (m *messageHandler) OnList() error {
 	}
 	msg := "Here's your grocery list:\n"
 	for i, grocery := range groceries {
-		updatedByString := ""
-		if grocery.UpdatedByID != nil {
-			updatedByString = fmt.Sprintf(" (<@%s>)", *grocery.UpdatedByID)
-		}
-		msg += fmt.Sprintf("%d: %s%s\n", i+1, grocery.ItemDesc, updatedByString)
+		// updatedByString := ""
+		// if grocery.UpdatedByID != nil {
+		// 	updatedByString = fmt.Sprintf(" (<@%s>)", *grocery.UpdatedByID)
+		// }
+		msg += fmt.Sprintf("%d: %s\n", i+1, grocery.ItemDesc)
 	}
 	return m.sendMessage(msg)
 }
