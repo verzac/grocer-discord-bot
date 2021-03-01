@@ -180,8 +180,12 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		onRemove(strings.TrimPrefix(body, "!groremove "), s, m)
 	} else if strings.HasPrefix(body, "!groedit ") {
 		onEdit(strings.TrimPrefix(body, "!groedit "), s, m)
-	} else if strings.HasPrefix(body, "!grobulk\n") {
-		onBulk(strings.TrimPrefix(body, "!grobulk\n"), s, m)
+	} else if strings.HasPrefix(body, "!grobulk") {
+		onBulk(
+			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
+			s,
+			m,
+		)
 	} else if body == "!grolist" {
 		onList(s, m)
 	} else if body == "!groclear" {
