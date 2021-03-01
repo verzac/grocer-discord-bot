@@ -220,11 +220,6 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if body == "!grohelp" {
 		mh.OnHelp()
 	}
-	// qty
-	// !gro Orange Juice
-	// !groclear
-	// !grolist
-	// !groremove
 }
 
 func main() {
