@@ -23,6 +23,19 @@ func fmtItemNotFoundErrorMsg(itemIndex int) string {
 	return fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex)
 }
 
+type messageHandler struct {
+	sess *discordgo.Session
+	msg  *discordgo.MessageCreate
+}
+
+func (m *messageHandler) sendMessage(msg string) error {
+	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, msg)
+	if sErr != nil {
+		log.Println("Unable to send message.", sErr.Error())
+	}
+	return sErr
+}
+
 var (
 	errCannotConvertInt   = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
 	errNotValidListNumber = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
@@ -50,158 +63,119 @@ func toItemIndex(argStr string) (int, error) {
 	return itemIndex, nil
 }
 
-func sendMessage(s *discordgo.Session, m *discordgo.MessageCreate, msg string) error {
-	_, sErr := s.ChannelMessageSend(m.ChannelID, msg)
-	if sErr != nil {
-		log.Println("Unable to send message.", sErr.Error())
-	}
-	return sErr
-}
-
-func onError(s *discordgo.Session, m *discordgo.MessageCreate, err error) error {
-	_, sErr := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
+func (m *messageHandler) onError(err error) error {
+	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
 	if sErr != nil {
 		log.Println("Unable to send error message.", err.Error())
 	}
 	return err
 }
 
-func onAdd(argStr string, s *discordgo.Session, m *discordgo.MessageCreate) error {
-	if r := db.Create(&groceryEntry{ItemDesc: argStr, GuildID: m.GuildID}); r.Error != nil {
-		return onError(s, m, r.Error)
+func (m *messageHandler) OnAdd(argStr string) error {
+	if r := db.Create(&groceryEntry{ItemDesc: argStr, GuildID: m.msg.GuildID}); r.Error != nil {
+		return m.onError(r.Error)
 	}
-	return sendMessage(s, m, fmt.Sprintf("Added *%s* into your grocery list!", argStr))
+	return m.sendMessage(fmt.Sprintf("Added *%s* into your grocery list!", argStr))
 }
 
-func onList(s *discordgo.Session, m *discordgo.MessageCreate) error {
+func (m *messageHandler) OnList() error {
 	groceries := make([]groceryEntry, 0)
-	if r := db.Where(&groceryEntry{GuildID: m.GuildID}).Find(&groceries); r.Error != nil {
-		return onError(s, m, r.Error)
+	if r := db.Where(&groceryEntry{GuildID: m.msg.GuildID}).Find(&groceries); r.Error != nil {
+		return m.onError(r.Error)
 	}
 	msg := "Here's your grocery list:\n"
 	for i, grocery := range groceries {
 		msg += fmt.Sprintf("%d: %s\n", i+1, grocery.ItemDesc)
 	}
-	return sendMessage(s, m, msg)
+	return m.sendMessage(msg)
 }
 
-func onClear(s *discordgo.Session, m *discordgo.MessageCreate) error {
-	r := db.Delete(groceryEntry{}, "guild_id = ?", m.GuildID)
+func (m *messageHandler) OnClear() error {
+	r := db.Delete(groceryEntry{}, "guild_id = ?", m.msg.GuildID)
 	if r.Error != nil {
-		return onError(s, m, r.Error)
+		return m.onError(r.Error)
 	}
 	msg := fmt.Sprintf("Deleted %d items off your grocery list!", r.RowsAffected)
-	return sendMessage(s, m, msg)
+	return m.sendMessage(msg)
 }
 
-func onRemove(argStr string, s *discordgo.Session, m *discordgo.MessageCreate) error {
+func (m *messageHandler) OnRemove(argStr string) error {
 	itemIndex, err := toItemIndex(argStr)
 	if err != nil {
-		return sendMessage(s, m, err.Error())
+		return m.sendMessage(err.Error())
 	}
 	g := groceryEntry{}
-	r := db.Where("guild_id = ?", m.GuildID).Offset(itemIndex - 1).First(&g)
+	r := db.Where("guild_id = ?", m.msg.GuildID).Offset(itemIndex - 1).First(&g)
 	if r.Error != nil {
 		if r.Error == gorm.ErrRecordNotFound {
-			sendMessage(s, m, fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex))
-			return onList(s, m)
+			m.sendMessage(fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex))
+			return m.OnList()
 		}
-		return onError(s, m, r.Error)
+		return m.onError(r.Error)
 	}
 	if r.RowsAffected == 0 {
 		msg := fmt.Sprintf("Cannot find item with index %d!", itemIndex)
-		return sendMessage(s, m, msg)
+		return m.sendMessage(msg)
 	}
 	db.Delete(g)
-	return sendMessage(s, m, fmt.Sprintf("Deleted *%s* off your grocery list!", g.ItemDesc))
+	return m.sendMessage(fmt.Sprintf("Deleted *%s* off your grocery list!", g.ItemDesc))
 }
 
-func onEdit(argStr string, s *discordgo.Session, m *discordgo.MessageCreate) error {
+func (m *messageHandler) OnEdit(argStr string) error {
 	argTokens := strings.SplitN(argStr, " ", 2)
 	if len(argTokens) != 2 {
-		return sendMessage(s, m, fmt.Sprintf("Oops, I can't seem to understand you. Perhaps try typing **!groedit 1 Whatever you want the name of this entry to be**?"))
+		return m.sendMessage(fmt.Sprintf("Oops, I can't seem to understand you. Perhaps try typing **!groedit 1 Whatever you want the name of this entry to be**?"))
 	}
 	itemIndex, err := toItemIndex(argTokens[0])
 	if err != nil {
-		return sendMessage(s, m, err.Error())
+		return m.sendMessage(err.Error())
 	}
 	newItemDesc := argTokens[1]
 	g := groceryEntry{}
-	fr := db.Where("guild_id = ?", m.GuildID).Offset(itemIndex - 1).First(&g)
+	fr := db.Where("guild_id = ?", m.msg.GuildID).Offset(itemIndex - 1).First(&g)
 	if fr.Error != nil {
 		if errors.Is(fr.Error, gorm.ErrRecordNotFound) {
-			sendMessage(s, m, fmtItemNotFoundErrorMsg(itemIndex))
-			return onList(s, m)
+			m.sendMessage(fmtItemNotFoundErrorMsg(itemIndex))
+			return m.OnList()
 		}
-		return onError(s, m, fr.Error)
+		return m.onError(fr.Error)
 	}
 	if fr.RowsAffected == 0 {
 		msg := fmt.Sprintf("Cannot find item with index %d!", itemIndex)
-		return sendMessage(s, m, msg)
+		return m.sendMessage(msg)
 	}
 	g.ItemDesc = newItemDesc
 	if sr := db.Save(g); sr.Error != nil {
 		log.Println(sr.Error)
-		return sendMessage(s, m, "Welp, something went wrong while saving. Please try again :)")
+		return m.sendMessage("Welp, something went wrong while saving. Please try again :)")
 	}
-	return sendMessage(s, m, fmt.Sprintf("Updated item #%d on your grocery list to *%s*", itemIndex, g.ItemDesc))
+	return m.sendMessage(fmt.Sprintf("Updated item #%d on your grocery list to *%s*", itemIndex, g.ItemDesc))
 }
 
-func onBulk(argStr string, s *discordgo.Session, m *discordgo.MessageCreate) error {
+func (m *messageHandler) OnBulk(argStr string) error {
 	items := strings.Split(
 		strings.Trim(argStr, "\n \t"),
 		"\n",
 	)
 	toInsert := make([]groceryEntry, len(items))
 	for i, item := range items {
-		aID := m.Author.ID
+		aID := m.msg.Author.ID
 		toInsert[i] = groceryEntry{
 			ItemDesc:  strings.Trim(item, " \n\t"),
-			GuildID:   m.GuildID,
+			GuildID:   m.msg.GuildID,
 			CreatorID: &aID,
 		}
 	}
 	r := db.Create(&toInsert)
 	if r.Error != nil {
 		log.Println(r.Error)
-		return sendMessage(s, m, "Hmm... Cannot save your grocery list. Please try again later :)")
+		return m.sendMessage("Hmm... Cannot save your grocery list. Please try again later :)")
 	}
-	return sendMessage(s, m, fmt.Sprintf("Added %d items into your list!", r.RowsAffected))
+	return m.sendMessage(fmt.Sprintf("Added %d items into your list!", r.RowsAffected))
 }
 
-func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-	body := m.Content
-	if strings.HasPrefix(body, "!gro ") {
-		onAdd(strings.TrimPrefix(body, "!gro "), s, m)
-	} else if strings.HasPrefix(body, "!groremove ") {
-		onRemove(strings.TrimPrefix(body, "!groremove "), s, m)
-	} else if strings.HasPrefix(body, "!groedit ") {
-		onEdit(strings.TrimPrefix(body, "!groedit "), s, m)
-	} else if strings.HasPrefix(body, "!grobulk") {
-		onBulk(
-			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
-			s,
-			m,
-		)
-	} else if body == "!grolist" {
-		onList(s, m)
-	} else if body == "!groclear" {
-		onClear(s, m)
-	} else if body == "!grohelp" {
-		onHelp(s, m)
-	}
-	// qty
-	// !gro Orange Juice
-	// !groclear
-	// !grolist
-	// !groremove
-}
-
-func onHelp(s *discordgo.Session, m *discordgo.MessageCreate) error {
-	return sendMessage(s, m,
+func (m *messageHandler) OnHelp() error {
+	return m.sendMessage(
 		`!grohelp: get help!
 !gro <name>: adds an item to your grocery list
 !groremove <n>: removes item #n from your grocery list
@@ -211,16 +185,46 @@ func onHelp(s *discordgo.Session, m *discordgo.MessageCreate) error {
 
 You can also do !grobulk to add your own grocery list. Format:
 
-`+"```"+`
+` + "```" + `
 !grobulk
 eggs
 Soap 1pc
 Liquid soap 500 ml
-`+"```"+`
+` + "```" + `
 
 These 3 new items will be added to your existing grocery list!
 `,
 	)
+}
+
+func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+	body := m.Content
+	mh := messageHandler{sess: s, msg: m}
+	if strings.HasPrefix(body, "!gro ") {
+		mh.OnAdd(strings.TrimPrefix(body, "!gro "))
+	} else if strings.HasPrefix(body, "!groremove ") {
+		mh.OnRemove(strings.TrimPrefix(body, "!groremove "))
+	} else if strings.HasPrefix(body, "!groedit ") {
+		mh.OnEdit(strings.TrimPrefix(body, "!groedit "))
+	} else if strings.HasPrefix(body, "!grobulk") {
+		mh.OnBulk(
+			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
+		)
+	} else if body == "!grolist" {
+		mh.OnList()
+	} else if body == "!groclear" {
+		mh.OnClear()
+	} else if body == "!grohelp" {
+		mh.OnHelp()
+	}
+	// qty
+	// !gro Orange Juice
+	// !groclear
+	// !grolist
+	// !groremove
 }
 
 func main() {
