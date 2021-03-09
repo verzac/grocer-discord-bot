@@ -204,6 +204,8 @@ Liquid soap 500 ml
 ` + "```" + `
 
 These 3 new items will be added to your existing grocery list!
+
+For more information and/or any other questions, you can get in touch with my maintainer through my GitHub repo: https://github.com/verzac/grocer-discord-bot
 `,
 	)
 }
