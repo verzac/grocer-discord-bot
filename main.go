@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/andanhm/go-prettytime"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/sqlite"
@@ -33,6 +34,14 @@ type groceryEntry struct {
 	ItemDesc    string `gorm:"not null"`
 	GuildID     string `gorm:"index;not null"`
 	UpdatedByID *string
+}
+
+func (g *groceryEntry) GetUpdatedByString() string {
+	updatedByString := ""
+	if g.UpdatedByID != nil {
+		updatedByString = fmt.Sprintf("(updated by <@%s> %s)", *g.UpdatedByID, prettytime.Format(g.UpdatedAt))
+	}
+	return updatedByString
 }
 
 func fmtItemNotFoundErrorMsg(itemIndex int) string {
@@ -70,6 +79,7 @@ func toItemIndex(argStr string) (int, error) {
 }
 
 func (m *messageHandler) onError(err error) error {
+	log.Println(err.Error())
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
 	if sErr != nil {
 		log.Println("Unable to send error message.", err.Error())
@@ -91,10 +101,6 @@ func (m *messageHandler) OnList() error {
 	}
 	msg := "Here's your grocery list:\n"
 	for i, grocery := range groceries {
-		// updatedByString := ""
-		// if grocery.UpdatedByID != nil {
-		// 	updatedByString = fmt.Sprintf(" (<@%s>)", *grocery.UpdatedByID)
-		// }
 		msg += fmt.Sprintf("%d: %s\n", i+1, grocery.ItemDesc)
 	}
 	return m.sendMessage(msg)
@@ -185,6 +191,27 @@ func (m *messageHandler) OnBulk(argStr string) error {
 	return m.sendMessage(fmt.Sprintf("Added %d items into your list!", r.RowsAffected))
 }
 
+func (m *messageHandler) OnDetail(argStr string) error {
+	itemIndex, err := toItemIndex(argStr)
+	if err != nil {
+		return m.sendMessage(err.Error())
+	}
+	g := groceryEntry{}
+	r := db.Where("guild_id = ?", m.msg.GuildID).Offset(itemIndex - 1).First(&g)
+	if r.Error != nil {
+		if r.Error == gorm.ErrRecordNotFound {
+			m.sendMessage(fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex))
+			return m.OnList()
+		}
+		return m.onError(r.Error)
+	}
+	if r.RowsAffected == 0 {
+		msg := fmt.Sprintf("Cannot find item with index %d!", itemIndex)
+		return m.sendMessage(msg)
+	}
+	return m.sendMessage(fmt.Sprintf("Here's what you have for item #%d: %s %s", itemIndex, g.ItemDesc, g.GetUpdatedByString()))
+}
+
 func (m *messageHandler) OnHelp() error {
 	return m.sendMessage(
 		`!grohelp: get help!
@@ -193,6 +220,7 @@ func (m *messageHandler) OnHelp() error {
 !grolist: list all the groceries in your grocery list
 !groclear: clears your grocery list
 !groedit <n> <new name>: updates item #n to a new name/entry
+!grodeets <n>: views the full detail of item #n (e.g. who made the entry)
 
 You can also do !grobulk to add your own grocery list. Format:
 
@@ -232,6 +260,8 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		mh.OnClear()
 	} else if body == "!grohelp" {
 		mh.OnHelp()
+	} else if strings.HasPrefix(body, "!grodeets") {
+		mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
 	}
 }
 
