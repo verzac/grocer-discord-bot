@@ -13,4 +13,5 @@ docker_build:
 publish: docker_build docker_login
 	docker tag ${image_name}:latest ${repository_uri}:latest
 	docker tag ${image_name}:${tag} ${repository_uri}:${tag}
-	docker push ${repository_uri} --all-tags
+	docker push ${repository_uri}:latest
+	docker push ${repository_uri}:${tag}
