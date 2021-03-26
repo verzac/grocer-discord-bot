@@ -78,6 +78,26 @@ func toItemIndex(argStr string) (int, error) {
 	return itemIndex, nil
 }
 
+func prettyItemIndexList(itemIndexes []int) string {
+	tokens := make([]string, len(itemIndexes))
+	for i, itemIndex := range itemIndexes {
+		tokens[i] = fmt.Sprintf("#%d", itemIndex)
+	}
+	return strings.Join(tokens, ", ")
+}
+
+func prettyItems(gList []groceryEntry) string {
+	tokens := make([]string, len(gList))
+	for i, gEntry := range gList {
+		format := "*%s*"
+		if i == len(gList)-1 && len(gList) > 1 {
+			format = fmt.Sprintf("and %s", format)
+		}
+		tokens[i] = fmt.Sprintf(format, gEntry.ItemDesc)
+	}
+	return strings.Join(tokens, ", ")
+}
+
 func (m *messageHandler) onError(err error) error {
 	log.Println(err.Error())
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
@@ -116,25 +136,45 @@ func (m *messageHandler) OnClear() error {
 }
 
 func (m *messageHandler) OnRemove(argStr string) error {
-	itemIndex, err := toItemIndex(argStr)
-	if err != nil {
-		return m.sendMessage(err.Error())
-	}
-	g := groceryEntry{}
-	r := db.Where("guild_id = ?", m.msg.GuildID).Offset(itemIndex - 1).First(&g)
-	if r.Error != nil {
-		if r.Error == gorm.ErrRecordNotFound {
-			m.sendMessage(fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex))
-			return m.OnList()
+	itemIndexes := make([]int, 0)
+	for _, itemIndexStr := range strings.Split(argStr, " ") {
+		if itemIndexStr != "" {
+			itemIndex, err := toItemIndex(itemIndexStr)
+			if err != nil {
+				return m.sendMessage(err.Error())
+			}
+			itemIndexes = append(itemIndexes, itemIndex)
 		}
-		return m.onError(r.Error)
 	}
-	if r.RowsAffected == 0 {
-		msg := fmt.Sprintf("Cannot find item with index %d!", itemIndex)
+	groceryList := make([]groceryEntry, 0)
+	rFind := db.Where("guild_id = ?", m.msg.GuildID).Find(&groceryList)
+	if rFind.Error != nil {
+		return m.onError(rFind.Error)
+	}
+	if rFind.RowsAffected == 0 {
+		msg := fmt.Sprintf("Whoops, you do not have any items in your grocery list.")
 		return m.sendMessage(msg)
 	}
-	db.Delete(g)
-	return m.sendMessage(fmt.Sprintf("Deleted *%s* off your grocery list!", g.ItemDesc))
+	toDelete := make([]groceryEntry, 0, len(itemIndexes))
+	missingIndexes := make([]int, 0, len(itemIndexes))
+	for _, itemIndex := range itemIndexes {
+		// validate
+		if itemIndex > len(groceryList) {
+			missingIndexes = append(missingIndexes, itemIndex)
+		} else if len(missingIndexes) == 0 {
+			toDelete = append(toDelete, groceryList[itemIndex-1])
+		}
+	}
+	if len(missingIndexes) > 0 {
+		return m.sendMessage(fmt.Sprintf(
+			"Whoops, we can't seem to find the following item(s): %s",
+			prettyItemIndexList(missingIndexes),
+		))
+	}
+	if rDel := db.Delete(toDelete); rDel.Error != nil {
+		return m.onError(rDel.Error)
+	}
+	return m.sendMessage(fmt.Sprintf("Deleted %s off your grocery list!", prettyItems(toDelete)))
 }
 
 func (m *messageHandler) OnEdit(argStr string) error {
@@ -217,6 +257,7 @@ func (m *messageHandler) OnHelp() error {
 		`!grohelp: get help!
 !gro <name>: adds an item to your grocery list
 !groremove <n>: removes item #n from your grocery list
+!groremove <n> <m> <o>...: removes item #n, #m, and #o from your grocery list. You can chain as many items as you want.
 !grolist: list all the groceries in your grocery list
 !groclear: clears your grocery list
 !groedit <n> <new name>: updates item #n to a new name/entry
