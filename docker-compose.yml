@@ -6,6 +6,12 @@ services:
     volumes:
       - type: bind
         source: ./db
-        target: /go/bin/db
+        target: /go/bin/db/
     env_file:
       - .env
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ap-southeast-1
+        awslogs-group: grocer-discord-bot
+        awslogs-create-group: "false"
