@@ -58,7 +58,7 @@ Only the maintainer(s) of this project (i.e. [@verzac](https://github.com/verzac
 
 While we're sad to see you go, removing your data is as easy as running `!groclear` and removing the bot afterwards. All of the data above is stored against your grocery entries, so if you don't have any grocery entry, your data is not stored at all.
 
-The only minor exception to the immediate "no entry, no data, no problem" rule is the error logs. If you've never had an error occur, you shouldn't have this problem. Error logs are automatically deleted within 14 days.
+The only minor exception to the immediate "no entry, no data, no problem" rule is the error logs: error logs are automatically deleted within 14 days (as opposed to immediately). If you've never had an error occur, you shouldn't have this problem.
 
 ## Changes to this policy
 
