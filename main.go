@@ -18,11 +18,12 @@ import (
 	"gorm.io/gorm"
 )
 
-const cmdPrefix = "!gro "
+const groceryEntryLimit = 100
 
 var (
 	errCannotConvertInt   = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
 	errNotValidListNumber = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
+	errOverLimit          = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
 )
 
 var db *gorm.DB
@@ -48,6 +49,21 @@ func fmtItemNotFoundErrorMsg(itemIndex int) string {
 	return fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex)
 }
 
+func (m *messageHandler) checkLimit(guildID string, newItemCount int64) error {
+	var count int64
+	if r := db.Model(&groceryEntry{}).Where(&groceryEntry{GuildID: guildID}).Count(&count); r.Error != nil {
+		return r.Error
+	}
+	if count+newItemCount > groceryEntryLimit {
+		return errOverLimit
+	}
+	return nil
+}
+
+func (m *messageHandler) fmtErrMsg(err error) string {
+	return fmt.Sprintf("GuildID=%s errMsg=%s", m.msg.GuildID, err.Error())
+}
+
 type messageHandler struct {
 	sess *discordgo.Session
 	msg  *discordgo.MessageCreate
@@ -62,7 +78,7 @@ func (m *messageHandler) sendMessage(msg string) error {
 		},
 	})
 	if sErr != nil {
-		log.Println("Unable to send message.", sErr.Error())
+		log.Println("Unable to send message.", m.fmtErrMsg(sErr))
 	}
 	return sErr
 }
@@ -99,15 +115,18 @@ func prettyItems(gList []groceryEntry) string {
 }
 
 func (m *messageHandler) onError(err error) error {
-	log.Println(err.Error())
+	log.Println(m.fmtErrMsg(err))
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
 	if sErr != nil {
-		log.Println("Unable to send error message.", err.Error())
+		log.Println("Unable to send error message.", m.fmtErrMsg(err))
 	}
 	return err
 }
 
 func (m *messageHandler) OnAdd(argStr string) error {
+	if err := m.checkLimit(m.msg.GuildID, 1); err != nil {
+		return m.onError(err)
+	}
 	if r := db.Create(&groceryEntry{ItemDesc: argStr, GuildID: m.msg.GuildID, UpdatedByID: &m.msg.Author.ID}); r.Error != nil {
 		return m.onError(r.Error)
 	}
@@ -203,7 +222,7 @@ func (m *messageHandler) OnEdit(argStr string) error {
 	g.ItemDesc = newItemDesc
 	g.UpdatedByID = &m.msg.Author.ID
 	if sr := db.Save(g); sr.Error != nil {
-		log.Println(sr.Error)
+		log.Println(m.fmtErrMsg(sr.Error))
 		return m.sendMessage("Welp, something went wrong while saving. Please try again :)")
 	}
 	return m.sendMessage(fmt.Sprintf("Updated item #%d on your grocery list to *%s*", itemIndex, g.ItemDesc))
@@ -223,9 +242,12 @@ func (m *messageHandler) OnBulk(argStr string) error {
 			UpdatedByID: &aID,
 		}
 	}
+	if err := m.checkLimit(m.msg.GuildID, int64(len(toInsert))); err != nil {
+		return m.onError(err)
+	}
 	r := db.Create(&toInsert)
 	if r.Error != nil {
-		log.Println(r.Error)
+		log.Println(m.fmtErrMsg(r.Error))
 		return m.sendMessage("Hmm... Cannot save your grocery list. Please try again later :)")
 	}
 	return m.sendMessage(fmt.Sprintf("Added %d items into your list!", r.RowsAffected))
