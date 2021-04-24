@@ -13,22 +13,29 @@ func (m *MessageHandler) OnBulk(argStr string) error {
 		strings.Trim(argStr, "\n \t"),
 		"\n",
 	)
-	toInsert := make([]models.GroceryEntry, len(items))
-	for i, item := range items {
+	toInsert := make([]models.GroceryEntry, 0, len(items))
+	for _, item := range items {
 		aID := m.msg.Author.ID
-		toInsert[i] = models.GroceryEntry{
-			ItemDesc:    strings.Trim(item, " \n\t"),
-			GuildID:     m.msg.GuildID,
-			UpdatedByID: &aID,
+		cleanedItem := strings.Trim(item, " \n\t")
+		if cleanedItem != "" {
+			toInsert = append(toInsert, models.GroceryEntry{
+				ItemDesc:    cleanedItem,
+				GuildID:     m.msg.GuildID,
+				UpdatedByID: &aID,
+			})
 		}
 	}
-	if err := m.checkLimit(m.msg.GuildID, int64(len(toInsert))); err != nil {
-		return m.onError(err)
+	insertedItemsCount := int64(len(toInsert))
+	if len(toInsert) > 0 {
+		if err := m.checkLimit(m.msg.GuildID, int64(len(toInsert))); err != nil {
+			return m.onError(err)
+		}
+		r := m.db.Create(&toInsert)
+		if r.Error != nil {
+			log.Println(m.fmtErrMsg(r.Error))
+			return m.sendMessage("Hmm... Cannot save your grocery list. Please try again later :)")
+		}
+		insertedItemsCount = r.RowsAffected
 	}
-	r := m.db.Create(&toInsert)
-	if r.Error != nil {
-		log.Println(m.fmtErrMsg(r.Error))
-		return m.sendMessage("Hmm... Cannot save your grocery list. Please try again later :)")
-	}
-	return m.sendMessage(fmt.Sprintf("Added %d items into your list!", r.RowsAffected))
+	return m.sendMessage(fmt.Sprintf("Added %d items into your list!", insertedItemsCount))
 }
