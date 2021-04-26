@@ -55,7 +55,7 @@ func (m *MessageHandler) checkLimit(guildID string, newItemCount int64) error {
 }
 
 func (m *MessageHandler) fmtErrMsg(err error) string {
-	return fmt.Sprintf("GuildID=%s errMsg=%s", m.msg.GuildID, err.Error())
+	return fmt.Sprintf("[ERROR] GuildID=%s errMsg=%s", m.msg.GuildID, err.Error())
 }
 
 func (m *MessageHandler) sendMessage(msg string) error {
