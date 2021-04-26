@@ -19,7 +19,7 @@ type GroceryEntry struct {
 func (g *GroceryEntry) GetUpdatedByString() string {
 	updatedByString := ""
 	if g.UpdatedByID != nil {
-		updatedByString = fmt.Sprintf("(updated by <@%s> %s)", *g.UpdatedByID, prettytime.Format(g.UpdatedAt))
+		updatedByString = fmt.Sprintf("updated by <@%s> %s", *g.UpdatedByID, prettytime.Format(g.UpdatedAt))
 	}
 	return updatedByString
 }

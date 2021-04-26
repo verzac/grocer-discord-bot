@@ -37,5 +37,8 @@ func (m *MessageHandler) OnBulk(argStr string) error {
 		}
 		insertedItemsCount = r.RowsAffected
 	}
-	return m.sendMessage(fmt.Sprintf("Added %d items into your list!", insertedItemsCount))
+	if err := m.sendMessage(fmt.Sprintf("Added %d items into your list!", insertedItemsCount)); err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
 }

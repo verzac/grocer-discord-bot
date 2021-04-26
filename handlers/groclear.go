@@ -12,5 +12,8 @@ func (m *MessageHandler) OnClear() error {
 		return m.onError(r.Error)
 	}
 	msg := fmt.Sprintf("Deleted %d items off your grocery list!", r.RowsAffected)
-	return m.sendMessage(msg)
+	if err := m.sendMessage(msg); err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
 }

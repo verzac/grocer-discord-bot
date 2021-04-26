@@ -14,6 +14,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var db *gorm.DB
@@ -24,24 +25,30 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	body := m.Content
 	mh := handlers.New(s, m, db)
+	var err error
 	if strings.HasPrefix(body, "!gro ") {
-		mh.OnAdd(strings.TrimPrefix(body, "!gro "))
+		err = mh.OnAdd(strings.TrimPrefix(body, "!gro "))
 	} else if strings.HasPrefix(body, "!groremove ") {
-		mh.OnRemove(strings.TrimPrefix(body, "!groremove "))
+		err = mh.OnRemove(strings.TrimPrefix(body, "!groremove "))
 	} else if strings.HasPrefix(body, "!groedit ") {
-		mh.OnEdit(strings.TrimPrefix(body, "!groedit "))
+		err = mh.OnEdit(strings.TrimPrefix(body, "!groedit "))
 	} else if strings.HasPrefix(body, "!grobulk") {
-		mh.OnBulk(
+		err = mh.OnBulk(
 			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
 		)
 	} else if body == "!grolist" {
-		mh.OnList()
+		err = mh.OnList()
 	} else if body == "!groclear" {
-		mh.OnClear()
+		err = mh.OnClear()
 	} else if body == "!grohelp" {
-		mh.OnHelp()
+		err = mh.OnHelp()
 	} else if strings.HasPrefix(body, "!grodeets") {
-		mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
+		err = mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
+	} else if body == "!grohere" {
+		err = mh.OnAttach()
+	}
+	if err != nil {
+		log.Println(err)
 	}
 }
 
@@ -62,7 +69,16 @@ func main() {
 		panic(err)
 	}
 	log.Printf("Using %s\n", dsn)
-	db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
+		Logger: logger.New(
+			log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+			logger.Config{
+				LogLevel:                  logger.Error, // Log level
+				IgnoreRecordNotFoundError: true,         // Ignore ErrRecordNotFound error for logger
+				Colorful:                  false,        // Disable color
+			},
+		),
+	})
 	if err != nil {
 		panic(err)
 	}

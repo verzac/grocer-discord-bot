@@ -13,5 +13,9 @@ func (m *MessageHandler) OnAdd(argStr string) error {
 	if r := m.db.Create(&models.GroceryEntry{ItemDesc: argStr, GuildID: m.msg.GuildID, UpdatedByID: &m.msg.Author.ID}); r.Error != nil {
 		return m.onError(r.Error)
 	}
-	return m.sendMessage(fmt.Sprintf("Added *%s* into your grocery list!", argStr))
+	err := m.sendMessage(fmt.Sprintf("Added *%s* into your grocery list!", argStr))
+	if err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
 }

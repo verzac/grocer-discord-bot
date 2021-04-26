@@ -46,5 +46,8 @@ func (m *MessageHandler) OnRemove(argStr string) error {
 	if rDel := m.db.Delete(toDelete); rDel.Error != nil {
 		return m.onError(rDel.Error)
 	}
-	return m.sendMessage(fmt.Sprintf("Deleted %s off your grocery list!", prettyItems(toDelete)))
+	if err := m.sendMessage(fmt.Sprintf("Deleted %s off your grocery list!", prettyItems(toDelete))); err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
 }

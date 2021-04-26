@@ -25,5 +25,5 @@ func (m *MessageHandler) OnDetail(argStr string) error {
 		msg := fmt.Sprintf("Cannot find item with index %d!", itemIndex)
 		return m.sendMessage(msg)
 	}
-	return m.sendMessage(fmt.Sprintf("Here's what you have for item #%d: %s %s", itemIndex, g.ItemDesc, g.GetUpdatedByString()))
+	return m.sendMessage(fmt.Sprintf("Here's what you have for item #%d: %s (%s)", itemIndex, g.ItemDesc, g.GetUpdatedByString()))
 }
