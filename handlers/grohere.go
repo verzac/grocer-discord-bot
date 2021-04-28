@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/verzac/grocer-discord-bot/models"
 	"gorm.io/gorm"
@@ -46,7 +47,7 @@ func (m *MessageHandler) getGrohereText() (string, error) {
 	if lastG == nil {
 		return beginningText + "You have no groceries here - hooray!", nil
 	}
-	lastUpdatedByText := fmt.Sprintf("Last %s\n", lastG.GetUpdatedByString())
+	lastUpdatedByText := fmt.Sprintf("Last updated by <@%s>\n", *lastG.UpdatedByID)
 	groHereText := fmt.Sprintf(beginningText+"%s\n%s\n", groceryListText, lastUpdatedByText)
 	return groHereText, nil
 }
@@ -62,6 +63,9 @@ func (m *MessageHandler) onEditUpdateGrohere() error {
 		}
 	}
 	if gConfig.GrohereChannelID == nil || gConfig.GrohereMessageID == nil {
+		if r := m.db.Delete(&gConfig); r.Error != nil {
+			log.Println(m.fmtErrMsg(r.Error))
+		}
 		return m.onError(errors.New("Hmm... That's weird, something didn't go right when updating your !grohere grocery list. Please run !grohere again to setup a new, self-updating grocery list!"))
 	}
 	grohereText, err := m.getGrohereText()
