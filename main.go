@@ -51,7 +51,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		err = mh.OnReset()
 	}
 	if err != nil {
-		log.Println(err)
+		log.Println(mh.FmtErrMsg(err))
 	}
 }
 

@@ -9,7 +9,7 @@ ARG GOOS=linux
 ARG GOARCH=amd64
 # ARG CGO_ENABLED=0
 COPY . .
-RUN go build -o /out/main main.go -ldflags "-X main.GroBotVersion=$version"
+RUN go build -o /out/main -ldflags "-X main.GroBotVersion=$version" main.go
 
 FROM alpine AS bin
 COPY --from=build /out/main /go/bin/main
