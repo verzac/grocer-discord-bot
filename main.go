@@ -18,6 +18,7 @@ import (
 )
 
 var db *gorm.DB
+var GroBotVersion string
 
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
@@ -41,7 +42,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if body == "!groclear" {
 		err = mh.OnClear()
 	} else if body == "!grohelp" {
-		err = mh.OnHelp()
+		err = mh.OnHelp(GroBotVersion)
 	} else if strings.HasPrefix(body, "!grodeets") {
 		err = mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
 	} else if body == "!grohere" {
@@ -94,7 +95,7 @@ func main() {
 	if err := d.Open(); err != nil {
 		panic(err)
 	}
-	log.Println("Bot is online!")
+	log.Println("Bot is online! Version: " + GroBotVersion)
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc

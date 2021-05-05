@@ -1,28 +1,54 @@
 package handlers
 
-func (m *MessageHandler) OnHelp() error {
-	return m.sendMessage(
-		`!grohelp: get help!
-!gro <name>: adds an item to your grocery list
-!groremove <n>: removes item #n from your grocery list
-!groremove <n> <m> <o>...: removes item #n, #m, and #o from your grocery list. You can chain as many items as you want.
-!grolist: list all the groceries in your grocery list
-!groclear: clears your grocery list
-!groedit <n> <new name>: updates item #n to a new name/entry
-!grodeets <n>: views the full detail of item #n (e.g. who made the entry)
+import "github.com/bwmarrin/discordgo"
 
-You can also do !grobulk to add your own grocery list. Format:
+func (m *MessageHandler) OnHelp(version string) error {
+	_, err := m.sess.ChannelMessageSendEmbed(m.msg.ChannelID, &discordgo.MessageEmbed{
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:  "!grohelp",
+				Value: "Get help!",
+			},
+			{
+				Name:  "!gro <name>",
+				Value: "Adds an item to your grocery list.",
+			},
+			{
+				Name:  "!groremove <n> <m> <o>...",
+				Value: "Removes item #n, #m, and #o from your grocery list. You can chain as many items as you want.",
+			},
+			{
+				Name:  "!grolist",
+				Value: "List all the groceries in your grocery list.",
+			},
+			{
+				Name:  "!groclear",
+				Value: "Clears your grocery list.",
+			},
+			{
+				Name:  "!groedit <n> <new name>",
+				Value: "Updates item #n to a new name/entry.",
+			},
+			{
+				Name:  "!grodeets <n>",
+				Value: "Views the full detail of item #n (e.g. who made the entry).",
+			},
+			{
+				Name:  "!grohere",
+				Value: "Attaches a self-updating grocery list to the current channel.",
+			},
+			{
+				Name:  "!groreset",
+				Value: "When you want to clear all of your data from this bot.",
+			},
+		},
+		Title: "GroceryBot " + version,
+		Description: `
+**Release Note:**
+!grohere is here! Now, you can attach and pin a message to a specific channel that GroBot will automatically update as you update your grocery list. No more typing multiple !grolist commands just to see your updated grocery list! :tada:
 
-` + "```" + `
-!grobulk
-eggs
-Soap 1pc
-Liquid soap 500 ml
-` + "```" + `
-
-These 3 new items will be added to your existing grocery list!
-
-For more information and/or any other questions, you can get in touch with my maintainer through my GitHub repo: https://github.com/verzac/grocer-discord-bot
-`,
-	)
+[Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [GitHub](https://github.com/verzac/grocer-discord-bot)
+		`,
+	})
+	return err
 }

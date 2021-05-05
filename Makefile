@@ -8,7 +8,7 @@ docker_login:
 	aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(registry_uri)
 
 docker_build:
-	docker build -t ${image_name}:latest -t ${image_name}:${tag} .
+	docker build -t ${image_name}:latest -t ${image_name}:${tag} --build-arg version=$(tag) .
 
 publish: docker_build docker_login
 	docker tag ${image_name}:latest ${repository_uri}:latest
