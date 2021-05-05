@@ -32,7 +32,7 @@ func (m *MessageHandler) OnBulk(argStr string) error {
 		}
 		r := m.db.Create(&toInsert)
 		if r.Error != nil {
-			log.Println(m.fmtErrMsg(r.Error))
+			log.Println(m.FmtErrMsg(r.Error))
 			return m.sendMessage("Hmm... Cannot save your grocery list. Please try again later :)")
 		}
 		insertedItemsCount = r.RowsAffected

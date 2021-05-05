@@ -46,6 +46,8 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		err = mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
 	} else if body == "!grohere" {
 		err = mh.OnAttach()
+	} else if body == "!groreset" {
+		err = mh.OnReset()
 	}
 	if err != nil {
 		log.Println(err)

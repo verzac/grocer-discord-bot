@@ -31,10 +31,10 @@ func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB) Mes
 }
 
 func (m *MessageHandler) onError(err error) error {
-	log.Println(m.fmtErrMsg(err))
+	log.Println(m.FmtErrMsg(err))
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
 	if sErr != nil {
-		log.Println("Unable to send error message.", m.fmtErrMsg(err))
+		log.Println("Unable to send error message.", m.FmtErrMsg(err))
 	}
 	return err
 }
@@ -54,7 +54,7 @@ func (m *MessageHandler) checkLimit(guildID string, newItemCount int64) error {
 	return nil
 }
 
-func (m *MessageHandler) fmtErrMsg(err error) string {
+func (m *MessageHandler) FmtErrMsg(err error) string {
 	return fmt.Sprintf("[ERROR] GuildID=%s errMsg=%s", m.msg.GuildID, err.Error())
 }
 
@@ -67,7 +67,7 @@ func (m *MessageHandler) sendMessage(msg string) error {
 		},
 	})
 	if sErr != nil {
-		log.Println("Unable to send message.", m.fmtErrMsg(sErr))
+		log.Println("Unable to send message.", m.FmtErrMsg(sErr))
 	}
 	return sErr
 }

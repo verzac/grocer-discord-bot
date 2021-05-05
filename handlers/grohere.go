@@ -64,7 +64,7 @@ func (m *MessageHandler) onEditUpdateGrohere() error {
 	}
 	if gConfig.GrohereChannelID == nil || gConfig.GrohereMessageID == nil {
 		if r := m.db.Delete(&gConfig); r.Error != nil {
-			log.Println(m.fmtErrMsg(r.Error))
+			log.Println(m.FmtErrMsg(r.Error))
 		}
 		return m.onError(errors.New("Hmm... That's weird, something didn't go right when updating your !grohere grocery list. Please run !grohere again to setup a new, self-updating grocery list!"))
 	}
