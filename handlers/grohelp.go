@@ -41,6 +41,17 @@ func (m *MessageHandler) OnHelp(version string) error {
 				Name:  "!groreset",
 				Value: "When you want to clear all of your data from this bot.",
 			},
+			{
+				Name: "!grobulk",
+				Value: `
+Adds multiple items which are separated by newlines. For example:
+` + "```" + `
+!grobulk
+Chicken 500g
+Soap 50ml
+Salt
+` + "```",
+			},
 		},
 		Title: "GroceryBot " + version,
 		Description: `

@@ -18,7 +18,7 @@ import (
 )
 
 var db *gorm.DB
-var GroBotVersion string
+var GroBotVersion string = "local"
 
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
