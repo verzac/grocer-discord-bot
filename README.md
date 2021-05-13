@@ -8,23 +8,25 @@ GroceryBot allows you to maintain a grocery list for your server/guild/household
 
 # Commands
 
-**!grohelp**: get help!
+**!grohelp**: Get help!
 
-**!gro \<name\>**: adds an item to your grocery list
+**!gro \<name\>**: Adds an item to your grocery list.
 
-**!groremove \<n\>**: removes item #n from your grocery list
+**!groremove \<n\>**: Removes item #n from your grocery list.
 
-**!groremove \<n\> \<m\> \<o\>...**: removes item #n, #m, and #o from your grocery list. You can chain as many items as you want.
+**!groremove \<n\> \<m\> \<o\>...**: Removes item #n, #m, and #o from your grocery list. You can chain as many items as you want.
 
-**!grolist**: list all the groceries in your grocery list
+**!grolist**: List all the groceries in your grocery list
 
-**!groclear**: clears your grocery list
+**!groclear**: Clears your grocery list
 
-**!groedit \<n\> \<new name\>**: updates item #n to a new name/entry
+**!groedit \<n\> \<new name\>**: Updates item #n to a new name/entry
 
-**!grodeets \<n\>**: views the full detail of item #n (e.g. who made the entry)
+**!grodeets \<n\>**: Views the full detail of item #n (e.g. who made the entry)
 
-You can also do **!grobulk** to add your own grocery list. Format:
+**!grohere:**: Attaches a self-updating grocery list to the current channel.
+
+**!groreset**: When you want to clear all of your data from this bot.
 
 ```
 !grobulk
@@ -35,6 +37,12 @@ Liquid soap 500 ml
 
 These 3 new items will be added to your existing grocery list!
 
+# Issues & Problems with GroceryBot?
+
+Log an issue here and someone will get back to you: [GitHub Issue](https://github.com/verzac/grocer-discord-bot/issues/new)
+
+NEW: We finally have a support server for GroceryBot, woohoo! You'll be able to ask questions and provide feedback for the bot - straight to the development team! [Click here to join](https://discord.gg/rBjUaZyskg)
+
 # Privacy Policy
 
 "No entry, no data, no problem" and "We don't run analytics or any kind of dodgy stuff because that's expensive"
@@ -44,6 +52,7 @@ These 3 new items will be added to your existing grocery list!
 When you use a GroceryBot command, we store the following data required for the bot to function properly:
 
 - Your server's ID (because each server has their own grocery list)
+- Your server's channel IDs (which isn't human-readable) - this is used so that GroBot knows where to send updates (currently used by !grohere).
 - The ID of the user who inputted each grocery entry into your grocery list
 - The grocery entry itself (duh)
 - When grocery entries are updated (deleted entries are deleted permanently and immediately)
@@ -56,7 +65,7 @@ Only the maintainer(s) of this project (i.e. [@verzac](https://github.com/verzac
 
 ## Removing your data
 
-While we're sad to see you go, removing your data is as easy as running `!groclear` and removing the bot afterwards. All of the data above is stored against your grocery entries, so if you don't have any grocery entry, your data is not stored at all.
+While we're sad to see you go, removing your data is as easy as running `!groreset` and removing the bot afterwards. This utility function ensures that all your data is removed from our database.
 
 The only minor exception to the immediate "no entry, no data, no problem" rule is the error logs: error logs are automatically deleted within 14 days (as opposed to immediately). If you've never had an error occur, you shouldn't have this problem.
 
