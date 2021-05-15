@@ -1,10 +1,12 @@
 package handlers
 
 import (
-	"errors"
+	"github.com/pkg/errors"
+
 	"fmt"
 	"log"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -63,10 +65,7 @@ func (m *MessageHandler) onEditUpdateGrohere() error {
 		}
 	}
 	if gConfig.GrohereChannelID == nil || gConfig.GrohereMessageID == nil {
-		if r := m.db.Delete(&gConfig); r.Error != nil {
-			log.Println(m.FmtErrMsg(r.Error))
-		}
-		return m.onError(errors.New("Hmm... That's weird, something didn't go right when updating your !grohere grocery list. Please run !grohere again to setup a new, self-updating grocery list!"))
+		return nil
 	}
 	grohereText, err := m.getGrohereText()
 	if err != nil {
@@ -74,7 +73,24 @@ func (m *MessageHandler) onEditUpdateGrohere() error {
 	}
 	_, err = m.sess.ChannelMessageEdit(*gConfig.GrohereChannelID, *gConfig.GrohereMessageID, grohereText)
 	if err != nil {
-		return m.onError(err)
+		if discordErr, ok := err.(*discordgo.RESTError); ok {
+			switch discordErr.Message.Code {
+			case discordgo.ErrCodeUnknownChannel, discordgo.ErrCodeUnknownMessage, discordgo.ErrCodeMissingAccess:
+				log.Println(m.FmtErrMsg(errors.Wrap(discordErr, "Unknown attached message/channel: deleting !grohere entry")))
+				// clear grohere entry as it refers to an unknown channel
+				gConfig.GrohereChannelID = nil
+				gConfig.GrohereMessageID = nil
+				m.db.Save(&gConfig)
+				err := m.sendMessage("_Psst, I can't seem to find the !grohere message I attached. If this was not intended, please use !grohere again!_")
+				if err != nil {
+					log.Println(m.FmtErrMsg(err))
+				}
+			default:
+				m.onError(discordErr)
+			}
+		} else {
+			return m.onError(err)
+		}
 	}
 	return nil
 }
