@@ -74,19 +74,14 @@ func (m *MessageHandler) onEditUpdateGrohere() error {
 	_, err = m.sess.ChannelMessageEdit(*gConfig.GrohereChannelID, *gConfig.GrohereMessageID, grohereText)
 	if err != nil {
 		if discordErr, ok := err.(*discordgo.RESTError); ok {
-			switch discordErr.Message.Code {
-			case discordgo.ErrCodeUnknownChannel, discordgo.ErrCodeUnknownMessage, discordgo.ErrCodeMissingAccess:
-				log.Println(m.FmtErrMsg(errors.Wrap(discordErr, "Unknown attached message/channel: deleting !grohere entry")))
-				// clear grohere entry as it refers to an unknown channel
-				gConfig.GrohereChannelID = nil
-				gConfig.GrohereMessageID = nil
-				m.db.Save(&gConfig)
-				err := m.sendMessage("_Psst, I can't seem to find the !grohere message I attached. If this was not intended, please use !grohere again!_")
-				if err != nil {
-					log.Println(m.FmtErrMsg(err))
-				}
-			default:
-				m.onError(discordErr)
+			log.Println(m.FmtErrMsg(errors.Wrap(discordErr, "Cannot edit attached message/channel: deleting !grohere entry")))
+			// clear grohere entry as it refers to an unknown channel
+			gConfig.GrohereChannelID = nil
+			gConfig.GrohereMessageID = nil
+			m.db.Save(&gConfig)
+			err := m.sendMessage("_Psst, I can't seem to edit the !grohere message I attached. If this was not intended, please use !grohere again!_")
+			if err != nil {
+				log.Println(m.FmtErrMsg(err))
 			}
 		} else {
 			return m.onError(err)
