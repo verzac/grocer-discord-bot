@@ -10,11 +10,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
+	dbUtils "github.com/verzac/grocer-discord-bot/db"
 	"github.com/verzac/grocer-discord-bot/handlers"
-	"github.com/verzac/grocer-discord-bot/models"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 var db *gorm.DB
@@ -56,6 +54,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Llongfile)
 	if err := godotenv.Load(); err != nil {
 		log.Println("Cannot load .env file:", err.Error())
 	}
@@ -72,23 +71,7 @@ func main() {
 		panic(err)
 	}
 	log.Printf("Using %s\n", dsn)
-	db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger: logger.New(
-			log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-			logger.Config{
-				LogLevel:                  logger.Error, // Log level
-				IgnoreRecordNotFoundError: true,         // Ignore ErrRecordNotFound error for logger
-				Colorful:                  false,        // Disable color
-			},
-		),
-	})
-	if err != nil {
-		panic(err)
-	}
-	log.Println("Auto-Migrating...")
-	db.Migrator().AutoMigrate(&models.GroceryEntry{})
-	db.Migrator().AutoMigrate(&models.GuildConfig{})
-	log.Println("Migration done!")
+	db = dbUtils.Setup(dsn)
 	log.Println("Setting up discordgo...")
 	d.AddHandler(onMessage)
 	d.Identify.Intents = discordgo.IntentsGuildMessages
