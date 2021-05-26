@@ -6,7 +6,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/models"
 )
 
-func (m *MessageHandler) OnAdd(argStr string) error {
+func (m *MessageHandlerContext) OnAdd(argStr string) error {
 	if err := m.checkLimit(m.msg.GuildID, 1); err != nil {
 		return m.onError(err)
 	}

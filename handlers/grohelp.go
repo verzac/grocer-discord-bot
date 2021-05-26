@@ -2,7 +2,7 @@ package handlers
 
 import "github.com/bwmarrin/discordgo"
 
-func (m *MessageHandler) OnHelp(version string) error {
+func (m *MessageHandlerContext) OnHelp(version string) error {
 	_, err := m.sess.ChannelMessageSendEmbed(m.msg.ChannelID, &discordgo.MessageEmbed{
 		Fields: []*discordgo.MessageEmbedField{
 			{

@@ -2,7 +2,7 @@ package handlers
 
 import "github.com/verzac/grocer-discord-bot/models"
 
-func (m *MessageHandler) OnReset() error {
+func (m *MessageHandlerContext) OnReset() error {
 	if err := m.sendMessage("Deleting all data for this server from my database... Please stand-by... :robot:"); err != nil {
 		return m.onError(err)
 	}

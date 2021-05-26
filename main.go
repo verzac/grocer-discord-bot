@@ -8,15 +8,20 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	dbUtils "github.com/verzac/grocer-discord-bot/db"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/monitoring"
 	"gorm.io/gorm"
 )
 
 var db *gorm.DB
 var GroBotVersion string = "local"
+var cw *cloudwatch.CloudWatch
 
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
@@ -25,27 +30,31 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	body := m.Content
 	mh := handlers.New(s, m, db)
 	var err error
-	if strings.HasPrefix(body, "!gro ") {
+	cmd := mh.GetCommand()
+	metric := monitoring.NewCommandMetric(cw, &mh)
+	defer metric.Done()
+	switch cmd {
+	case handlers.CmdGroAdd:
 		err = mh.OnAdd(strings.TrimPrefix(body, "!gro "))
-	} else if strings.HasPrefix(body, "!groremove ") {
+	case handlers.CmdGroRemove:
 		err = mh.OnRemove(strings.TrimPrefix(body, "!groremove "))
-	} else if strings.HasPrefix(body, "!groedit ") {
+	case handlers.CmdGroEdit:
 		err = mh.OnEdit(strings.TrimPrefix(body, "!groedit "))
-	} else if strings.HasPrefix(body, "!grobulk") {
+	case handlers.CmdGroBulk:
 		err = mh.OnBulk(
 			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
 		)
-	} else if body == "!grolist" {
+	case handlers.CmdGroList:
 		err = mh.OnList()
-	} else if body == "!groclear" {
+	case handlers.CmdGroClear:
 		err = mh.OnClear()
-	} else if body == "!grohelp" {
+	case handlers.CmdGroHelp:
 		err = mh.OnHelp(GroBotVersion)
-	} else if strings.HasPrefix(body, "!grodeets") {
+	case handlers.CmdGroDeets:
 		err = mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
-	} else if body == "!grohere" {
+	case handlers.CmdGroHere:
 		err = mh.OnAttach()
-	} else if body == "!groreset" {
+	case handlers.CmdGroReset:
 		err = mh.OnReset()
 	}
 	if err != nil {
@@ -54,7 +63,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Llongfile)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	if err := godotenv.Load(); err != nil {
 		log.Println("Cannot load .env file:", err.Error())
 	}
@@ -65,6 +74,13 @@ func main() {
 	dsn := os.Getenv("GROCER_BOT_DSN")
 	if dsn == "" {
 		dsn = "db/gorm.db"
+	}
+	if monitoring.CloudWatchEnabled() {
+		region := "ap-southeast-1"
+		sess := session.Must(session.NewSession(&aws.Config{
+			Region: &region,
+		}))
+		cw = cloudwatch.New(sess)
 	}
 	d, err := discordgo.New("Bot " + token)
 	if err != nil {

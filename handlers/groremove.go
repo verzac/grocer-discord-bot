@@ -7,7 +7,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/models"
 )
 
-func (m *MessageHandler) OnRemove(argStr string) error {
+func (m *MessageHandlerContext) OnRemove(argStr string) error {
 	itemIndexes := make([]int, 0)
 	for _, itemIndexStr := range strings.Split(argStr, " ") {
 		if itemIndexStr != "" {

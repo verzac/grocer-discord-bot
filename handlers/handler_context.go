@@ -18,19 +18,33 @@ var (
 	errOverLimit          = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
 )
 
+// Note: make sure this is alphabetically ordered so that we don't get confused
+const (
+	CmdGroAdd    = "!gro"
+	CmdGroBulk   = "!grobulk"
+	CmdGroClear  = "!groclear"
+	CmdGroDeets  = "!grodeets"
+	CmdGroEdit   = "!groedit"
+	CmdGroHelp   = "!grohelp"
+	CmdGroHere   = "!grohere"
+	CmdGroList   = "!grolist"
+	CmdGroRemove = "!groremove"
+	CmdGroReset  = "!groreset"
+)
+
 const groceryEntryLimit = 100
 
-type MessageHandler struct {
+type MessageHandlerContext struct {
 	sess *discordgo.Session
 	msg  *discordgo.MessageCreate
 	db   *gorm.DB
 }
 
-func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB) MessageHandler {
-	return MessageHandler{sess: sess, msg: msg, db: db}
+func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB) MessageHandlerContext {
+	return MessageHandlerContext{sess: sess, msg: msg, db: db}
 }
 
-func (m *MessageHandler) onError(err error) error {
+func (m *MessageHandlerContext) onError(err error) error {
 	log.Println(m.FmtErrMsg(err))
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
 	if sErr != nil {
@@ -43,7 +57,7 @@ func fmtItemNotFoundErrorMsg(itemIndex int) string {
 	return fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex)
 }
 
-func (m *MessageHandler) checkLimit(guildID string, newItemCount int64) error {
+func (m *MessageHandlerContext) checkLimit(guildID string, newItemCount int64) error {
 	var count int64
 	if r := m.db.Model(&models.GroceryEntry{}).Where(&models.GroceryEntry{GuildID: guildID}).Count(&count); r.Error != nil {
 		return r.Error
@@ -54,11 +68,11 @@ func (m *MessageHandler) checkLimit(guildID string, newItemCount int64) error {
 	return nil
 }
 
-func (m *MessageHandler) FmtErrMsg(err error) string {
-	return fmt.Sprintf("[ERROR] GuildID=%s errMsg=%s", m.msg.GuildID, err.Error())
+func (m *MessageHandlerContext) FmtErrMsg(err error) string {
+	return fmt.Sprintf("[ERROR] Command=%s GuildID=%s errMsg=%s", m.GetCommand(), m.msg.GuildID, err.Error())
 }
 
-func (m *MessageHandler) sendMessage(msg string) error {
+func (m *MessageHandlerContext) sendMessage(msg string) error {
 	_, sErr := m.sess.ChannelMessageSendComplex(m.msg.ChannelID, &discordgo.MessageSend{
 		Content: msg,
 		AllowedMentions: &discordgo.MessageAllowedMentions{
@@ -101,4 +115,31 @@ func prettyItems(gList []models.GroceryEntry) string {
 		tokens[i] = fmt.Sprintf(format, gEntry.ItemDesc)
 	}
 	return strings.Join(tokens, ", ")
+}
+
+func (mh *MessageHandlerContext) GetCommand() string {
+	body := mh.msg.Content
+	if strings.HasPrefix(body, "!gro ") {
+		return CmdGroAdd
+	} else if strings.HasPrefix(body, "!groremove ") {
+		return CmdGroRemove
+	} else if strings.HasPrefix(body, "!groedit ") {
+		return CmdGroEdit
+	} else if strings.HasPrefix(body, "!grobulk") {
+		return CmdGroBulk
+	} else if body == "!grolist" {
+		return CmdGroList
+	} else if body == "!groclear" {
+		return CmdGroClear
+	} else if body == "!grohelp" {
+		return CmdGroHelp
+	} else if strings.HasPrefix(body, "!grodeets") {
+		return CmdGroDeets
+	} else if body == "!grohere" {
+		return CmdGroHere
+	} else if body == "!groreset" {
+		return CmdGroReset
+	} else {
+		return ""
+	}
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/models"
 )
 
-func (m *MessageHandler) OnClear() error {
+func (m *MessageHandlerContext) OnClear() error {
 	r := m.db.Delete(models.GroceryEntry{}, "guild_id = ?", m.msg.GuildID)
 	if r.Error != nil {
 		return m.onError(r.Error)

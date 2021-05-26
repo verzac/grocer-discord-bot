@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (m *MessageHandler) OnAttach() error {
+func (m *MessageHandlerContext) OnAttach() error {
 	if err := m.sendMessage("Gotcha! Attaching a self-updating grocery list to the current channel. Please stand by..."); err != nil {
 		return m.onError(err)
 	}
@@ -33,7 +33,7 @@ func (m *MessageHandler) OnAttach() error {
 	return m.onEditUpdateGrohere()
 }
 
-func (m *MessageHandler) getGrohereText() (string, error) {
+func (m *MessageHandlerContext) getGrohereText() (string, error) {
 	groceries := make([]models.GroceryEntry, 0)
 	if r := m.db.Where(&models.GroceryEntry{GuildID: m.msg.GuildID}).Find(&groceries); r.Error != nil {
 		return "", r.Error
@@ -54,7 +54,7 @@ func (m *MessageHandler) getGrohereText() (string, error) {
 	return groHereText, nil
 }
 
-func (m *MessageHandler) onEditUpdateGrohere() error {
+func (m *MessageHandlerContext) onEditUpdateGrohere() error {
 	gConfig := models.GuildConfig{}
 	if r := m.db.Where(&models.GuildConfig{GuildID: m.msg.GuildID}).Take(&gConfig); r.Error != nil {
 		if errors.Is(r.Error, gorm.ErrRecordNotFound) {

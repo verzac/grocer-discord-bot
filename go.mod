@@ -1,9 +1,10 @@
 module github.com/verzac/grocer-discord-bot
 
-go 1.15
+go 1.16
 
 require (
 	github.com/andanhm/go-prettytime v1.1.0
+	github.com/aws/aws-sdk-go v1.38.46
 	github.com/bwmarrin/discordgo v0.23.2
 	github.com/joho/godotenv v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.7 // indirect
