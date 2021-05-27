@@ -77,10 +77,14 @@ func main() {
 	}
 	if monitoring.CloudWatchEnabled() {
 		region := "ap-southeast-1"
-		sess := session.Must(session.NewSession(&aws.Config{
+		sess, err := session.NewSession(&aws.Config{
 			Region: &region,
-		}))
-		cw = cloudwatch.New(sess)
+		})
+		if err != nil {
+			log.Println("[ERROR] Unable to init CW client: " + err.Error())
+		} else {
+			cw = cloudwatch.New(sess)
+		}
 	}
 	d, err := discordgo.New("Bot " + token)
 	if err != nil {
@@ -94,7 +98,7 @@ func main() {
 	if err := d.Open(); err != nil {
 		panic(err)
 	}
-	log.Println("Bot is online! Version: " + GroBotVersion)
+	log.Printf("Bot is online! Version=%s CloudWatchEnabled=%t\n", GroBotVersion, monitoring.CloudWatchEnabled())
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc

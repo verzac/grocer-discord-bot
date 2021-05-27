@@ -36,7 +36,7 @@ func (cm *CommandMetric) Done() {
 		return
 	}
 	completedIn := float64(time.Now().Sub(cm.startTime).Milliseconds())
-	if CloudWatchEnabled() {
+	if CloudWatchEnabled() && cm.cw != nil {
 		if _, err := cm.cw.PutMetricData(&cloudwatch.PutMetricDataInput{
 			MetricData: []*cloudwatch.MetricDatum{
 				{
