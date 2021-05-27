@@ -11,11 +11,11 @@ func (m *MessageHandlerContext) OnHelp(version string) error {
 			},
 			{
 				Name:  "!gro <name>",
-				Value: "Adds an item to your grocery list.",
+				Value: "Adds an item to your grocery list.\nExample: `!gro Chicken katsu` - add chicken katsu to your grocery list.",
 			},
 			{
 				Name:  "!groremove <n> <m> <o>...",
-				Value: "Removes item #n, #m, and #o from your grocery list. You can chain as many items as you want.",
+				Value: "Removes item number #n, #m, and #o from your grocery list. You can chain as many items as you want.\nExample: `!groremove 1 2` - remove item #1 and #2.",
 			},
 			{
 				Name:  "!grolist",
@@ -27,11 +27,11 @@ func (m *MessageHandlerContext) OnHelp(version string) error {
 			},
 			{
 				Name:  "!groedit <n> <new name>",
-				Value: "Updates item #n to a new name/entry.",
+				Value: "Updates item #n to a new name/entry.\nExample: `!groedit 1 Katsudon` - edit item #1 to have the entry Katsudon.",
 			},
 			{
 				Name:  "!grodeets <n>",
-				Value: "Views the full detail of item #n (e.g. who made the entry).",
+				Value: "Views the full detail of item #n (e.g. who made the entry).\nExample: `!grodeets 1`",
 			},
 			{
 				Name:  "!grohere",
@@ -44,7 +44,8 @@ func (m *MessageHandlerContext) OnHelp(version string) error {
 			{
 				Name: "!grobulk",
 				Value: `
-Adds multiple items which are separated by newlines. For example:
+Adds multiple items which are separated by newlines.
+Example:
 ` + "```" + `
 !grobulk
 Chicken 500g
