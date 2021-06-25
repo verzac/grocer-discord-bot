@@ -35,13 +35,14 @@ const (
 const groceryEntryLimit = 100
 
 type MessageHandlerContext struct {
-	sess *discordgo.Session
-	msg  *discordgo.MessageCreate
-	db   *gorm.DB
+	sess          *discordgo.Session
+	msg           *discordgo.MessageCreate
+	db            *gorm.DB
+	grobotVersion string
 }
 
-func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB) MessageHandlerContext {
-	return MessageHandlerContext{sess: sess, msg: msg, db: db}
+func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string) MessageHandlerContext {
+	return MessageHandlerContext{sess: sess, msg: msg, db: db, grobotVersion: grobotVersion}
 }
 
 func (m *MessageHandlerContext) onError(err error) error {
@@ -142,4 +143,33 @@ func (mh *MessageHandlerContext) GetCommand() string {
 	} else {
 		return ""
 	}
+}
+
+func (mh *MessageHandlerContext) Handle() (err error) {
+	body := mh.msg.Content
+	switch mh.GetCommand() {
+	case CmdGroAdd:
+		err = mh.OnAdd(strings.TrimPrefix(body, "!gro "))
+	case CmdGroRemove:
+		err = mh.OnRemove(strings.TrimPrefix(body, "!groremove "))
+	case CmdGroEdit:
+		err = mh.OnEdit(strings.TrimPrefix(body, "!groedit "))
+	case CmdGroBulk:
+		err = mh.OnBulk(
+			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
+		)
+	case CmdGroList:
+		err = mh.OnList()
+	case CmdGroClear:
+		err = mh.OnClear()
+	case CmdGroHelp:
+		err = mh.OnHelp(mh.grobotVersion)
+	case CmdGroDeets:
+		err = mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
+	case CmdGroHere:
+		err = mh.OnAttach()
+	case CmdGroReset:
+		err = mh.OnReset()
+	}
+	return err
 }

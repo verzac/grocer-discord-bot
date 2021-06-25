@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -27,36 +26,10 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	body := m.Content
-	mh := handlers.New(s, m, db)
-	var err error
-	cmd := mh.GetCommand()
+	mh := handlers.New(s, m, db, GroBotVersion)
 	metric := monitoring.NewCommandMetric(cw, &mh)
 	defer metric.Done()
-	switch cmd {
-	case handlers.CmdGroAdd:
-		err = mh.OnAdd(strings.TrimPrefix(body, "!gro "))
-	case handlers.CmdGroRemove:
-		err = mh.OnRemove(strings.TrimPrefix(body, "!groremove "))
-	case handlers.CmdGroEdit:
-		err = mh.OnEdit(strings.TrimPrefix(body, "!groedit "))
-	case handlers.CmdGroBulk:
-		err = mh.OnBulk(
-			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
-		)
-	case handlers.CmdGroList:
-		err = mh.OnList()
-	case handlers.CmdGroClear:
-		err = mh.OnClear()
-	case handlers.CmdGroHelp:
-		err = mh.OnHelp(GroBotVersion)
-	case handlers.CmdGroDeets:
-		err = mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
-	case handlers.CmdGroHere:
-		err = mh.OnAttach()
-	case handlers.CmdGroReset:
-		err = mh.OnReset()
-	}
+	err := mh.Handle()
 	if err != nil {
 		log.Println(mh.FmtErrMsg(err))
 	}
