@@ -12,6 +12,9 @@ func (m *MessageHandlerContext) OnList() error {
 	if r := m.db.Where(&models.GroceryEntry{GuildID: m.msg.GuildID}).Find(&groceries); r.Error != nil {
 		return m.onError(r.Error)
 	}
+	if len(groceries) == 0 {
+		return m.sendMessage("You have no groceries - add one through `!gro` (e.g. `!gro Toilet paper`)!")
+	}
 	groceryListText := m.getGroceryListText(groceries)
 	return m.sendMessage(msg + groceryListText)
 }
