@@ -9,6 +9,7 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.7 // indirect
 	github.com/pkg/errors v0.9.1
+	github.com/stretchr/testify v1.7.0
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.8
 )

@@ -4,6 +4,10 @@ repository = ${image_name}
 repository_uri = ${registry_uri}/${repository}
 tag = ${shell git describe --tags}
 
+.PHONY: e2e
+e2e:
+	go test ./e2e/... -v -count=1
+
 docker_login:
 	aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(registry_uri)
 
