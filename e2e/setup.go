@@ -133,7 +133,7 @@ func (tss *testSuiteSession) AwaitReply() *discordgo.Message {
 	select {
 	case res := <-replyChan:
 		return res
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		panic(errReplyTimeout.Error())
 	}
 }
