@@ -51,15 +51,16 @@ func setupTestSuite() *testSuiteSession {
 	}
 	d.Identify.Intents = discordgo.IntentsGuildMessages |
 		discordgo.IntentsGuildPresences | discordgo.IntentsGuildMembers
-	if err := d.Open(); err != nil {
-		panic(err)
-	}
 	tss := &testSuiteSession{
 		d:              d,
 		testeeClientID: groBotClientID,
 		channelID:      channelID,
 		guildID:        guildID,
 	}
+	if err := d.Open(); err != nil {
+		panic(err)
+	}
+	defer tss.recoverFromPanic()
 	log.Printf("Waiting for testee %s to be ready.", tss.testeeClientID)
 	tss.AwaitTesteeReadiness()
 	log.Printf("Testee %s is now ready.", tss.testeeClientID)
@@ -73,6 +74,14 @@ func setupTestSuite() *testSuiteSession {
 	return tss
 }
 
+func (tss *testSuiteSession) recoverFromPanic() {
+	if r := recover(); r != nil {
+		log.Println("Detected panic. Cleaning up session before panicking further.")
+		tss.Cleanup()
+		panic(r)
+	}
+}
+
 func (tss *testSuiteSession) AwaitTesteeReadiness() {
 	readyChan := make(chan bool)
 	removePresenceHandler := tss.d.AddHandler(func(s *discordgo.Session, p *discordgo.PresenceUpdate) {
@@ -84,7 +93,6 @@ func (tss *testSuiteSession) AwaitTesteeReadiness() {
 	removeGuildChunkHandler := tss.d.AddHandler(func(s *discordgo.Session, gc *discordgo.GuildMembersChunk) {
 		for _, p := range gc.Presences {
 			if p.User.ID == tss.testeeClientID && p.Status == discordgo.StatusOnline {
-				log.Println(p)
 				readyChan <- true
 			}
 		}
@@ -102,6 +110,7 @@ func (tss *testSuiteSession) AwaitTesteeReadiness() {
 }
 
 func (tss *testSuiteSession) Cleanup() {
+	log.Println("Cleaning up test session...")
 	tss.d.Close()
 }
 

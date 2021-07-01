@@ -13,18 +13,21 @@ var tss *testSuiteSession
 
 func TestMain(m *testing.M) {
 	tss = setupTestSuite()
+	defer tss.recoverFromPanic()
 	code := m.Run()
 	tss.Cleanup()
 	os.Exit(code)
 }
 
 func setup(tss *testSuiteSession) {
+	defer tss.recoverFromPanic()
 	tss.SendAndAwaitReply("!groclear")
 	tss.SendAndAwaitReply("!grobulk\nChicken\nvery delicious milkshake")
 }
 
 func TestList(t *testing.T) {
 	setup(tss)
+	defer tss.recoverFromPanic()
 	assert := require.New(t)
 	listContent := tss.SendAndAwaitReply("!grolist").Content
 	assert.Contains(listContent, "1: Chicken")
@@ -34,6 +37,7 @@ func TestList(t *testing.T) {
 
 func TestRemoveAndClear(t *testing.T) {
 	setup(tss)
+	defer tss.recoverFromPanic()
 	assert := require.New(t)
 	assert.Contains(tss.SendAndAwaitReply("!groremove 1").Content, "Deleted *Chicken* off your grocery list")
 	listContentAfterRemove := tss.SendAndAwaitReply("!grolist").Content
@@ -45,6 +49,7 @@ func TestRemoveAndClear(t *testing.T) {
 
 func TestEditAndDeets(t *testing.T) {
 	setup(tss)
+	defer tss.recoverFromPanic()
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groedit 1 HEEY WASSUP")
 	assert.Regexp(
@@ -55,6 +60,7 @@ func TestEditAndDeets(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	setup(tss)
+	defer tss.recoverFromPanic()
 	assert := require.New(t)
 	assert.Contains(tss.SendAndAwaitReply("!gro Chickinz").Content, "Added *Chickinz*")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "3: Chickinz")
@@ -62,6 +68,7 @@ func TestAdd(t *testing.T) {
 
 func TestReset(t *testing.T) {
 	setup(tss)
+	defer tss.recoverFromPanic()
 	assert := require.New(t)
 	// doing it...
 	tss.SendAndAwaitReply("!groreset")
