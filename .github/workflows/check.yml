@@ -1,0 +1,21 @@
+name: Pre-release Check
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16"
+      - run: go version
+      - run: go mod download
+      - run: make docker_build

@@ -1,0 +1,24 @@
+name: E2E Test
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16"
+      - run: go version
+      - run: go mod download
+      - run: make full_e2e
+        env:
+          GROCER_BOT_TOKEN: ${{ secrets.GROCER_BOT_TOKEN }}
+          E2E_BOT_TOKEN: ${{ secrets.E2E_BOT_TOKEN }}
+          E2E_CHANNEL_ID: 828807918396375040
+          E2E_GROCER_BOT_ID: 815481068533973002
+          E2E_GUILD_ID: 815482602278354944
