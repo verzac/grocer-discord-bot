@@ -4,6 +4,10 @@ repository = ${image_name}
 repository_uri = ${registry_uri}/${repository}
 tag = ${shell git describe --tags}
 
+ifndef tag
+tag = ${shell git rev-parse --short HEAD}
+endif
+
 .PHONY: full_e2e
 full_e2e:
 	sh e2e/e2e.sh

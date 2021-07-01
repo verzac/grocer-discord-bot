@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  test:
+  e2e_test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -19,6 +19,6 @@ jobs:
         env:
           GROCER_BOT_TOKEN: ${{ secrets.GROCER_BOT_TOKEN }}
           E2E_BOT_TOKEN: ${{ secrets.E2E_BOT_TOKEN }}
-          E2E_CHANNEL_ID: 828807918396375040
-          E2E_GROCER_BOT_ID: 815481068533973002
-          E2E_GUILD_ID: 815482602278354944
+          E2E_CHANNEL_ID: "828807918396375040"
+          E2E_GROCER_BOT_ID: "815481068533973002"
+          E2E_GUILD_ID: "815482602278354944"
