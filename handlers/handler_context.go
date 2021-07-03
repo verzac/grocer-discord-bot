@@ -16,6 +16,7 @@ var (
 	errCannotConvertInt   = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
 	errNotValidListNumber = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
 	errOverLimit          = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
+	errPanic              = errors.New("Hmm... Something broke on my end. Please try again later.")
 )
 
 // Note: make sure this is alphabetically ordered so that we don't get confused
@@ -145,7 +146,15 @@ func (mh *MessageHandlerContext) GetCommand() string {
 	}
 }
 
+func (mh *MessageHandlerContext) Recover() {
+	if r := recover(); r != nil {
+		log.Println("[PANIC][ERROR]", r)
+		mh.onError(errPanic)
+	}
+}
+
 func (mh *MessageHandlerContext) Handle() (err error) {
+	defer mh.Recover()
 	body := mh.msg.Content
 	switch mh.GetCommand() {
 	case CmdGroAdd:
