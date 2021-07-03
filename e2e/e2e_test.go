@@ -39,10 +39,10 @@ func TestRemoveAndClear(t *testing.T) {
 	setup(tss)
 	defer tss.recoverFromPanic()
 	assert := require.New(t)
-	assert.Contains(tss.SendAndAwaitReply("!groremove 1").Content, "Deleted *Chicken* off your grocery list")
+	tss.SendAndAwaitReply("!gro Satay")
+	assert.Contains(tss.SendAndAwaitReply("!groremove 1 2").Content, "Deleted *Chicken*, and *very delicious milkshake* off your grocery list")
 	listContentAfterRemove := tss.SendAndAwaitReply("!grolist").Content
 	assert.NotContains(listContentAfterRemove, "Chicken")
-	assert.NotContains(listContentAfterRemove, "HEEY WASSUP")
 	tss.SendAndAwaitReply("!groclear")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
 }
@@ -53,7 +53,7 @@ func TestEditAndDeets(t *testing.T) {
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groedit 1 HEEY WASSUP")
 	assert.Regexp(
-		regexp.MustCompile(fmt.Sprintf("^.*HEEY WASSUP.*(updated by <@%s> \\d+ seconds* ago)", tss.d.State.User.ID)),
+		regexp.MustCompile(fmt.Sprintf("^.*HEEY WASSUP.*(updated by <@%s> (\\d+ seconds* ago|just now))", tss.d.State.User.ID)),
 		tss.SendAndAwaitReply("!grodeets 1").Content,
 	)
 }

@@ -4,20 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/verzac/grocer-discord-bot/models"
 )
 
 func (m *MessageHandlerContext) OnRemove(argStr string) error {
-	itemIndexes := make([]int, 0)
-	for _, itemIndexStr := range strings.Split(argStr, " ") {
-		if itemIndexStr != "" {
-			itemIndex, err := toItemIndex(itemIndexStr)
-			if err != nil {
-				return m.sendMessage(err.Error())
-			}
-			itemIndexes = append(itemIndexes, itemIndex)
-		}
-	}
+	args := strings.Split(argStr, " ")
 	groceryList := make([]models.GroceryEntry, 0)
 	rFind := m.db.Where("guild_id = ?", m.msg.GuildID).Find(&groceryList)
 	if rFind.Error != nil {
@@ -26,6 +18,24 @@ func (m *MessageHandlerContext) OnRemove(argStr string) error {
 	if rFind.RowsAffected == 0 {
 		msg := fmt.Sprintf("Whoops, you do not have any items in your grocery list.")
 		return m.sendMessage(msg)
+	}
+	toDelete, err := getItemsToRemove(args, groceryList)
+	if err != nil {
+		return m.sendMessage(err.Error())
+	}
+	if rDel := m.db.Delete(toDelete); rDel.Error != nil {
+		return m.onError(rDel.Error)
+	}
+	if err := m.sendMessage(fmt.Sprintf("Deleted %s off your grocery list!", prettyItems(toDelete))); err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
+}
+
+func getItemsToRemove(args []string, groceryList []models.GroceryEntry) ([]models.GroceryEntry, error) {
+	itemIndexes, err := getItemIndexes(args)
+	if err != nil {
+		return nil, err
 	}
 	toDelete := make([]models.GroceryEntry, 0, len(itemIndexes))
 	missingIndexes := make([]int, 0, len(itemIndexes))
@@ -38,16 +48,27 @@ func (m *MessageHandlerContext) OnRemove(argStr string) error {
 		}
 	}
 	if len(missingIndexes) > 0 {
-		return m.sendMessage(fmt.Sprintf(
+		return nil, errors.New(fmt.Sprintf(
 			"Whoops, we can't seem to find the following item(s): %s",
 			prettyItemIndexList(missingIndexes),
 		))
 	}
-	if rDel := m.db.Delete(toDelete); rDel.Error != nil {
-		return m.onError(rDel.Error)
+	return toDelete, nil
+}
+
+func getItemIndexes(args []string) ([]int, error) {
+	itemIndexes := make([]int, 0)
+	for _, itemIndexStr := range args {
+		if itemIndexStr != "" {
+			itemIndex, err := toItemIndex(itemIndexStr)
+			if err != nil {
+				return nil, errors.Wrap(err, fmt.Sprintf(
+					"Hmm... I can't seem to understand that number (%s) - they don't seem valid to me. Mind trying again?",
+					itemIndexStr,
+				))
+			}
+			itemIndexes = append(itemIndexes, itemIndex)
+		}
 	}
-	if err := m.sendMessage(fmt.Sprintf("Deleted %s off your grocery list!", prettyItems(toDelete))); err != nil {
-		return m.onError(err)
-	}
-	return m.onEditUpdateGrohere()
+	return itemIndexes, nil
 }
