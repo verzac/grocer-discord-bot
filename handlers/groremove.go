@@ -2,14 +2,20 @@ package handlers
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/verzac/grocer-discord-bot/models"
 )
 
+type getItemsToRemoveType = func(args []string, groceryList []models.GroceryEntry) ([]models.GroceryEntry, error)
+
 func (m *MessageHandlerContext) OnRemove(argStr string) error {
 	args := strings.Split(argStr, " ")
+	if len(args) == 0 {
+		return nil
+	}
 	groceryList := make([]models.GroceryEntry, 0)
 	rFind := m.db.Where("guild_id = ?", m.msg.GuildID).Find(&groceryList)
 	if rFind.Error != nil {
@@ -19,7 +25,13 @@ func (m *MessageHandlerContext) OnRemove(argStr string) error {
 		msg := fmt.Sprintf("Whoops, you do not have any items in your grocery list.")
 		return m.sendMessage(msg)
 	}
-	toDelete, err := getItemsToRemove(args, groceryList)
+	var getItemsToRemoveFunc getItemsToRemoveType
+	if _, err := strconv.Atoi(args[0]); err == nil {
+		getItemsToRemoveFunc = getItemsToRemoveWithIndex
+	} else {
+		getItemsToRemoveFunc = getItemsToRemoveWithName
+	}
+	toDelete, err := getItemsToRemoveFunc(args, groceryList)
 	if err != nil {
 		return m.sendMessage(err.Error())
 	}
@@ -32,7 +44,20 @@ func (m *MessageHandlerContext) OnRemove(argStr string) error {
 	return m.onEditUpdateGrohere()
 }
 
-func getItemsToRemove(args []string, groceryList []models.GroceryEntry) ([]models.GroceryEntry, error) {
+func getItemsToRemoveWithName(args []string, groceryList []models.GroceryEntry) ([]models.GroceryEntry, error) {
+	searchStr := strings.Join(args, " ")
+	toDelete := make([]models.GroceryEntry, 1)
+	for _, g := range groceryList {
+		// locales and non-standard unicodes can really mess things up
+		if strings.Contains(g.ItemDesc, searchStr) || strings.Contains(strings.ToLower(g.ItemDesc), strings.ToLower(searchStr)) {
+			toDelete[0] = g
+			return toDelete, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("Whoops, I cannot find %s in your grocery list.", searchStr))
+}
+
+func getItemsToRemoveWithIndex(args []string, groceryList []models.GroceryEntry) ([]models.GroceryEntry, error) {
 	itemIndexes, err := getItemIndexes(args)
 	if err != nil {
 		return nil, err

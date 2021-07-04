@@ -39,10 +39,28 @@ func TestRemoveAndClear(t *testing.T) {
 	setup(tss)
 	defer tss.recoverFromPanic()
 	assert := require.New(t)
-	tss.SendAndAwaitReply("!gro Satay")
+	tss.SendAndAwaitReply("!grobulk\nSatay\nNasi padang\nTomato")
+	// test multiple deletes
 	assert.Contains(tss.SendAndAwaitReply("!groremove 1 2").Content, "Deleted *Chicken*, and *very delicious milkshake* off your grocery list")
 	listContentAfterRemove := tss.SendAndAwaitReply("!grolist").Content
 	assert.NotContains(listContentAfterRemove, "Chicken")
+	assert.NotContains(listContentAfterRemove, "very delicious milkshake")
+	// test name deletes
+	// test partial end
+	tss.SendAndAwaitReply("!groremove ay")
+	assert.NotContains(tss.SendAndAwaitReply("!grolist").Content, "Satay")
+	// test partial middle and weird casing
+	tss.SendAndAwaitReply("!groremove si pADA")
+	assert.NotContains(tss.SendAndAwaitReply("!grolist").Content, "Nasi padang")
+	// test partial start
+	tss.SendAndAwaitReply("!groremove toMA")
+	assert.NotContains(tss.SendAndAwaitReply("!grolist").Content, "Tomato")
+}
+
+func TestClear(t *testing.T) {
+	setup(tss)
+	defer tss.recoverFromPanic()
+	assert := require.New(t)
 	tss.SendAndAwaitReply("!groclear")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
 }
