@@ -16,6 +16,8 @@ GroceryBot allows you to maintain a grocery list for your server/guild/household
 
 **!groremove \<n\> \<m\> \<o\>...**: Removes item #n, #m, and #o from your grocery list. You can chain as many items as you want.
 
+**!groremove \<new name\>**: Removes an item which contains \<item name\> from your grocery list.
+
 **!grolist**: List all the groceries in your grocery list
 
 **!groclear**: Clears your grocery list
