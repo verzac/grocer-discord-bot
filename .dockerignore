@@ -4,3 +4,5 @@ docker-compose.yml
 Makefile
 gorm.db
 .github/
+e2e/
+docs/
