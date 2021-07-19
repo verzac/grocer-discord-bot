@@ -150,7 +150,7 @@ function IndexPage() {
         <Divider />
         <section id="see-more">
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={6} lg={3}>
               <FeatureCard>
                 <StaticImage
                   src="../images/feature-gro.png"
@@ -177,7 +177,7 @@ function IndexPage() {
                 />
               </FeatureCard>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={6} lg={3}>
               <FeatureCard>
                 <StaticImage
                   src="../images/feature-grohere2.png"
@@ -206,7 +206,7 @@ function IndexPage() {
                 />
               </FeatureCard>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={6} lg={3}>
               <FeatureCard>
                 <StaticImage
                   src="../images/feature-webhook.png"
@@ -232,7 +232,7 @@ function IndexPage() {
                 />
               </FeatureCard>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={6} lg={3}>
               <FeatureCard>
                 <StaticImage
                   src="../images/feature-groreset.png"
