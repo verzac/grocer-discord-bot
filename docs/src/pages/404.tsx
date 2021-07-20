@@ -14,7 +14,7 @@ const Container = styled.div`
 `;
 const NotFoundPage = () => {
   return (
-    <PageContainer subtitle="404">
+    <PageContainer subtitle="404 Not Found">
       <Container>
         <Typography variant="h1">404 - Nani!?</Typography>
         <Typography>

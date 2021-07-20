@@ -78,7 +78,7 @@ const FeatureCardSubText = styled.span`
 function IndexPage() {
   const classes = useStyles();
   return (
-    <PageContainer subtitle="Manage your grocery list">
+    <PageContainer subtitle="Manage your grocery list on Discord">
       <>
         <HeroContainer>
           <StaticImage
