@@ -9,6 +9,7 @@ on:
       - master
     paths-ignore:
       - "docs/**"
+      - ".github/workflows/docs.yml"
 
 jobs:
   docker_build:

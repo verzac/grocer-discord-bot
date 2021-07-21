@@ -21,6 +21,7 @@ import { StaticImage } from "gatsby-plugin-image";
 import { Link } from "gatsby";
 import DiscordLogo from "images/discord-logo.svg";
 import CommandText from "components/CommandText";
+import { OutboundLink } from "gatsby-plugin-google-gtag";
 
 const CtaContainer = styled.div`
   display: flex;
@@ -97,7 +98,7 @@ function IndexPage() {
           <CtaContainer>
             <Button
               className={classes.addToDiscordBtn}
-              component="a"
+              component={OutboundLink}
               href="https://discord.com/oauth2/authorize?client_id=815120759680532510&permissions=2048&scope=bot"
               target="_blank"
               rel="noopener"
