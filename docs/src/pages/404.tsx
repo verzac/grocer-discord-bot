@@ -16,8 +16,10 @@ const NotFoundPage = () => {
   return (
     <PageContainer subtitle="404 Not Found">
       <Container>
-        <Typography variant="h1">404 - Nani!?</Typography>
-        <Typography>
+        <Typography variant="h1" align="center">
+          404 - Nani!?
+        </Typography>
+        <Typography align="center">
           We can't seem to find what you were looking for :(
         </Typography>
         <Button component={Link} to="/" color="primary">

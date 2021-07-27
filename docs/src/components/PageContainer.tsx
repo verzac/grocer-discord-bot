@@ -5,6 +5,7 @@ import {
   Typography,
   Link as MuiLink,
   Divider,
+  makeStyles,
 } from "@material-ui/core";
 import React, { ReactChild } from "react";
 import styled from "styled-components";
@@ -12,8 +13,13 @@ import { Helmet } from "react-helmet";
 import "./layout.css";
 import { Link } from "gatsby";
 import defaultImage from "images/grobot-logo.png";
+import { StaticImage } from "gatsby-plugin-image";
 
-const RootContainer = styled.main`
+interface RootContainerProps {
+  noDefaultFlex?: boolean;
+}
+
+const RootContainer = styled.main<RootContainerProps>`
   padding: 24px;
   padding-top: 64px;
   /* height: 200%; */
@@ -29,6 +35,11 @@ const RootContainer = styled.main`
   & > :last-child {
     margin-bottom: 0;
   }
+  ${({ noDefaultFlex }) =>
+    !noDefaultFlex &&
+    `& > :first-child {
+    flex: 1 1;
+  }`}
 `;
 
 const AppBar = styled(Paper)`
@@ -36,6 +47,7 @@ const AppBar = styled(Paper)`
   position: fixed;
   flex-direction: row;
   justify-content: flex-end;
+  align-items: center;
   border-radius: 0;
   padding: 8px 16px 8px 16px;
   width: 100%;
@@ -49,6 +61,23 @@ const FooterDivider = styled(Divider)`
   margin-bottom: 8px;
 `;
 
+const FooterArea = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  & > * {
+    margin-right: 8px;
+  }
+  & > :last-child {
+    margin-right: 0;
+  }
+`;
+
+const LogoContainer = styled(Link)`
+  flex: 1 1;
+`;
+
 interface PageContainerProps {
   children: ReactChild;
   title?: string;
@@ -56,6 +85,7 @@ interface PageContainerProps {
   className?: string;
   subtitle?: string;
   image?: string;
+  rootContainerProps?: RootContainerProps;
 }
 
 function PageContainer({
@@ -65,6 +95,7 @@ function PageContainer({
   subtitle,
   description = "Use Discord to manage your grocery list. No more switching apps just to talk about which grocery item you should get.",
   image = defaultImage,
+  rootContainerProps = {},
 }: PageContainerProps) {
   return (
     <>
@@ -74,6 +105,14 @@ function PageContainer({
         <meta name="image" content={image} />
       </Helmet>
       <AppBar>
+        <LogoContainer to="/">
+          <StaticImage
+            src="../images/grobot-logo.png"
+            alt="GroceryBot Logo"
+            aspectRatio={1}
+            width={28}
+          />
+        </LogoContainer>
         <Button component={Link} to="/" variant="text" color="primary">
           Home
         </Button>
@@ -81,12 +120,12 @@ function PageContainer({
           Docs (Coming soon!)
         </Button>
       </AppBar>
-      <RootContainer className={className}>
+      <RootContainer className={className} {...rootContainerProps}>
         <CssBaseline />
         {children}
         <div>
           <FooterDivider />
-          <Typography align="center">
+          <Typography align="center" gutterBottom>
             GroceryBot and this website is maintained by{" "}
             <MuiLink
               href="https://github.com/verzac"
@@ -97,6 +136,26 @@ function PageContainer({
             </MuiLink>
             .
           </Typography>
+          <FooterArea>
+            <Button
+              component={Link}
+              to="/privacy-policy"
+              variant="text"
+              color="primary"
+            >
+              Our Privacy Policy
+            </Button>
+            <Divider orientation="vertical" flexItem />
+            <Button
+              component={MuiLink}
+              target="_blank"
+              rel="noopener"
+              href="https://discord.com/oauth2/authorize?client_id=815120759680532510&permissions=2048&scope=bot"
+              color="primary"
+            >
+              Invite to Discord
+            </Button>
+          </FooterArea>
         </div>
       </RootContainer>
     </>

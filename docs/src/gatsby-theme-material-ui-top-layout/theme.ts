@@ -21,13 +21,18 @@ const theme = createTheme({
       main: "#3F5E5A",
     },
   },
-  // overrides: {
-  //   MuiTypography: {
-  //     caption: {
-  //       lineHeight: 0.5,
-  //     },
-  //   },
-  // },
+  overrides: {
+    MuiButton: {
+      label: {
+        textAlign: "center",
+      },
+    },
+    //   MuiTypography: {
+    //     caption: {
+    //       lineHeight: 0.5,
+    //     },
+    //   },
+  },
 });
 
 export default responsiveFontSizes(theme);

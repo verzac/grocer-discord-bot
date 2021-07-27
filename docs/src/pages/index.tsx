@@ -79,7 +79,10 @@ const FeatureCardSubText = styled.span`
 function IndexPage() {
   const classes = useStyles();
   return (
-    <PageContainer subtitle="Manage your grocery list on Discord">
+    <PageContainer
+      rootContainerProps={{ noDefaultFlex: true }}
+      subtitle="Manage your grocery list on Discord"
+    >
       <>
         <HeroContainer>
           <StaticImage
@@ -120,6 +123,7 @@ function IndexPage() {
             <MuiLink
               href="https://discord.com/invite/rBjUaZyskg"
               rel="noopener"
+              target="_blank"
             >
               support server
             </MuiLink>{" "}
