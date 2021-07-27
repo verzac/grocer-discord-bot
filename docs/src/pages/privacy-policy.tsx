@@ -13,7 +13,7 @@ import CommandText from "components/CommandText";
 
 function PrivacyPolicyPage() {
   return (
-    <PageContainer>
+    <PageContainer subtitle="Privacy Policy">
       <div>
         <Typography variant="h1">👀 Privacy policy</Typography>
         <Typography>
