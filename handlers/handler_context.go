@@ -56,10 +56,6 @@ type CommandContext struct {
 	ArgStr         string
 }
 
-func (cc *CommandContext) ToString() string {
-	return fmt.Sprintf("<command=%s grocerySublist=%s argStr=%s>", cc.Command, cc.GrocerySublist, cc.ArgStr)
-}
-
 func (m *MessageHandlerContext) GetLogger() *zap.Logger {
 	return m.logger
 }
@@ -233,7 +229,12 @@ func (m *MessageHandlerContext) Recover() {
 
 func (mh *MessageHandlerContext) Handle() (err error) {
 	defer mh.Recover()
-	mh.GetLogger().Info(mh.commandContext.ToString())
+	mh.GetLogger().Debug(
+		"Handling command.",
+		zap.String("Command", mh.commandContext.Command),
+		zap.String("ArgStr", mh.commandContext.ArgStr),
+		zap.String("GrocerySublist", mh.commandContext.GrocerySublist),
+	)
 	body := mh.msg.Content
 	switch mh.commandContext.Command {
 	case CmdGroAdd:
