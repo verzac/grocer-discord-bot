@@ -27,3 +27,6 @@ publish: docker_build docker_login
 	docker tag ${image_name}:${tag} ${repository_uri}:${tag}
 	docker push ${repository_uri}:latest
 	docker push ${repository_uri}:${tag}
+
+air:
+	air -c .air.toml

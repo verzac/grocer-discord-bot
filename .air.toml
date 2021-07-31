@@ -1,0 +1,3 @@
+[build]
+exclude_dir = ["docs", "e2e"]
+send_interrupt = true
