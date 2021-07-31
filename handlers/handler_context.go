@@ -61,7 +61,7 @@ func (cc *CommandContext) ToString() string {
 }
 
 func (m *MessageHandlerContext) GetLogger() *zap.Logger {
-	return m.GetLogger()
+	return m.logger
 }
 
 func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
