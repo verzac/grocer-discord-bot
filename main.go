@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -26,10 +27,18 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	mh := handlers.New(s, m, db, GroBotVersion)
-	metric := monitoring.NewCommandMetric(cw, &mh)
+	mh, err := handlers.New(s, m, db, GroBotVersion)
+	if err == handlers.ErrCmdNotProcessable {
+		return
+	}
+	if err != nil {
+		// errors shouldn't happen here, but you never know
+		log.Println(fmt.Sprintf("[ERROR] %s", err.Error()))
+		return
+	}
+	metric := monitoring.NewCommandMetric(cw, mh)
 	defer metric.Done()
-	err := mh.Handle()
+	err = mh.Handle()
 	if err != nil {
 		log.Println(mh.FmtErrMsg(err))
 	}
