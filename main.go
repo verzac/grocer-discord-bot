@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,38 +15,54 @@ import (
 	dbUtils "github.com/verzac/grocer-discord-bot/db"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/monitoring"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 var db *gorm.DB
 var GroBotVersion string = "local"
 var cw *cloudwatch.CloudWatch
+var logger *zap.Logger
 
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	mh, err := handlers.New(s, m, db, GroBotVersion)
+	mh, err := handlers.New(s, m, db, GroBotVersion, logger)
 	if err == handlers.ErrCmdNotProcessable {
 		return
 	}
 	if err != nil {
 		// errors shouldn't happen here, but you never know
-		log.Println(fmt.Sprintf("[ERROR] %s", err.Error()))
+		logger.Error(err.Error())
 		return
 	}
 	metric := monitoring.NewCommandMetric(cw, mh)
 	defer metric.Done()
 	err = mh.Handle()
 	if err != nil {
-		log.Println(mh.FmtErrMsg(err))
+		mh.LogError(err)
 	}
 }
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	// log.SetFlags(log.LstdFlags | log.Lshortfile)
+	if GroBotVersion == "local" {
+		l, err := zap.NewDevelopment()
+		if err != nil {
+			panic(err)
+		}
+		logger = l
+	} else {
+		l, err := zap.NewProduction()
+		if err != nil {
+			panic(err)
+		}
+		logger = l
+	}
+	defer logger.Sync()
 	if err := godotenv.Load(); err != nil {
-		log.Println("Cannot load .env file:", err.Error())
+		logger.Debug("Cannot load .env file: " + err.Error())
 	}
 	token := os.Getenv("GROCER_BOT_TOKEN")
 	if token == "" {
@@ -63,7 +78,7 @@ func main() {
 			Region: &region,
 		})
 		if err != nil {
-			log.Println("[ERROR] Unable to init CW client: " + err.Error())
+			logger.Error("Unable to init CW client: " + err.Error())
 		} else {
 			cw = cloudwatch.New(sess)
 		}
@@ -72,17 +87,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Using %s\n", dsn)
-	db = dbUtils.Setup(dsn)
-	log.Println("Setting up discordgo...")
+	logger.Info(fmt.Sprintf("Using %s\n", dsn))
+	db = dbUtils.Setup(dsn, logger)
+	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 	if err := d.Open(); err != nil {
 		panic(err)
 	}
-	log.Printf("Bot is online! Version=%s CloudWatchEnabled=%t\n", GroBotVersion, monitoring.CloudWatchEnabled())
+	logger.Info("Bot is online!", zap.String("Version", GroBotVersion), zap.Bool("CloudWatchEnabled", monitoring.CloudWatchEnabled()))
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
+	logger.Info("Shutting down GroceryBot...")
 	d.Close()
 }

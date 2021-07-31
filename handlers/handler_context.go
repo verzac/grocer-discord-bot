@@ -1,15 +1,15 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
-	"log"
-	"runtime/debug"
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -47,6 +47,7 @@ type MessageHandlerContext struct {
 	db             *gorm.DB
 	grobotVersion  string
 	commandContext *CommandContext
+	logger         *zap.Logger
 }
 
 type CommandContext struct {
@@ -59,7 +60,11 @@ func (cc *CommandContext) ToString() string {
 	return fmt.Sprintf("<command=%s grocerySublist=%s argStr=%s>", cc.Command, cc.GrocerySublist, cc.ArgStr)
 }
 
-func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string) (*MessageHandlerContext, error) {
+func (m *MessageHandlerContext) GetLogger() *zap.Logger {
+	return m.GetLogger()
+}
+
+func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
 	cc, err := GetCommandContext(msg.Content)
 	if err != nil {
 		return nil, err
@@ -70,14 +75,15 @@ func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, gro
 		db:             db,
 		grobotVersion:  grobotVersion,
 		commandContext: cc,
+		logger:         logger,
 	}, nil
 }
 
 func (m *MessageHandlerContext) onError(err error) error {
-	log.Println(m.FmtErrMsg(err))
+	m.LogError(err)
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
 	if sErr != nil {
-		log.Println("Unable to send error message.", m.FmtErrMsg(err))
+		m.LogError(errors.Wrap(err, sErr.Error()))
 	}
 	return err
 }
@@ -97,8 +103,17 @@ func (m *MessageHandlerContext) checkLimit(guildID string, newItemCount int64) e
 	return nil
 }
 
+// Deprecated: use LogError
 func (m *MessageHandlerContext) FmtErrMsg(err error) string {
 	return fmt.Sprintf("[ERROR] Command=%s GuildID=%s errMsg=%s", m.commandContext.Command, m.msg.GuildID, err.Error())
+}
+
+func (m *MessageHandlerContext) LogError(err error) {
+	m.GetLogger().Error(
+		err.Error(),
+		zap.String("Command", m.commandContext.Command),
+		zap.String("GuildID", m.msg.GuildID),
+	)
 }
 
 func (m *MessageHandlerContext) sendMessage(msg string) error {
@@ -110,7 +125,7 @@ func (m *MessageHandlerContext) sendMessage(msg string) error {
 		},
 	})
 	if sErr != nil {
-		log.Println("Unable to send message.", m.FmtErrMsg(sErr))
+		m.LogError(errors.Wrap(sErr, "Unable to send message."))
 	}
 	return sErr
 }
@@ -202,16 +217,23 @@ func GetCommandContext(body string) (*CommandContext, error) {
 	return commandContext, nil
 }
 
-func (mh *MessageHandlerContext) Recover() {
+func (m *MessageHandlerContext) Recover() {
 	if r := recover(); r != nil {
-		log.Println(fmt.Sprintf("[PANIC][ERROR] %s\n%s\n", r, debug.Stack()))
-		mh.onError(errPanic)
+		m.GetLogger().Error(
+			"Panic encountered! Recovering...",
+			zap.Any("Panic", r),
+			zap.String("Command", m.commandContext.Command),
+			zap.String("GuildID", m.msg.GuildID),
+			zap.Stack("Stack"),
+		)
+		// log.Println(fmt.Sprintf("[PANIC][ERROR] %s\n%s\n", r, debug.Stack()))
+		m.onError(errPanic)
 	}
 }
 
 func (mh *MessageHandlerContext) Handle() (err error) {
 	defer mh.Recover()
-	log.Println(mh.commandContext.ToString())
+	mh.GetLogger().Info(mh.commandContext.ToString())
 	body := mh.msg.Content
 	switch mh.commandContext.Command {
 	case CmdGroAdd:

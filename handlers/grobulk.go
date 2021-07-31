@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/verzac/grocer-discord-bot/models"
@@ -32,7 +31,7 @@ func (m *MessageHandlerContext) OnBulk(argStr string) error {
 		}
 		r := m.db.Create(&toInsert)
 		if r.Error != nil {
-			log.Println(m.FmtErrMsg(r.Error))
+			m.LogError(r.Error)
 			return m.sendMessage("Hmm... Cannot save your grocery list. Please try again later :)")
 		}
 		insertedItemsCount = r.RowsAffected

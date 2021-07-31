@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/verzac/grocer-discord-bot/models"
@@ -36,7 +35,7 @@ func (m *MessageHandlerContext) OnEdit(argStr string) error {
 	g.ItemDesc = newItemDesc
 	g.UpdatedByID = &m.msg.Author.ID
 	if sr := m.db.Save(g); sr.Error != nil {
-		log.Println(m.FmtErrMsg(sr.Error))
+		m.LogError(sr.Error)
 		return m.sendMessage("Welp, something went wrong while saving. Please try again :)")
 	}
 	if err := m.sendMessage(fmt.Sprintf("Updated item #%d on your grocery list to *%s*", itemIndex, g.ItemDesc)); err != nil {

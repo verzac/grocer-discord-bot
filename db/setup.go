@@ -5,12 +5,13 @@ import (
 	"os"
 
 	"github.com/verzac/grocer-discord-bot/models"
+	"go.uber.org/zap"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-func Setup(dsn string) *gorm.DB {
+func Setup(dsn string, zlogger *zap.Logger) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.New(
 			log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
@@ -24,13 +25,13 @@ func Setup(dsn string) *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	log.Println("Auto-Migrating...")
+	zlogger.Info("Auto-Migrating...")
 	if err := db.Migrator().AutoMigrate(&models.GroceryEntry{}); err != nil {
 		panic(err)
 	}
 	if err := db.Migrator().AutoMigrate(&models.GuildConfig{}); err != nil {
 		panic(err)
 	}
-	log.Println("Migration done!")
+	zlogger.Info("Migration done!")
 	return db
 }
