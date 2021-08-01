@@ -225,8 +225,17 @@ func (m *MessageHandlerContext) Recover() {
 			zap.String("GuildID", m.msg.GuildID),
 			zap.Stack("Stack"),
 		)
-		// log.Println(fmt.Sprintf("[PANIC][ERROR] %s\n%s\n", r, debug.Stack()))
 		m.onError(errPanic)
+	}
+}
+
+func Recover(logger *zap.Logger) {
+	if r := recover(); r != nil {
+		logger.Error(
+			"Very, very bad panic encountered! Recovering...",
+			zap.Any("Panic", r),
+			zap.Stack("Stack"),
+		)
 	}
 }
 

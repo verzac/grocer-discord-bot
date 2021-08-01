@@ -25,6 +25,7 @@ var cw *cloudwatch.CloudWatch
 var logger *zap.Logger
 
 func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
+	defer handlers.Recover(logger)
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
