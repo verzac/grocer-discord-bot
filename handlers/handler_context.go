@@ -181,6 +181,9 @@ func GetCommandContext(body string) (*CommandContext, error) {
 			doBreak = true
 			break
 		case ":":
+			if isProcessingSublistLabel == true {
+				return nil, ErrCmdNotProcessable
+			}
 			isProcessingSublistLabel = true
 		default:
 			if isProcessingSublistLabel {
@@ -257,5 +260,5 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 	case CmdGroReset:
 		err = mh.OnReset()
 	}
-	return err
+	return ErrCmdNotProcessable
 }

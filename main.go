@@ -38,8 +38,11 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	metric := monitoring.NewCommandMetric(cw, mh)
-	defer metric.Done()
 	err = mh.Handle()
+	if err == handlers.ErrCmdNotProcessable {
+		return
+	}
+	metric.Done()
 	if err != nil {
 		mh.LogError(err)
 	}
