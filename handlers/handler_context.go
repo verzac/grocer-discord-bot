@@ -235,26 +235,23 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 		zap.String("ArgStr", mh.commandContext.ArgStr),
 		zap.String("GrocerySublist", mh.commandContext.GrocerySublist),
 	)
-	body := mh.msg.Content
 	switch mh.commandContext.Command {
 	case CmdGroAdd:
 		err = mh.OnAdd()
 	case CmdGroRemove:
-		err = mh.OnRemove(strings.TrimPrefix(body, "!groremove "))
+		err = mh.OnRemove()
 	case CmdGroEdit:
-		err = mh.OnEdit(strings.TrimPrefix(body, "!groedit "))
+		err = mh.OnEdit()
 	case CmdGroBulk:
-		err = mh.OnBulk(
-			strings.Trim(strings.TrimPrefix(body, "!grobulk"), " \n\t"),
-		)
+		err = mh.OnBulk()
 	case CmdGroList:
 		err = mh.OnList()
 	case CmdGroClear:
 		err = mh.OnClear()
 	case CmdGroHelp:
-		err = mh.OnHelp(mh.grobotVersion)
+		err = mh.OnHelp()
 	case CmdGroDeets:
-		err = mh.OnDetail(strings.TrimPrefix(body, "!grodeets "))
+		err = mh.OnDetail()
 	case CmdGroHere:
 		err = mh.OnAttach()
 	case CmdGroReset:

@@ -9,7 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func (m *MessageHandlerContext) OnEdit(argStr string) error {
+func (m *MessageHandlerContext) OnEdit() error {
+	argStr := m.commandContext.ArgStr
 	argTokens := strings.SplitN(argStr, " ", 2)
 	if len(argTokens) != 2 {
 		return m.sendMessage(fmt.Sprintf("Oops, I can't seem to understand you. Perhaps try typing **!groedit 1 Whatever you want the name of this entry to be**?"))

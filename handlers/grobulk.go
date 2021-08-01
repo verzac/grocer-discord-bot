@@ -7,7 +7,8 @@ import (
 	"github.com/verzac/grocer-discord-bot/models"
 )
 
-func (m *MessageHandlerContext) OnBulk(argStr string) error {
+func (m *MessageHandlerContext) OnBulk() error {
+	argStr := m.commandContext.ArgStr
 	items := strings.Split(
 		strings.Trim(argStr, "\n \t"),
 		"\n",

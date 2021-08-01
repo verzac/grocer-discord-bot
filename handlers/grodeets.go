@@ -7,7 +7,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func (m *MessageHandlerContext) OnDetail(argStr string) error {
+func (m *MessageHandlerContext) OnDetail() error {
+	argStr := m.commandContext.ArgStr
 	itemIndex, err := toItemIndex(argStr)
 	if err != nil {
 		return m.sendMessage(err.Error())

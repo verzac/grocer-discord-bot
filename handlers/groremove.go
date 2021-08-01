@@ -11,7 +11,8 @@ import (
 
 type getItemsToRemoveType = func(args []string, groceryList []models.GroceryEntry) ([]models.GroceryEntry, error)
 
-func (m *MessageHandlerContext) OnRemove(argStr string) error {
+func (m *MessageHandlerContext) OnRemove() error {
+	argStr := m.commandContext.ArgStr
 	args := strings.Split(argStr, " ")
 	if len(args) == 0 {
 		return nil
