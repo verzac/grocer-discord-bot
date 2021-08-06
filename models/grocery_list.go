@@ -1,0 +1,19 @@
+package models
+
+import "time"
+
+type GroceryList struct {
+	ID        uint   `gorm:"primaryKey"`
+	GuildID   string `gorm:"not null;index"`
+	ListLabel string `gorm:"not null;index"`
+	FancyName *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (gl *GroceryList) GetName() string {
+	if gl.FancyName != nil {
+		return *gl.FancyName
+	}
+	return gl.ListLabel
+}

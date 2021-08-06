@@ -26,10 +26,17 @@ func Setup(dsn string, zlogger *zap.Logger) *gorm.DB {
 		panic(err)
 	}
 	zlogger.Info("Auto-Migrating...")
+	if os.Getenv("DISABLE_MIGRATION") == "true" {
+		zlogger.Warn("WARNING: Migration is disabled as DISABLE_MIGRATION is set to true.")
+		return db
+	}
 	if err := db.Migrator().AutoMigrate(&models.GroceryEntry{}); err != nil {
 		panic(err)
 	}
 	if err := db.Migrator().AutoMigrate(&models.GuildConfig{}); err != nil {
+		panic(err)
+	}
+	if err := db.Migrator().AutoMigrate(&models.GroceryList{}); err != nil {
 		panic(err)
 	}
 	zlogger.Info("Migration done!")

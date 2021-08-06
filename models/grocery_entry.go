@@ -8,12 +8,14 @@ import (
 )
 
 type GroceryEntry struct {
-	ID          uint `gorm:"primaryKey"`
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	ItemDesc    string `gorm:"not null"`
-	GuildID     string `gorm:"index;not null"`
-	UpdatedByID *string
+	ID            uint `gorm:"primaryKey"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	ItemDesc      string `gorm:"not null"`
+	GuildID       string `gorm:"index;not null"`
+	UpdatedByID   *string
+	GroceryListID *uint
+	GroceryList   *GroceryList
 }
 
 func (g *GroceryEntry) GetUpdatedByString() string {
