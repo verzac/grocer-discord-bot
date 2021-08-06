@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 )
 
@@ -104,11 +105,17 @@ func (m *MessageHandlerContext) FmtErrMsg(err error) string {
 	return fmt.Sprintf("[ERROR] Command=%s GuildID=%s errMsg=%s", m.commandContext.Command, m.msg.GuildID, err.Error())
 }
 
-func (m *MessageHandlerContext) LogError(err error) {
-	m.GetLogger().Error(
-		err.Error(),
+func (m *MessageHandlerContext) LogError(err error, extraFields ...zapcore.Field) {
+	defaultFields := []zapcore.Field{
 		zap.String("Command", m.commandContext.Command),
 		zap.String("GuildID", m.msg.GuildID),
+	}
+	m.GetLogger().Error(
+		err.Error(),
+		append(
+			defaultFields,
+			extraFields...,
+		)...,
 	)
 }
 
