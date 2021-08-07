@@ -65,7 +65,7 @@ We've added support to !groremove items based on their name alone, so that you d
 
 We're also looking into :globe_with_meridians: moving off onto a new website with better documentation for GroBot; and :robot: adding support for smart home integration. Get keen!
 
-[Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [GitHub](https://github.com/verzac/grocer-discord-bot)
+[Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [Web](https://grocerybot.net)
 		`,
 	})
 	return err
