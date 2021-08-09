@@ -9,6 +9,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
+	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
@@ -43,12 +44,14 @@ const (
 )
 
 type MessageHandlerContext struct {
-	sess           *discordgo.Session
-	msg            *discordgo.MessageCreate
-	db             *gorm.DB
-	grobotVersion  string
-	commandContext *CommandContext
-	logger         *zap.Logger
+	sess             *discordgo.Session
+	msg              *discordgo.MessageCreate
+	db               *gorm.DB
+	grobotVersion    string
+	commandContext   *CommandContext
+	logger           *zap.Logger
+	groceryEntryRepo repositories.GroceryEntryRepository
+	groceryListRepo  repositories.GroceryListRepository
 }
 
 type CommandContext struct {
@@ -67,12 +70,14 @@ func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, gro
 		return nil, err
 	}
 	return &MessageHandlerContext{
-		sess:           sess,
-		msg:            msg,
-		db:             db,
-		grobotVersion:  grobotVersion,
-		commandContext: cc,
-		logger:         logger,
+		sess:             sess,
+		msg:              msg,
+		db:               db,
+		grobotVersion:    grobotVersion,
+		commandContext:   cc,
+		logger:           logger,
+		groceryEntryRepo: &repositories.GroceryEntryRepositoryImpl{DB: db},
+		groceryListRepo:  &repositories.GroceryListRepositoryImpl{DB: db},
 	}, nil
 }
 

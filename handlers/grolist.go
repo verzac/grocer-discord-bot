@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/verzac/grocer-discord-bot/models"
+	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
 )
 
@@ -25,17 +26,17 @@ func (m *MessageHandlerContext) OnList() error {
 
 func (m *MessageHandlerContext) displayList() error {
 	msgPrefix := "Here's your grocery list:"
-	groceries := make([]models.GroceryEntry, 0)
-	if r := m.db.Where(&models.GroceryEntry{GuildID: m.msg.GuildID}).Find(&groceries); r.Error != nil {
-		return m.onError(r.Error)
+	groceries, err := m.groceryEntryRepo.FindByQuery(&models.GroceryEntry{GuildID: m.msg.GuildID})
+	if err != nil {
+		return m.onError(err)
 	}
 	if len(groceries) == 0 {
 		return m.sendMessage("You have no groceries - add one through `!gro` (e.g. `!gro Toilet paper`)!")
 	}
-	var groceryLists []models.GroceryList
-	if r := m.db.Where(&models.GroceryList{GuildID: m.msg.GuildID}).Find(&groceryLists); r.Error != nil {
+	groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.msg.GuildID})
+	if err != nil {
 		// ignore error - not considered fatal
-		m.LogError(r.Error)
+		m.LogError(err)
 	}
 	// group by their grocerylist
 	noListGroceries := make([]models.GroceryEntry, 0)
@@ -80,27 +81,19 @@ func (m *MessageHandlerContext) newList() error {
 	// 	return m.sendMessage("Sorry, grocery list labels cannot contain any spaces. You can fix this by using \"-\" or \".\" to replace your spaces (e.g. `!grolist new morning market` -> `!grolist new morning-market`). PS: In the future, I'll be able to give your grocery lists custom names.")
 	// }
 	label := splitArgs[1]
-	var fancyName *string
+	var fancyName string
 	if len(splitArgs) >= 3 && splitArgs[2] != "" {
-		fancyName = &splitArgs[2]
+		fancyName = splitArgs[2]
 	}
-	var existingCount int64
-	countR := m.db.Model(&models.GroceryList{}).Where(&models.GroceryList{GuildID: m.msg.GuildID, ListLabel: label}).Count(&existingCount)
-	if countR.Error != nil {
-		m.LogError(countR.Error)
-		return m.sendMessage(msgCannotSaveNewGroceryList)
-	}
-	if existingCount > 0 {
-		return m.sendMessage(fmt.Sprintf("Sorry, a grocery list with the label *%s* already exists for your server. Please select another label :)", label))
-	}
-	newGroceryList := models.GroceryList{
-		GuildID:   m.msg.GuildID,
-		ListLabel: label,
-		FancyName: fancyName,
-	}
-	if r := m.db.Create(&newGroceryList); r.Error != nil {
-		m.LogError(countR.Error)
-		return m.sendMessage(msgCannotSaveNewGroceryList)
+	newGroceryList, err := m.groceryListRepo.CreateGroceryList(m.msg.GuildID, label, fancyName)
+	if err != nil {
+		switch err {
+		case repositories.ErrGroceryListDuplicate:
+			return m.sendMessage(fmt.Sprintf("Sorry, a grocery list with the label *%s* already exists for your server. Please select another label :)", label))
+		default:
+			m.LogError(err)
+			return m.sendMessage(msgCannotSaveNewGroceryList)
+		}
 	}
 	return m.sendMessage(fmt.Sprintf("Yay! Your new grocery list *%s* has been successfully created. Use it in a command like so to add entries to your grocery list: `gro:%s Chicken`", newGroceryList.GetName(), newGroceryList.ListLabel))
 }
