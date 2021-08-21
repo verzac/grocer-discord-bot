@@ -11,9 +11,11 @@ import React, { ReactChild } from "react";
 import styled from "styled-components";
 import { Helmet } from "react-helmet";
 import "./layout.css";
-import { Link } from "gatsby";
+import { Link, PageProps } from "gatsby";
 import defaultImage from "images/grobot-logo.png";
 import { StaticImage } from "gatsby-plugin-image";
+import useSiteMetadata from "hooks/useSiteMetadata";
+import { useLocation } from "@reach/router";
 
 interface RootContainerProps {
   noDefaultFlex?: boolean;
@@ -29,6 +31,7 @@ const RootContainer = styled.main<RootContainerProps>`
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  align-items: center;
   & > * {
     margin-bottom: 24px;
   }
@@ -97,12 +100,19 @@ function PageContainer({
   image = defaultImage,
   rootContainerProps = {},
 }: PageContainerProps) {
+  const location = useLocation();
+  const { siteUrl } = useSiteMetadata();
+  const pageTitle = [title, subtitle].filter(Boolean).join(" | ");
   return (
     <>
       <Helmet>
-        <title>{[title, subtitle].filter(Boolean).join(" | ")}</title>
+        <title>{pageTitle}</title>
         <meta name="description" content={description} />
         <meta name="image" content={image} />
+        <meta name="og:description" content={description} />
+        <meta name="og:title" content={pageTitle} />
+        <meta name="og:url" content={`${siteUrl}${location.pathname}`} />
+        <meta name="og:image" content={`${siteUrl}${image}`} />
       </Helmet>
       <AppBar>
         <LogoContainer to="/">

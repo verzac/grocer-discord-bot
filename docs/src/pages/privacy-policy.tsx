@@ -10,11 +10,12 @@ import React from "react";
 import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import FactAccordion from "components/FactAccordion";
 import CommandText from "components/CommandText";
+import GeneralContentContainer from "components/GeneralContentContainer";
 
 function PrivacyPolicyPage() {
   return (
     <PageContainer subtitle="Privacy Policy">
-      <div>
+      <GeneralContentContainer>
         <Typography variant="h1">👀 Privacy policy</Typography>
         <Typography>
           Curious about how your data is handled in GroceryBot? Read on.
@@ -107,7 +108,7 @@ function PrivacyPolicyPage() {
             </>
           }
         />
-      </div>
+      </GeneralContentContainer>
     </PageContainer>
   );
 }

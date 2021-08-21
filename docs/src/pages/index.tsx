@@ -1,24 +1,20 @@
-import React, { ComponentProps } from "react";
+import React from "react";
 import {
   Box,
   Button,
   Card,
-  CardContent,
   CardHeader,
-  CardMedia,
   Divider,
   Grid,
   makeStyles,
   Typography,
   Link as MuiLink,
-  TypographyProps,
 } from "@material-ui/core";
 import HeroContainer from "components/HeroContainer";
 import styled from "styled-components";
 import PageContainer from "components/PageContainer";
 import ArrowDownwardIcon from "@material-ui/icons/ArrowDownward";
 import { StaticImage } from "gatsby-plugin-image";
-import { Link } from "gatsby";
 import DiscordLogo from "images/discord-logo.svg";
 import CommandText from "components/CommandText";
 import { OutboundLink } from "gatsby-plugin-google-gtag";
