@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/verzac/grocer-discord-bot/models"
-	"gorm.io/gorm"
+	"github.com/verzac/grocer-discord-bot/repositories"
 )
 
 func (m *MessageHandlerContext) OnAdd() error {
@@ -16,29 +16,38 @@ func (m *MessageHandlerContext) OnAdd() error {
 	if err := m.checkLimit(guildID, 1); err != nil {
 		return m.onError(err)
 	}
-	var groceryList *models.GroceryList
-	groceryListLabel := m.commandContext.GrocerySublist
-	if groceryListLabel != "" {
-		if r := m.db.Where(&models.GroceryList{ListLabel: groceryListLabel, GuildID: guildID}).Take(&groceryList); r.Error != nil {
-			if r.Error == gorm.ErrRecordNotFound {
-				return m.sendMessage(fmt.Sprintf("Whoops, can't seem to find the grocery list labeled as *%s*", groceryListLabel))
-			}
-			return m.onError(r.Error)
+	groceryList, err := m.GetGroceryListFromContext()
+	if err != nil {
+		if err == errGroceryListNotFound {
+			return m.sendMessage(m.commandContext.FmtErrInvalidGroceryList())
+		} else {
+			return m.onError(err)
 		}
 	}
-	if r := m.db.Create(&models.GroceryEntry{ItemDesc: argStr, GuildID: m.msg.GuildID, UpdatedByID: &m.msg.Author.ID, GroceryList: groceryList}); r.Error != nil {
-		return m.onError(r.Error)
+	rErr := m.groceryEntryRepo.AddToGroceryList(
+		groceryList,
+		[]models.GroceryEntry{
+			{
+				ItemDesc:    argStr,
+				GuildID:     m.msg.GuildID,
+				UpdatedByID: &m.msg.Author.ID,
+				GroceryList: groceryList,
+			},
+		},
+		guildID)
+	if rErr != nil {
+		switch rErr.ErrCode {
+		case repositories.ErrCodeValidationError:
+			return m.sendMessage(rErr.Error())
+		default:
+			return m.onError(rErr)
+		}
 	}
 	groceryListName := "your grocery list"
-	if groceryListLabel != "" && groceryList != nil {
-		if groceryList.FancyName != nil {
-			groceryListName = *groceryList.FancyName
-		} else {
-			groceryListName = groceryListLabel
-		}
-		groceryListName = "*" + groceryListName + "*"
+	if groceryList != nil {
+		groceryListName = groceryList.GetName()
 	}
-	err := m.sendMessage(fmt.Sprintf("Added *%s* into %s!", argStr, groceryListName))
+	err = m.sendMessage(fmt.Sprintf("Added *%s* into %s!", argStr, groceryListName))
 	if err != nil {
 		return m.onError(err)
 	}

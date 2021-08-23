@@ -19,12 +19,13 @@ const groceryEntryLimit = 100
 const maxCmdCharsProcessedBeforeGivingUp = 48
 
 var (
-	errCannotConvertInt   = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
-	errNotValidListNumber = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
-	errOverLimit          = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
-	errPanic              = errors.New("Hmm... Something broke on my end. Please try again later.")
-	errCmdOverLimit       = errors.New(fmt.Sprintf("Command is too long and exceeds the predefined limit (%d).", maxCmdCharsProcessedBeforeGivingUp))
-	ErrCmdNotProcessable  = errors.New("Command is not a GroceryBot command.")
+	errCannotConvertInt    = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
+	errNotValidListNumber  = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
+	errOverLimit           = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
+	errPanic               = errors.New("Hmm... Something broke on my end. Please try again later.")
+	errCmdOverLimit        = errors.New(fmt.Sprintf("Command is too long and exceeds the predefined limit (%d).", maxCmdCharsProcessedBeforeGivingUp))
+	errGroceryListNotFound = errors.New("Cannot find grocery list from context.")
+	ErrCmdNotProcessable   = errors.New("Command is not a GroceryBot command.")
 )
 
 const CmdPrefix = "!gro"
@@ -58,6 +59,25 @@ type CommandContext struct {
 	Command        string
 	GrocerySublist string
 	ArgStr         string
+}
+
+func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList, error) {
+	groceryListLabel := m.commandContext.GrocerySublist
+	if groceryListLabel != "" {
+		groceryList := models.GroceryList{}
+		if r := m.db.Where(&models.GroceryList{ListLabel: groceryListLabel, GuildID: m.msg.GuildID}).Take(&groceryList); r.Error != nil {
+			if r.Error == gorm.ErrRecordNotFound {
+				return nil, errGroceryListNotFound
+			}
+			return nil, r.Error
+		}
+		return &groceryList, nil
+	}
+	return nil, nil
+}
+
+func (cc *CommandContext) FmtErrInvalidGroceryList() string {
+	return fmt.Sprintf("Whoops, can't seem to find the grocery list labeled as *%s*", cc.GrocerySublist)
 }
 
 func (m *MessageHandlerContext) GetLogger() *zap.Logger {
@@ -94,6 +114,7 @@ func fmtItemNotFoundErrorMsg(itemIndex int) string {
 	return fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex)
 }
 
+// Deprecated: use repository to check limit
 func (m *MessageHandlerContext) checkLimit(guildID string, newItemCount int64) error {
 	var count int64
 	if r := m.db.Model(&models.GroceryEntry{}).Where(&models.GroceryEntry{GuildID: guildID}).Count(&count); r.Error != nil {
