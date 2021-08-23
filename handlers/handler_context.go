@@ -77,7 +77,7 @@ func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList
 }
 
 func (cc *CommandContext) FmtErrInvalidGroceryList() string {
-	return fmt.Sprintf("Whoops, can't seem to find the grocery list labeled as *%s*", cc.GrocerySublist)
+	return fmt.Sprintf("Whoops, I can't seem to find the grocery list labeled as *%s*.", cc.GrocerySublist)
 }
 
 func (m *MessageHandlerContext) GetLogger() *zap.Logger {
