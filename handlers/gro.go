@@ -13,9 +13,6 @@ func (m *MessageHandlerContext) OnAdd() error {
 	if argStr == "" {
 		return m.sendMessage("Sorry, I need to know what you want to add to your grocery list :sweat_smile: (e.g. `!gro Chicken wings`)")
 	}
-	if err := m.checkLimit(guildID, 1); err != nil {
-		return m.onError(err)
-	}
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
 		if err == errGroceryListNotFound {

@@ -126,11 +126,6 @@ func (m *MessageHandlerContext) checkLimit(guildID string, newItemCount int64) e
 	return nil
 }
 
-// Deprecated: use LogError
-func (m *MessageHandlerContext) FmtErrMsg(err error) string {
-	return fmt.Sprintf("[ERROR] Command=%s GuildID=%s errMsg=%s", m.commandContext.Command, m.msg.GuildID, err.Error())
-}
-
 func (m *MessageHandlerContext) LogError(err error, extraFields ...zapcore.Field) {
 	defaultFields := []zapcore.Field{
 		zap.String("Command", m.commandContext.Command),
