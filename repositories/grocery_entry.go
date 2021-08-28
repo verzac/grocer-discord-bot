@@ -21,7 +21,7 @@ var (
 type GroceryEntryRepository interface {
 	GetByQuery(q *models.GroceryEntry) (*models.GroceryEntry, error)
 	FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error)
-	FindByGroceryList(groceryList *models.GroceryList) ([]models.GroceryEntry, error)
+	// FindByGroceryList(groceryList *models.GroceryList) ([]models.GroceryEntry, error)
 	AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
 	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
 }
@@ -44,10 +44,9 @@ func (r *GroceryEntryRepositoryImpl) GetByQuery(q *models.GroceryEntry) (*models
 func (r *GroceryEntryRepositoryImpl) FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error) {
 	entries := make([]models.GroceryEntry, 0)
 	if res := r.DB.Where(q).Find(&entries); res.Error != nil {
-		if res.Error == gorm.ErrRecordNotFound {
-			return nil, nil
+		if res.Error != gorm.ErrRecordNotFound {
+			return nil, res.Error
 		}
-		return nil, res.Error
 	}
 	return entries, nil
 }
