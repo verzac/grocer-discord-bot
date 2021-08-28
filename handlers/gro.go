@@ -15,11 +15,7 @@ func (m *MessageHandlerContext) OnAdd() error {
 	}
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
-		if err == errGroceryListNotFound {
-			return m.sendMessage(m.commandContext.FmtErrInvalidGroceryList())
-		} else {
-			return m.onError(err)
-		}
+		return m.onGetGroceryListError(err)
 	}
 	rErr := m.groceryEntryRepo.AddToGroceryList(
 		groceryList,

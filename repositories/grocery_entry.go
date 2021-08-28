@@ -23,6 +23,7 @@ type GroceryEntryRepository interface {
 	FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error)
 	FindByGroceryList(groceryList *models.GroceryList) ([]models.GroceryEntry, error)
 	AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
+	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
 }
 
 type GroceryEntryRepositoryImpl struct {
@@ -60,28 +61,51 @@ func (r *GroceryEntryRepositoryImpl) AddToGroceryList(groceryList *models.Grocer
 	if groceryList != nil && groceryList.GuildID != guildID {
 		return ErrGroceryListGuildIDMismatch
 	}
-	for _, g := range groceryEntries {
-		if g.ID > 0 {
+	for i := range groceryEntries {
+		if groceryEntries[i].ID > 0 {
 			return &RepositoryError{
 				ErrCode: ErrCodeValidationError,
-				Message: fmt.Sprintf("Whoops, *%s* seems to exist already... This shouldn't happen; could you please get in touch with my maintainer? Thank you!", g.ItemDesc),
+				Message: fmt.Sprintf(
+					"Whoops, *%s* seems to exist already... This shouldn't happen; could you please get in touch with my maintainer? Thank you!",
+					groceryEntries[i].ItemDesc,
+				),
 			}
 		}
-		g.GuildID = guildID
+		groceryEntries[i].GuildID = guildID
 		if groceryList != nil {
-			g.GroceryListID = &groceryList.ID
+			groceryEntries[i].GroceryListID = &groceryList.ID
 		}
 	}
 	if err := r.checkLimit(guildID, len(groceryEntries)); err != nil {
 		return err
 	}
-	if res := r.DB.Create(&groceryEntries); res.Error != nil {
+	if res := r.DB.Omit("GroceryList").Create(&groceryEntries); res.Error != nil {
 		return &RepositoryError{
 			ErrCode: ErrInternal,
 			Message: res.Error.Error(),
 		}
 	}
 	return nil
+}
+
+func (r *GroceryEntryRepositoryImpl) ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError) {
+	// validate
+	if groceryList != nil && groceryList.GuildID != guildID {
+		return 0, ErrGroceryListGuildIDMismatch
+	}
+	var res *gorm.DB
+	if groceryList != nil {
+		res = r.DB.Delete(models.GroceryEntry{}, "guild_id = ? AND grocery_list_id = ?", guildID, groceryList.ID)
+	} else {
+		res = r.DB.Delete(models.GroceryEntry{}, "guild_id = ? AND grocery_list_id IS NULL", guildID)
+	}
+	if res.Error != nil {
+		return 0, &RepositoryError{
+			Message: res.Error.Error(),
+			ErrCode: ErrInternal,
+		}
+	}
+	return res.RowsAffected, nil
 }
 
 func (r *GroceryEntryRepositoryImpl) checkLimit(guildID string, newItemCount int) *RepositoryError {

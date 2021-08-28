@@ -5,19 +5,13 @@ import (
 	"strings"
 
 	"github.com/verzac/grocer-discord-bot/models"
-	"github.com/verzac/grocer-discord-bot/repositories"
 )
 
 func (m *MessageHandlerContext) OnBulk() error {
 	argStr := m.commandContext.ArgStr
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
-		switch err {
-		case errGroceryListNotFound:
-			return m.sendMessage(m.commandContext.FmtErrInvalidGroceryList())
-		default:
-			return m.onError(err)
-		}
+		return m.onGetGroceryListError(err)
 	}
 	items := strings.Split(
 		strings.Trim(argStr, "\n \t"),
@@ -39,12 +33,7 @@ func (m *MessageHandlerContext) OnBulk() error {
 	if len(toInsert) > 0 {
 		rErr := m.groceryEntryRepo.AddToGroceryList(groceryList, toInsert, m.msg.GuildID)
 		if rErr != nil {
-			switch rErr.ErrCode {
-			case repositories.ErrCodeValidationError:
-				return m.sendMessage(rErr.Error())
-			default:
-				return m.onError(rErr)
-			}
+			return m.onError(rErr)
 		}
 	}
 	listLabel := "your list"

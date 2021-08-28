@@ -154,6 +154,15 @@ func (m *MessageHandlerContext) sendMessage(msg string) error {
 	return sErr
 }
 
+func (m *MessageHandlerContext) onGetGroceryListError(err error) error {
+	switch err {
+	case errGroceryListNotFound:
+		return m.sendMessage(m.commandContext.FmtErrInvalidGroceryList())
+	default:
+		return m.onError(err)
+	}
+}
+
 func toItemIndex(argStr string) (int, error) {
 	itemIndex, err := strconv.Atoi(argStr)
 	if err != nil {
