@@ -20,10 +20,11 @@ var (
 
 type GroceryEntryRepository interface {
 	GetByQuery(q *models.GroceryEntry) (*models.GroceryEntry, error)
+	GetByItemIndex(q *models.GroceryEntry, itemIndex int) (*models.GroceryEntry, error)
 	FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error)
-	// FindByGroceryList(groceryList *models.GroceryList) ([]models.GroceryEntry, error)
 	AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
 	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
+	Put(g *models.GroceryEntry) error
 }
 
 type GroceryEntryRepositoryImpl struct {
@@ -33,6 +34,17 @@ type GroceryEntryRepositoryImpl struct {
 func (r *GroceryEntryRepositoryImpl) GetByQuery(q *models.GroceryEntry) (*models.GroceryEntry, error) {
 	g := models.GroceryEntry{}
 	if res := r.DB.Where(q).Take(g); res.Error != nil {
+		if res.Error == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, res.Error
+	}
+	return &g, nil
+}
+
+func (r *GroceryEntryRepositoryImpl) GetByItemIndex(q *models.GroceryEntry, itemIndex int) (*models.GroceryEntry, error) {
+	g := models.GroceryEntry{}
+	if res := r.DB.Where(q).Offset(itemIndex - 1).First(&g); res.Error != nil {
 		if res.Error == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -105,6 +117,13 @@ func (r *GroceryEntryRepositoryImpl) ClearGroceryList(groceryList *models.Grocer
 		}
 	}
 	return res.RowsAffected, nil
+}
+
+func (r *GroceryEntryRepositoryImpl) Put(g *models.GroceryEntry) error {
+	if r := r.DB.Save(g); r.Error != nil {
+		return r.Error
+	}
+	return nil
 }
 
 func (r *GroceryEntryRepositoryImpl) checkLimit(guildID string, newItemCount int) *RepositoryError {

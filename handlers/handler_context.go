@@ -140,6 +140,14 @@ func (m *MessageHandlerContext) LogError(err error, extraFields ...zapcore.Field
 	)
 }
 
+func (m *MessageHandlerContext) onItemNotFound(itemIndex int) error {
+	err := m.sendMessage(fmtItemNotFoundErrorMsg(itemIndex))
+	if err != nil {
+		return m.onError(err)
+	}
+	return m.OnList()
+}
+
 func (m *MessageHandlerContext) sendMessage(msg string) error {
 	_, sErr := m.sess.ChannelMessageSendComplex(m.msg.ChannelID, &discordgo.MessageSend{
 		Content: msg,

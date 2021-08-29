@@ -20,19 +20,15 @@ func (m *MessageHandlerContext) OnDetail() error {
 	if groceryList != nil {
 		groceryListID = &groceryList.ID
 	}
-	groceries, err := m.groceryEntryRepo.FindByQuery(
+	g, err := m.groceryEntryRepo.GetByItemIndex(
 		&models.GroceryEntry{
 			GuildID:       m.msg.GuildID,
 			GroceryListID: groceryListID,
 		},
+		itemIndex,
 	)
 	if err != nil {
 		return m.onError(err)
 	}
-	if itemIndex > len(groceries) || itemIndex < 1 {
-		m.sendMessage(fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex))
-		return m.OnList()
-	}
-	g := groceries[itemIndex]
 	return m.sendMessage(fmt.Sprintf("Here's what you have for item #%d: %s (%s)", itemIndex, g.ItemDesc, g.GetUpdatedByString()))
 }
