@@ -114,18 +114,6 @@ func fmtItemNotFoundErrorMsg(itemIndex int) string {
 	return fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex)
 }
 
-// Deprecated: use repository to check limit
-func (m *MessageHandlerContext) checkLimit(guildID string, newItemCount int64) error {
-	var count int64
-	if r := m.db.Model(&models.GroceryEntry{}).Where(&models.GroceryEntry{GuildID: guildID}).Count(&count); r.Error != nil {
-		return r.Error
-	}
-	if count+newItemCount > groceryEntryLimit {
-		return errOverLimit
-	}
-	return nil
-}
-
 func (m *MessageHandlerContext) LogError(err error, extraFields ...zapcore.Field) {
 	defaultFields := []zapcore.Field{
 		zap.String("Command", m.commandContext.Command),
