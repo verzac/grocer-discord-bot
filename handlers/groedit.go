@@ -23,10 +23,14 @@ func (m *MessageHandlerContext) OnEdit() error {
 	}
 	newItemDesc := argTokens[1]
 	guildID := m.msg.GuildID
+	var groceryListID *uint
+	if groceryList != nil {
+		groceryListID = &groceryList.ID
+	}
 	g, err := m.groceryEntryRepo.GetByItemIndex(
 		&models.GroceryEntry{
 			GuildID:       guildID,
-			GroceryListID: &groceryList.ID,
+			GroceryListID: groceryListID,
 		},
 		itemIndex,
 	)
