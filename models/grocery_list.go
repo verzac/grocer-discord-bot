@@ -16,6 +16,9 @@ type GroceryList struct {
 }
 
 func (gl *GroceryList) GetName() string {
+	if gl == nil {
+		return "your grocery list"
+	}
 	if gl.FancyName != nil {
 		return *gl.FancyName
 	}
