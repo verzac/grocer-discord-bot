@@ -20,7 +20,7 @@ const NotFoundPage = () => {
           404 - Nani!?
         </Typography>
         <Typography align="center">
-          We can't seem to find what you were looking for :(
+          We can&apos;t seem to find what you were looking for :(
         </Typography>
         <Button component={Link} to="/" color="primary">
           Take me back!

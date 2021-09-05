@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import PageContainer from "./PageContainer";
 
 export default styled.div`
   flex: 1 0 calc(100vh - 64px);

@@ -1,13 +1,6 @@
-import {
-  AccordionDetails,
-  AccordionSummary,
-  Link,
-  Typography,
-} from "@material-ui/core";
-import ControlledAccordion from "components/ControlledAccordion";
+import { Link, Typography } from "@material-ui/core";
 import PageContainer from "components/PageContainer";
 import React from "react";
-import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
 import FactAccordion from "components/FactAccordion";
 import CommandText from "components/CommandText";
 import GeneralContentContainer from "components/GeneralContentContainer";
@@ -25,11 +18,13 @@ function PrivacyPolicyPage() {
           summary={`1. "Maintainers" = people who have full access to the underlying infrastructure that runs GroceryBot. No-one else has access.`}
           detail={
             <Typography>
-              Heyo 👋! I'm <Link href="https://github.com/verzac">verzac</Link>,
-              and I'm currently the only official maintainer of this bot. The
-              bot runs on my AWS server in Singapore, and no-one but the
-              "maintainers" have access to the underlying infrastructure
-              (including the aforementioned server) that powers the bot.
+              Heyo 👋! I&apos;m{" "}
+              <Link href="https://github.com/verzac">verzac</Link>, and I&apos;m
+              currently the only official maintainer of this bot. The bot runs
+              on my AWS server in Singapore, and no-one but the
+              &quot;maintainers&quot; have access to the underlying
+              infrastructure (including the aforementioned server) that powers
+              the bot.
             </Typography>
           }
         />
@@ -41,9 +36,9 @@ function PrivacyPolicyPage() {
                 GroceryBot processes your data given by you to the bot through
                 its commands so that it can provide you with its intended
                 services. Our policy is that NO HUMANS are allowed to manually
-                look at GroceryBot's database, unless if you have specifically
-                provided written consent (e.g. to debug an issue that you are
-                having with the bot).
+                look at GroceryBot&apos;s database, unless if you have
+                specifically provided written consent (e.g. to debug an issue
+                that you are having with the bot).
               </Typography>
               <Typography gutterBottom>
                 It is also important to note that we do aggregate and collect
@@ -51,7 +46,8 @@ function PrivacyPolicyPage() {
                 GroceryBot takes to serve up a request/command within a
                 particular period on average. Rest assured though, these data
                 are fully anonymous (i.e. from those data alone, no-one can
-                figure out who people are and what they're using the bot for).
+                figure out who people are and what they&apos;re using the bot
+                for).
               </Typography>
             </>
           }
@@ -100,10 +96,10 @@ function PrivacyPolicyPage() {
                 logs, which are always automatically deleted after 14 days.{" "}
               </Typography>
               <Typography gutterBottom>
-                While we're sad to see you go, you can type{" "}
+                While we&apos;re sad to see you go, you can type{" "}
                 <CommandText>!groreset</CommandText> to remove ALL of your data
-                from GroceryBot (except error logs, which wouldn't pop up if
-                you've never encountered an error).
+                from GroceryBot (except error logs, which wouldn&apos;t pop up
+                if you&apos;ve never encountered an error).
               </Typography>
             </>
           }

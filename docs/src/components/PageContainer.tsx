@@ -5,13 +5,12 @@ import {
   Typography,
   Link as MuiLink,
   Divider,
-  makeStyles,
 } from "@material-ui/core";
 import React, { ReactChild } from "react";
 import styled from "styled-components";
 import { Helmet } from "react-helmet";
 import "./layout.css";
-import { Link, PageProps } from "gatsby";
+import { Link } from "gatsby";
 import defaultImage from "images/grobot-logo.png";
 import { StaticImage } from "gatsby-plugin-image";
 import useSiteMetadata from "hooks/useSiteMetadata";

@@ -193,9 +193,9 @@ function IndexPage() {
                         Use <CommandText>!grohere</CommandText> in an empty
                         channel and let GroceryBot always display your latest
                         grocery list as you update them. No more typing{" "}
-                        <CommandText>!grolist</CommandText> while you're holding
-                        ten cans of tuna - just switch channels to look at your
-                        grocery list.
+                        <CommandText>!grolist</CommandText> while you&apos;re
+                        holding ten cans of tuna - just switch channels to look
+                        at your grocery list.
                       </span>
                       <Divider />
                       <FeatureCardSubText>
@@ -221,12 +221,12 @@ function IndexPage() {
                       <span>
                         Are you an aspiring developer/hacker? GroceryBot
                         responds to bot commands and webhooks, so you can
-                        automate it to your heart's content!
+                        automate it to your heart&apos;s content!
                       </span>
                       <Divider />
                       <FeatureCardSubText>
-                        (PS: the team connected someone's Google Assistant to
-                        GroceryBot - how cool is that!?)
+                        (PS: the team connected someone&apos;s Google Assistant
+                        to GroceryBot - how cool is that!?)
                       </FeatureCardSubText>
                     </>
                   }
@@ -246,8 +246,8 @@ function IndexPage() {
                     <>
                       <span>
                         We do NOT share your data with any third-parties, nor do
-                        we use your data to "improve" our services. Don't like
-                        GroceryBot? Just type{" "}
+                        we use your data to &quot;improve&quot; our services.
+                        Don&apos;t like GroceryBot? Just type{" "}
                         <CommandText>!groreset</CommandText> to remove all of
                         your data.
                       </span>
