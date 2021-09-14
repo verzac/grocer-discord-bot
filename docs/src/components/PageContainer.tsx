@@ -125,8 +125,8 @@ function PageContainer({
         <Button component={Link} to="/" variant="text" color="primary">
           Home
         </Button>
-        <Button variant="text" color="primary" disabled>
-          Docs (Coming soon!)
+        <Button component={Link} to="/docs" variant="text" color="primary">
+          Docs
         </Button>
       </AppBar>
       <RootContainer className={className} {...rootContainerProps}>
