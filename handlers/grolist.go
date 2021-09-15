@@ -22,6 +22,9 @@ func (m *MessageHandlerContext) OnList() error {
 	if strings.HasPrefix(m.commandContext.ArgStr, "new ") {
 		return m.newList()
 	}
+	if strings.HasPrefix(m.commandContext.ArgStr, "delete ") {
+		return m.deleteList()
+	}
 	return nil
 }
 
@@ -101,6 +104,41 @@ func (m *MessageHandlerContext) newList() error {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()
+}
+
+func fmtErrGroceryListNotFound(label string) string {
+	return fmt.Sprintf("Whoops, I cannot seem to find a grocery list with the name %s... Could you please try again?", label)
+}
+
+func (m *MessageHandlerContext) deleteList() error {
+	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
+	if len(splitArgs) < 2 {
+		return m.sendMessage("Sorry, I need to know which grocery list you'd like to delete. For example, you can type `!grolist delete amazon` to delete a grocery list with the label `amazon`.")
+	}
+	label := splitArgs[1]
+	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
+	if err != nil {
+		return m.onError(err)
+	}
+	if groceryList == nil {
+		return m.sendMessage(fmtErrGroceryListNotFound(label))
+	}
+	count, rErr := m.groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: m.msg.GuildID, GroceryListID: &groceryList.ID})
+	if rErr != nil {
+		return m.onError(rErr)
+	}
+	if count > 0 {
+		return m.sendMessage(fmt.Sprintf("Oops, you still have %d groceries in *%s*", count, groceryList.ListLabel))
+	}
+	if err := m.groceryListRepo.Delete(groceryList); err != nil {
+		switch err {
+		case repositories.ErrGroceryListNotFound:
+			return m.sendMessage(fmtErrGroceryListNotFound(label))
+		default:
+			return m.onError(err)
+		}
+	}
+	return m.sendMessage(fmt.Sprintf("Successfully deleted **%s**! Feel free to make new ones with `!grolist new`!", label))
 }
 
 func getGroceryListText(groceries []models.GroceryEntry, groceryList *models.GroceryList) string {

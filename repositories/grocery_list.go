@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrGroceryListDuplicate = errors.New("A grocery list with that label already exists.")
+	ErrGroceryListNotFound  = errors.New("Cannot find a grocery list with that label.")
 )
 
 var _ GroceryListRepository = &GroceryListRepositoryImpl{}
@@ -18,6 +19,7 @@ type GroceryListRepository interface {
 	FindByQuery(q *models.GroceryList) ([]models.GroceryList, error)
 	Count(q *models.GroceryList) (existingCount int64, err error)
 	CreateGroceryList(guildID string, listLabel string, fancyName string) (*models.GroceryList, error)
+	Delete(groceryList *models.GroceryList) error
 }
 
 type GroceryListRepositoryImpl struct {
@@ -78,4 +80,15 @@ func (r *GroceryListRepositoryImpl) CreateGroceryList(guildID string, listLabel 
 		return nil, res.Error
 	}
 	return &newGroceryList, nil
+}
+
+func (r *GroceryListRepositoryImpl) Delete(groceryList *models.GroceryList) error {
+	var res *gorm.DB
+	if res = r.DB.Delete(groceryList); res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrGroceryListNotFound
+	}
+	return nil
 }

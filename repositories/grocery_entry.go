@@ -25,6 +25,7 @@ type GroceryEntryRepository interface {
 	AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
 	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
 	Put(g *models.GroceryEntry) error
+	GetCount(query *models.GroceryEntry) (count int64, err *RepositoryError)
 }
 
 type GroceryEntryRepositoryImpl struct {
@@ -127,12 +128,9 @@ func (r *GroceryEntryRepositoryImpl) Put(g *models.GroceryEntry) error {
 }
 
 func (r *GroceryEntryRepositoryImpl) checkLimit(guildID string, newItemCount int) *RepositoryError {
-	var count int64
-	if r := r.DB.Model(&models.GroceryEntry{}).Where(&models.GroceryEntry{GuildID: guildID}).Count(&count); r.Error != nil {
-		return &RepositoryError{
-			ErrCode: ErrInternal,
-			Message: r.Error.Error(),
-		}
+	count, err := r.GetCount(&models.GroceryEntry{GuildID: guildID})
+	if err != nil {
+		return err
 	}
 	if count+int64(newItemCount) > groceryEntryLimit {
 		return &RepositoryError{
@@ -141,4 +139,14 @@ func (r *GroceryEntryRepositoryImpl) checkLimit(guildID string, newItemCount int
 		}
 	}
 	return nil
+}
+
+func (r *GroceryEntryRepositoryImpl) GetCount(query *models.GroceryEntry) (count int64, err *RepositoryError) {
+	if r := r.DB.Model(&models.GroceryEntry{}).Where(query).Count(&count); r.Error != nil {
+		return 0, &RepositoryError{
+			ErrCode: ErrInternal,
+			Message: r.Error.Error(),
+		}
+	}
+	return count, nil
 }
