@@ -25,6 +25,12 @@ func (m *MessageHandlerContext) OnList() error {
 	if strings.HasPrefix(m.commandContext.ArgStr, "delete ") {
 		return m.deleteList()
 	}
+	if strings.HasPrefix(m.commandContext.ArgStr, "edit-name ") {
+		return m.editList()
+	}
+	if strings.HasPrefix(m.commandContext.ArgStr, "edit-label ") {
+		return m.relabelList()
+	}
 	return nil
 }
 
@@ -82,9 +88,6 @@ func (m *MessageHandlerContext) newList() error {
 	if len(splitArgs) < 2 {
 		return m.sendMessage("Sorry, I need to know what you'd like to label your new grocery list as. For example, you can type `!grolist new amazon` to make a grocery list with the label `amazon`.")
 	}
-	// if len(splitArgs) > 2 {
-	// 	return m.sendMessage("Sorry, grocery list labels cannot contain any spaces. You can fix this by using \"-\" or \".\" to replace your spaces (e.g. `!grolist new morning market` -> `!grolist new morning-market`). PS: In the future, I'll be able to give your grocery lists custom names.")
-	// }
 	label := splitArgs[1]
 	var fancyName string
 	if len(splitArgs) >= 3 && splitArgs[2] != "" {
@@ -139,6 +142,53 @@ func (m *MessageHandlerContext) deleteList() error {
 		}
 	}
 	return m.sendMessage(fmt.Sprintf("Successfully deleted **%s**! Feel free to make new ones with `!grolist new`!", label))
+}
+
+func (m *MessageHandlerContext) editList() error {
+	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
+	if len(splitArgs) < 3 {
+		return m.sendMessage("Sorry, I need to know what you'd like to rename your grocery as. For example, you can type `!grolist edit-name amazon My Amazon Shopping List` to change a grocery list with the label `amazon` to have the name `My Amazon Shopping List`. Changing the labels themselves are done through edit-label like so: `!grolist edit-label amazon ebay`.")
+	}
+	label := splitArgs[1]
+	newFancyName := splitArgs[2]
+	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
+	if err != nil {
+		return m.onError(err)
+	}
+	if groceryList == nil {
+		return m.sendMessage(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label %s. You can make the grocery list by typing `!grolist new %s My Shopping List`.", label, label))
+	}
+	groceryList.FancyName = &newFancyName
+	if err := m.groceryListRepo.Save(groceryList); err != nil {
+		return m.onError(err)
+	}
+	return m.sendMessage(fmt.Sprintf("Successfully edited grocery list with the label %s to have the following name: %s.", label, *groceryList.FancyName))
+}
+
+func (m *MessageHandlerContext) relabelList() error {
+	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
+	if len(splitArgs) < 3 {
+		return m.sendMessage("Sorry, I need to know what you'd like to relabel your grocery as. F")
+	}
+	label := splitArgs[1]
+	newLabel := splitArgs[2]
+	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
+	if err != nil {
+		return m.onError(err)
+	}
+	if groceryList == nil {
+		return m.sendMessage(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label %s. You can make the grocery list by typing `!grolist new %s My Shopping List`.", label, label))
+	}
+	groceryList.ListLabel = newLabel
+	if err := m.groceryListRepo.Save(groceryList); err != nil {
+		return m.onError(err)
+	}
+	return m.sendMessage(fmt.Sprintf(
+		"Successfully edited grocery list with the label %s to have the following label: %s. Please ensure that you use commands with the new label! For example: `!gro:%s Chicken strips`",
+		label,
+		groceryList.ListLabel,
+		groceryList.ListLabel,
+	))
 }
 
 func getGroceryListText(groceries []models.GroceryEntry, groceryList *models.GroceryList) string {

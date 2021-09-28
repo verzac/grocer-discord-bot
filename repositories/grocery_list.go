@@ -20,6 +20,7 @@ type GroceryListRepository interface {
 	Count(q *models.GroceryList) (existingCount int64, err error)
 	CreateGroceryList(guildID string, listLabel string, fancyName string) (*models.GroceryList, error)
 	Delete(groceryList *models.GroceryList) error
+	Save(groceryList *models.GroceryList) error
 }
 
 type GroceryListRepositoryImpl struct {
@@ -83,12 +84,16 @@ func (r *GroceryListRepositoryImpl) CreateGroceryList(guildID string, listLabel 
 }
 
 func (r *GroceryListRepositoryImpl) Delete(groceryList *models.GroceryList) error {
-	var res *gorm.DB
-	if res = r.DB.Delete(groceryList); res.Error != nil {
+	res := r.DB.Delete(groceryList)
+	if res.Error != nil {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
 		return ErrGroceryListNotFound
 	}
 	return nil
+}
+
+func (r *GroceryListRepositoryImpl) Save(groceryList *models.GroceryList) error {
+	return r.DB.Save(groceryList).Error
 }
