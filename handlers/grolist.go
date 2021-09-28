@@ -141,7 +141,10 @@ func (m *MessageHandlerContext) deleteList() error {
 			return m.onError(err)
 		}
 	}
-	return m.sendMessage(fmt.Sprintf("Successfully deleted **%s**! Feel free to make new ones with `!grolist new`!", label))
+	if err := m.sendMessage(fmt.Sprintf("Successfully deleted **%s**! Feel free to make new ones with `!grolist new`!", label)); err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
 }
 
 func (m *MessageHandlerContext) editList() error {
@@ -162,7 +165,10 @@ func (m *MessageHandlerContext) editList() error {
 	if err := m.groceryListRepo.Save(groceryList); err != nil {
 		return m.onError(err)
 	}
-	return m.sendMessage(fmt.Sprintf("Successfully edited grocery list with the label %s to have the following name: %s.", label, *groceryList.FancyName))
+	if err := m.sendMessage(fmt.Sprintf("Successfully edited grocery list with the label %s to have the following name: %s.", label, *groceryList.FancyName)); err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
 }
 
 func (m *MessageHandlerContext) relabelList() error {
@@ -183,12 +189,15 @@ func (m *MessageHandlerContext) relabelList() error {
 	if err := m.groceryListRepo.Save(groceryList); err != nil {
 		return m.onError(err)
 	}
-	return m.sendMessage(fmt.Sprintf(
+	if err := m.sendMessage(fmt.Sprintf(
 		"Successfully edited grocery list with the label %s to have the following label: %s. Please ensure that you use commands with the new label! For example: `!gro:%s Chicken strips`",
 		label,
 		groceryList.ListLabel,
 		groceryList.ListLabel,
-	))
+	)); err != nil {
+		return m.onError(err)
+	}
+	return m.onEditUpdateGrohere()
 }
 
 func getGroceryListText(groceries []models.GroceryEntry, groceryList *models.GroceryList) string {
