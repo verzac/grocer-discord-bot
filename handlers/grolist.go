@@ -13,6 +13,7 @@ import (
 
 const (
 	msgCannotSaveNewGroceryList = "Whoops, can't seem to save your new grocery list. Please try again later!"
+	maxGroceryListPerServer     = 3
 )
 
 func (m *MessageHandlerContext) OnList() error {
@@ -92,6 +93,21 @@ func (m *MessageHandlerContext) newList() error {
 	var fancyName string
 	if len(splitArgs) >= 3 && splitArgs[2] != "" {
 		fancyName = splitArgs[2]
+	}
+	existingCountInGuild, err := m.groceryListRepo.Count(&models.GroceryList{GuildID: m.msg.GuildID})
+	if err != nil {
+		return m.onError(err)
+	}
+	if existingCountInGuild+1 >= maxGroceryListPerServer {
+		m.logger.Info(
+			"maxGroceryListPerServer limit hit.",
+			zap.String("GuildID", m.msg.GuildID),
+			zap.Int("maxGroceryListPerServer", maxGroceryListPerServer),
+		)
+		return m.sendMessage(fmt.Sprintf(
+			":shopping_bags: Whoops, you already have the maximum of %d grocery lists for this server. Please delete one through `!grolist delete <list label>` to make room for new ones. Alternatively, you can use `!grolist edit-label` and `!grolist edit-name` to edit your grocery list (see `!grohelp` for more details).\n\nPS: We're looking to introduce a Premium tier with higher limits!",
+			existingCountInGuild+1,
+		))
 	}
 	newGroceryList, err := m.groceryListRepo.CreateGroceryList(m.msg.GuildID, label, fancyName)
 	if err != nil {
