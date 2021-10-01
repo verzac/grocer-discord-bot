@@ -13,6 +13,7 @@ import (
 
 const (
 	msgCannotSaveNewGroceryList = "Whoops, can't seem to save your new grocery list. Please try again later!"
+	msgCmdNotFound              = ":thinking: Hmm... Not sure what you're looking for. Here are my available commands:\n`!grolist`\n`!grolist new <new list's label> <new list's fancy name - optional>`\n`!grolist:<label> delete`\n`!grolist:<label> edit-name <new fancy name>`\n`!grolist:<label> <new label>`"
 	maxGroceryListPerServer     = 3
 )
 
@@ -23,7 +24,7 @@ func (m *MessageHandlerContext) OnList() error {
 	if strings.HasPrefix(m.commandContext.ArgStr, "new ") {
 		return m.newList()
 	}
-	if strings.HasPrefix(m.commandContext.ArgStr, "delete ") {
+	if strings.HasPrefix(m.commandContext.ArgStr, "delete") {
 		return m.deleteList()
 	}
 	if strings.HasPrefix(m.commandContext.ArgStr, "edit-name ") {
@@ -32,7 +33,7 @@ func (m *MessageHandlerContext) OnList() error {
 	if strings.HasPrefix(m.commandContext.ArgStr, "edit-label ") {
 		return m.relabelList()
 	}
-	return nil
+	return m.sendMessage(msgCmdNotFound)
 }
 
 func (m *MessageHandlerContext) displayList() error {
@@ -130,11 +131,10 @@ func fmtErrGroceryListNotFound(label string) string {
 }
 
 func (m *MessageHandlerContext) deleteList() error {
-	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
-	if len(splitArgs) < 2 {
-		return m.sendMessage("Sorry, I need to know which grocery list you'd like to delete. For example, you can type `!grolist delete amazon` to delete a grocery list with the label `amazon`.")
+	label := m.commandContext.GrocerySublist
+	if label == "" {
+		return m.sendMessage(msgCmdNotFound)
 	}
-	label := splitArgs[1]
 	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
 	if err != nil {
 		return m.onError(err)
@@ -164,12 +164,15 @@ func (m *MessageHandlerContext) deleteList() error {
 }
 
 func (m *MessageHandlerContext) editList() error {
-	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
-	if len(splitArgs) < 3 {
-		return m.sendMessage("Sorry, I need to know what you'd like to rename your grocery as. For example, you can type `!grolist edit-name amazon My Amazon Shopping List` to change a grocery list with the label `amazon` to have the name `My Amazon Shopping List`. Changing the labels themselves are done through edit-label like so: `!grolist edit-label amazon ebay`.")
+	label := m.commandContext.GrocerySublist
+	if label == "" {
+		return m.sendMessage(msgCmdNotFound)
 	}
-	label := splitArgs[1]
-	newFancyName := splitArgs[2]
+	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 2)
+	if len(splitArgs) < 2 {
+		return m.sendMessage("Sorry, I need to know what you'd like to rename your grocery as. For example: `!grolist:amazon edit-name My Amazon Shopping List` to change a grocery list with the label `amazon` to have the name `My Amazon Shopping List`. Changing the labels themselves are done through edit-label like so: `!grolist edit-label amazon ebay`.")
+	}
+	newFancyName := splitArgs[1]
 	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
 	if err != nil {
 		return m.onError(err)
@@ -188,12 +191,15 @@ func (m *MessageHandlerContext) editList() error {
 }
 
 func (m *MessageHandlerContext) relabelList() error {
-	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
-	if len(splitArgs) < 3 {
-		return m.sendMessage("Sorry, I need to know what you'd like to relabel your grocery as. F")
+	label := m.commandContext.GrocerySublist
+	if label == "" {
+		return m.sendMessage(msgCmdNotFound)
 	}
-	label := splitArgs[1]
-	newLabel := splitArgs[2]
+	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 2)
+	if len(splitArgs) < 2 {
+		return m.sendMessage("Sorry, I need to know what you'd like to relabel your grocery list as. For example: `!grolist:amazon edit-label ebay` to change your `ebay` list's label to `amazon instead` (all items will be moved to the new list).")
+	}
+	newLabel := splitArgs[1]
 	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
 	if err != nil {
 		return m.onError(err)
