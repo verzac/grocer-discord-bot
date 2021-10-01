@@ -6,6 +6,18 @@ func (m *MessageHandlerContext) OnHelp() error {
 	version := m.grobotVersion
 	_, err := m.sess.ChannelMessageSendEmbed(m.msg.ChannelID, &discordgo.MessageEmbed{
 		Fields: []*discordgo.MessageEmbedField{
+			// {
+			// 	Name:  "[NEW - Multiple grocery lists] <command>:<grocery list label>",
+			// 	Value: "Runs <command> on a specific grocery list.\nExample: `!gro:amazon PS5` - adds PS5 to your server's grocery list with the label \"amazon\".",
+			// },
+			// {
+			// 	Name:  "[NEW - Multiple grocery lists] !grolist new <list label> <fancy display name - optional>",
+			// 	Value: "Creates a new grocery list for your server.\nExample: `!grolist new amazon My Amazon Shopping List` - creates a new grocery list; usable through `!gro:amazon your stuff`.",
+			// },
+			// {
+			// 	Name:  "[NEW - Multiple grocery lists] !grolist:<label> delete",
+			// 	Value: "Delete your custom grocery list.\nExample: `!grolist delete amazon` deletes the grocery list with the label \"amazon\" from your server.\n!grolist also comes with other utility functions - just type `!grolist help`.",
+			// },
 			{
 				Name:  "!grohelp",
 				Value: "Get help!",
@@ -27,6 +39,10 @@ func (m *MessageHandlerContext) OnHelp() error {
 				Value: "List all the groceries in your grocery list.",
 			},
 			{
+				Name:  "!grohere",
+				Value: "Attaches a self-updating grocery list to the current channel.",
+			},
+			{
 				Name:  "!groclear",
 				Value: "Clears your grocery list.",
 			},
@@ -35,16 +51,8 @@ func (m *MessageHandlerContext) OnHelp() error {
 				Value: "Updates item #n to a new name/entry.\nExample: `!groedit 1 Katsudon` - edits item #1 to have the entry Katsudon.",
 			},
 			{
-				Name:  "!grodeets <n>",
-				Value: "Views the full detail of item #n (e.g. who made the entry).\nExample: `!grodeets 1`",
-			},
-			{
-				Name:  "!grohere",
-				Value: "Attaches a self-updating grocery list to the current channel.",
-			},
-			{
 				Name:  "!groreset",
-				Value: "When you want to clear all of your data from this bot.",
+				Value: "When you want to clear all of your data from this bot. See our privacy policy at https://grocerybot.net/privacy-policy",
 			},
 			{
 				Name: "!grobulk",
