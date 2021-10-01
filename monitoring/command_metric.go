@@ -1,7 +1,7 @@
 package monitoring
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -53,9 +53,9 @@ func (cm *CommandMetric) Done() {
 			},
 			Namespace: &namespace,
 		}); err != nil {
-			log.Println(cm.mh.FmtErrMsg(err))
+			cm.mh.LogError(err)
 		}
 	} else if IsMonitoringEnabled() {
-		log.Printf("%s: %fms", command, completedIn)
+		cm.mh.GetLogger().Info(fmt.Sprintf("%s: %fms", command, completedIn))
 	}
 }

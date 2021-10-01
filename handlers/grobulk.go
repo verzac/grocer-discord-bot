@@ -2,13 +2,17 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/verzac/grocer-discord-bot/models"
 )
 
-func (m *MessageHandlerContext) OnBulk(argStr string) error {
+func (m *MessageHandlerContext) OnBulk() error {
+	argStr := m.commandContext.ArgStr
+	groceryList, err := m.GetGroceryListFromContext()
+	if err != nil {
+		return m.onGetGroceryListError(err)
+	}
 	items := strings.Split(
 		strings.Trim(argStr, "\n \t"),
 		"\n",
@@ -25,19 +29,18 @@ func (m *MessageHandlerContext) OnBulk(argStr string) error {
 			})
 		}
 	}
-	insertedItemsCount := int64(len(toInsert))
+	insertedItemsCount := len(toInsert)
 	if len(toInsert) > 0 {
-		if err := m.checkLimit(m.msg.GuildID, int64(len(toInsert))); err != nil {
-			return m.onError(err)
+		rErr := m.groceryEntryRepo.AddToGroceryList(groceryList, toInsert, m.msg.GuildID)
+		if rErr != nil {
+			return m.onError(rErr)
 		}
-		r := m.db.Create(&toInsert)
-		if r.Error != nil {
-			log.Println(m.FmtErrMsg(r.Error))
-			return m.sendMessage("Hmm... Cannot save your grocery list. Please try again later :)")
-		}
-		insertedItemsCount = r.RowsAffected
 	}
-	if err := m.sendMessage(fmt.Sprintf("Added %d items into your list!", insertedItemsCount)); err != nil {
+	listLabel := "your list"
+	if groceryList != nil {
+		listLabel = groceryList.GetName()
+	}
+	if err := m.sendMessage(fmt.Sprintf("Added %d items into %s!", insertedItemsCount, listLabel)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()

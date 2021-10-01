@@ -4,26 +4,31 @@ import (
 	"fmt"
 
 	"github.com/verzac/grocer-discord-bot/models"
-	"gorm.io/gorm"
 )
 
-func (m *MessageHandlerContext) OnDetail(argStr string) error {
+func (m *MessageHandlerContext) OnDetail() error {
+	argStr := m.commandContext.ArgStr
 	itemIndex, err := toItemIndex(argStr)
 	if err != nil {
 		return m.sendMessage(err.Error())
 	}
-	g := models.GroceryEntry{}
-	r := m.db.Where("guild_id = ?", m.msg.GuildID).Offset(itemIndex - 1).First(&g)
-	if r.Error != nil {
-		if r.Error == gorm.ErrRecordNotFound {
-			m.sendMessage(fmt.Sprintf("Hmm... Can't seem to find item #%d on the list :/", itemIndex))
-			return m.OnList()
-		}
-		return m.onError(r.Error)
+	groceryList, err := m.GetGroceryListFromContext()
+	if err != nil {
+		return m.onGetGroceryListError(err)
 	}
-	if r.RowsAffected == 0 {
-		msg := fmt.Sprintf("Cannot find item with index %d!", itemIndex)
-		return m.sendMessage(msg)
+	var groceryListID *uint
+	if groceryList != nil {
+		groceryListID = &groceryList.ID
+	}
+	g, err := m.groceryEntryRepo.GetByItemIndex(
+		&models.GroceryEntry{
+			GuildID:       m.msg.GuildID,
+			GroceryListID: groceryListID,
+		},
+		itemIndex,
+	)
+	if err != nil {
+		return m.onError(err)
 	}
 	return m.sendMessage(fmt.Sprintf("Here's what you have for item #%d: %s (%s)", itemIndex, g.ItemDesc, g.GetUpdatedByString()))
 }
