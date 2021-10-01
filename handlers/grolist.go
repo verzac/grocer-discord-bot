@@ -114,20 +114,20 @@ func (m *MessageHandlerContext) newList() error {
 	if err != nil {
 		switch err {
 		case repositories.ErrGroceryListDuplicate:
-			return m.sendMessage(fmt.Sprintf("Sorry, a grocery list with the label *%s* already exists for your server. Please select another label :)", label))
+			return m.sendMessage(fmt.Sprintf("Sorry, a grocery list with the label **%s** already exists for your server. Please select another label :)", label))
 		default:
 			m.LogError(err)
 			return m.sendMessage(msgCannotSaveNewGroceryList)
 		}
 	}
-	if err := m.sendMessage(fmt.Sprintf("Yay! Your new grocery list *%s* has been successfully created. Use it in a command like so to add entries to your grocery list: `gro:%s Chicken`", newGroceryList.GetName(), newGroceryList.ListLabel)); err != nil {
+	if err := m.sendMessage(fmt.Sprintf("Yay! Your new grocery list **%s** has been successfully created. Use it in a command like so to add entries to your grocery list: `gro:%s Chicken`", newGroceryList.GetName(), newGroceryList.ListLabel)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()
 }
 
 func fmtErrGroceryListNotFound(label string) string {
-	return fmt.Sprintf("Whoops, I cannot seem to find a grocery list with the name %s... Could you please try again?", label)
+	return fmt.Sprintf("Whoops, I cannot seem to find a grocery list with the label **%s**... Could you please try again?", label)
 }
 
 func (m *MessageHandlerContext) deleteList() error {
@@ -147,7 +147,7 @@ func (m *MessageHandlerContext) deleteList() error {
 		return m.onError(rErr)
 	}
 	if count > 0 {
-		return m.sendMessage(fmt.Sprintf("Oops, you still have %d groceries in *%s*", count, groceryList.ListLabel))
+		return m.sendMessage(fmt.Sprintf("Oops, you still have %d groceries in **%s**. Pro-tip: use `!groclear:%s` to clear your groceries!", count, groceryList.GetName(), groceryList.ListLabel))
 	}
 	if err := m.groceryListRepo.Delete(groceryList); err != nil {
 		switch err {
@@ -170,7 +170,7 @@ func (m *MessageHandlerContext) editList() error {
 	}
 	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 2)
 	if len(splitArgs) < 2 {
-		return m.sendMessage("Sorry, I need to know what you'd like to rename your grocery as. For example: `!grolist:amazon edit-name My Amazon Shopping List` to change a grocery list with the label `amazon` to have the name `My Amazon Shopping List`. Changing the labels themselves are done through edit-label like so: `!grolist edit-label amazon ebay`.")
+		return m.sendMessage("Sorry, I need to know what you'd like to rename your grocery as. For example: `!grolist:amazon edit-name My Amazon Shopping List` to change a grocery list with the label `amazon` to have the name \"My Amazon Shopping List\". Changing the labels themselves are done through edit-label like so: `!grolist edit-label amazon ebay`.")
 	}
 	newFancyName := splitArgs[1]
 	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
@@ -178,13 +178,13 @@ func (m *MessageHandlerContext) editList() error {
 		return m.onError(err)
 	}
 	if groceryList == nil {
-		return m.sendMessage(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label %s. You can make the grocery list by typing `!grolist new %s My Shopping List`.", label, label))
+		return m.sendMessage(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label **%s**. You can make the grocery list by typing `!grolist new %s %s`.", label, label, newFancyName))
 	}
 	groceryList.FancyName = &newFancyName
 	if err := m.groceryListRepo.Save(groceryList); err != nil {
 		return m.onError(err)
 	}
-	if err := m.sendMessage(fmt.Sprintf("Successfully edited grocery list with the label %s to have the following name: %s.", label, *groceryList.FancyName)); err != nil {
+	if err := m.sendMessage(fmt.Sprintf("Successfully edited grocery list with the label **%s** to have the following name: %s.", label, *groceryList.FancyName)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()
@@ -205,14 +205,14 @@ func (m *MessageHandlerContext) relabelList() error {
 		return m.onError(err)
 	}
 	if groceryList == nil {
-		return m.sendMessage(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label %s. You can make the grocery list by typing `!grolist new %s My Shopping List`.", label, label))
+		return m.sendMessage(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label **%s**. You can make the grocery list by typing `!grolist new %s My Shopping List`.", label, newLabel))
 	}
 	groceryList.ListLabel = newLabel
 	if err := m.groceryListRepo.Save(groceryList); err != nil {
 		return m.onError(err)
 	}
 	if err := m.sendMessage(fmt.Sprintf(
-		"Successfully edited grocery list with the label %s to have the following label: %s. Please ensure that you use commands with the new label! For example: `!gro:%s Chicken strips`",
+		"Successfully edited grocery list with the label **%s** to have the following label: **%s**. Please ensure that you use commands with the new label! For example: `!gro:%s Chicken strips`",
 		label,
 		groceryList.ListLabel,
 		groceryList.ListLabel,
