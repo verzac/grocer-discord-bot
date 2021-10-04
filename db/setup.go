@@ -15,6 +15,7 @@ import (
 
 	// loads the file:// driver for migrations
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/github"
 )
 
 func Migrate(gormDB *gorm.DB, zlogger *zap.Logger, botVersion string) error {
