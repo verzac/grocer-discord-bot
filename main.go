@@ -92,7 +92,7 @@ func main() {
 		panic(err)
 	}
 	logger.Info(fmt.Sprintf("Using %s\n", dsn))
-	db = dbUtils.Setup(dsn, logger)
+	db = dbUtils.Setup(dsn, logger, GroBotVersion)
 	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
 	d.Identify.Intents = discordgo.IntentsGuildMessages
