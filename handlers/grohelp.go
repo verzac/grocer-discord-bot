@@ -70,9 +70,9 @@ Salt
 		Title: "GroceryBot " + version,
 		Description: `
 **Release Note:**
-We've added support to !groremove items based on their name alone, so that you don't have to type !grolist and look for the entry # just to delete an item :tada:
+:eyes: Why hello there! We haven't had a release recently, but guess what: GroceryBot v2 is here! It comes with a lot of overhaul within the underyling infrastructure which would (hopefully) allow the development team to deliver a bigger and better GroceryBot for you.
 
-We're also looking into :globe_with_meridians: moving off onto a new website with better documentation for GroBot; and :robot: adding support for smart home integration. Get keen!
+Also, this update comes with a not-yet-officially-released feature that a few of us have been waiting for. If you've been lurking in our Discord server's announcement channel, you probably know what this feature is :wink:. You can already start using it if you wish to get ahead of the pack, but be warned that this is "provided as is" (unlike the other commands) and the underlying commands might break/change without notice. We expect the official release date to be a month from now, so get keen on this while we're testing the new feature in production!
 
 [Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [Web](https://grocerybot.net)
 		`,
