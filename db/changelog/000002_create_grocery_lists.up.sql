@@ -1,7 +1,8 @@
 -- grocery_lists definition
 
 CREATE TABLE `grocery_lists` (
-  `id` integer,`guild_id` text NOT NULL,
+  `id` integer,
+  `guild_id` text NOT NULL,
   `list_label` text NOT NULL,
   `fancy_name` text,
   `created_at` datetime,
@@ -11,3 +12,6 @@ CREATE TABLE `grocery_lists` (
 
 CREATE INDEX `idx_grocery_lists_list_label` ON `grocery_lists`(`list_label`);
 CREATE INDEX `idx_grocery_lists_guild_id` ON `grocery_lists`(`guild_id`);
+
+ALTER TABLE 'grocery_entries' ADD COLUMN 
+  'grocery_list_id' integer REFERENCES 'grocery_lists'('id');
