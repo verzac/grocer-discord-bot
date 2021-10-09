@@ -18,6 +18,34 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/github"
 )
 
+const prefixGithub = "github://"
+const unobfuscatedSecretCharCount = 8
+
+func obfuscateSecret(sourceURL string) string {
+	if !strings.HasPrefix(sourceURL, prefixGithub) {
+		return sourceURL
+	}
+	shouldObfuscate := false
+	buildString := ""
+	obfuscatedCharCount := 0
+	for _, r := range strings.TrimPrefix(sourceURL, prefixGithub) {
+		buildStringChar := string(r)
+		if buildStringChar == ":" {
+			shouldObfuscate = true
+		} else if buildStringChar == "@" {
+			shouldObfuscate = false
+		} else if shouldObfuscate {
+			if obfuscatedCharCount > unobfuscatedSecretCharCount {
+				buildStringChar = "*"
+			} else {
+				obfuscatedCharCount += 1
+			}
+		}
+		buildString += buildStringChar
+	}
+	return prefixGithub + buildString
+}
+
 func Migrate(gormDB *gorm.DB, zlogger *zap.Logger, botVersion string) error {
 	sourceURL := os.Getenv("GROCER_BOT_DB_SOURCE_CHANGELOG")
 	if sourceURL == "" {
@@ -34,7 +62,7 @@ func Migrate(gormDB *gorm.DB, zlogger *zap.Logger, botVersion string) error {
 	if err != nil {
 		return err
 	}
-	zlogger.Info("Running golang-migrate...", zap.String("sourceURL", sourceURL))
+	zlogger.Info("Running golang-migrate...", zap.String("sourceURL", obfuscateSecret(sourceURL)))
 	m, err := migrate.NewWithDatabaseInstance(sourceURL, "gorm.db", driver)
 	if err != nil {
 		return err
