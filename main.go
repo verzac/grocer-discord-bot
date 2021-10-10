@@ -49,6 +49,17 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
+func logPanic() {
+	if r := recover(); r != nil && logger != nil {
+		logger.Error(
+			"Fatal panic",
+			zap.Any("Panic", r),
+			zap.String("Version", GroBotVersion),
+		)
+		os.Exit(1)
+	}
+}
+
 func main() {
 	// log.SetFlags(log.LstdFlags | log.Lshortfile)
 	if GroBotVersion == "local" {
@@ -64,6 +75,7 @@ func main() {
 		}
 		logger = l
 	}
+	defer logPanic()
 	defer logger.Sync()
 	if err := godotenv.Load(); err != nil {
 		logger.Debug("Cannot load .env file: " + err.Error())

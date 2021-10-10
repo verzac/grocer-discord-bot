@@ -70,7 +70,7 @@ Salt
 		Title: "GroceryBot " + version,
 		Description: `
 **Release Note:**
-:eyes: Why hello there! We haven't had a release recently, but guess what: GroceryBot v2 is here! It comes with a lot of overhaul within the underyling infrastructure which would (hopefully) allow the development team to deliver a bigger and better GroceryBot for you.
+:eyes: Why hello there! We haven't had a release recently, but guess what: GroceryBot 2 is here! It comes with a lot of overhaul within the underyling infrastructure which would (hopefully) allow the development team to deliver a bigger and better GroceryBot for you.
 
 Also, this update comes with a not-yet-officially-released feature that a few of us have been waiting for. If you've been lurking in our Discord server's announcement channel, you probably know what this feature is :wink:. You can already start using it if you wish to get ahead of the pack, but be warned that this is "provided as is" (unlike the other commands) and the underlying commands might break/change without notice. We expect the official release date to be a month from now, so get keen on this while we're testing the new feature in production!
 
