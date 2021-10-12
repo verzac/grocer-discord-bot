@@ -301,6 +301,8 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 		err = mh.OnAttach()
 	case CmdGroReset:
 		err = mh.OnReset()
+	default:
+		err = ErrCmdNotProcessable
 	}
-	return ErrCmdNotProcessable
+	return err
 }

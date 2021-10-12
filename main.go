@@ -111,7 +111,11 @@ func main() {
 	if err := d.Open(); err != nil {
 		panic(err)
 	}
-	logger.Info("Bot is online!", zap.String("Version", GroBotVersion), zap.Bool("CloudWatchEnabled", monitoring.CloudWatchEnabled()))
+	logger.Info(
+		"Bot is online!",
+		zap.String("Version", GroBotVersion),
+		zap.Bool("CloudWatchEnabled", monitoring.CloudWatchEnabled()),
+		zap.Bool("IsMonitoringEnabled", monitoring.IsMonitoringEnabled()))
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
