@@ -13,7 +13,7 @@ import (
 
 const (
 	msgCannotSaveNewGroceryList = "Whoops, can't seem to save your new grocery list. Please try again later!"
-	msgCmdNotFound              = ":thinking: Hmm... Not sure what you're looking for. Here are my available commands:\n`!grolist`\n`!grolist new <new list's label> <new list's fancy name - optional>`\n`!grolist:<label> delete`\n`!grolist:<label> edit-name <new fancy name>`\n`!grolist:<label> <new label>`"
+	msgCmdNotFound              = ":thinking: Hmm... Not sure what you're looking for. Here are my available commands:\n`!grolist`\n`!grolist new <new list's label> <new list's fancy name - optional>`\n`!grolist:<label> delete`\n`!grolist:<label> edit-name <new fancy name>`\n`!grolist:<label> edit-label <new label>`"
 	maxGroceryListPerServer     = 3
 )
 
@@ -86,6 +86,9 @@ func (m *MessageHandlerContext) getDisplayListText(groceryLists []models.Grocery
 }
 
 func (m *MessageHandlerContext) newList() error {
+	if m.commandContext.GrocerySublist != "" {
+		return m.sendMessage(msgCmdNotFound)
+	}
 	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
 	if len(splitArgs) < 2 {
 		return m.sendMessage("Sorry, I need to know what you'd like to label your new grocery list as. For example, you can type `!grolist new amazon` to make a grocery list with the label `amazon`.")
