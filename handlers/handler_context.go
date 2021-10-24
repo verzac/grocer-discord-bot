@@ -133,7 +133,7 @@ func (m *MessageHandlerContext) onItemNotFound(itemIndex int) error {
 	if err != nil {
 		return m.onError(err)
 	}
-	return m.OnList()
+	return m.displayList()
 }
 
 func (m *MessageHandlerContext) sendMessage(msg string) error {

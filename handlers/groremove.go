@@ -7,9 +7,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/verzac/grocer-discord-bot/models"
+	"github.com/verzac/grocer-discord-bot/repositories"
 )
 
-type getItemsToRemoveType = func(args []string, groceries []models.GroceryEntry, groceryListLabel string) ([]models.GroceryEntry, error)
+type getItemsToRemoveFuncType = func(args []string, groceries []models.GroceryEntry, groceryList *models.GroceryList) ([]models.GroceryEntry, error)
 
 func (m *MessageHandlerContext) OnRemove() error {
 	argStr := m.commandContext.ArgStr
@@ -25,10 +26,15 @@ func (m *MessageHandlerContext) OnRemove() error {
 	if groceryList != nil {
 		groceryListID = &groceryList.ID
 	}
-	groceries, err := m.groceryEntryRepo.FindByQuery(&models.GroceryEntry{
-		GuildID:       m.msg.GuildID,
-		GroceryListID: groceryListID,
-	})
+	groceries, err := m.groceryEntryRepo.FindByQueryWithConfig(
+		&models.GroceryEntry{
+			GuildID:       m.msg.GuildID,
+			GroceryListID: groceryListID,
+		},
+		repositories.GroceryEntryQueryOpts{
+			IsStrongNilForGroceryListID: true,
+		},
+	)
 	if err != nil {
 		return m.onError(err)
 	}
@@ -36,13 +42,13 @@ func (m *MessageHandlerContext) OnRemove() error {
 		msg := fmt.Sprintf("Whoops, you do not have any items in %s.", groceryList.GetName())
 		return m.sendMessage(msg)
 	}
-	var getItemsToRemoveFunc getItemsToRemoveType
+	var getItemsToRemoveFunc getItemsToRemoveFuncType
 	if _, err := strconv.Atoi(args[0]); err == nil {
 		getItemsToRemoveFunc = getItemsToRemoveWithIndex
 	} else {
 		getItemsToRemoveFunc = getItemsToRemoveWithName
 	}
-	toDelete, err := getItemsToRemoveFunc(args, groceries, groceryList.GetName())
+	toDelete, err := getItemsToRemoveFunc(args, groceries, groceryList)
 	if err != nil {
 		return m.sendMessage(err.Error())
 	}
@@ -55,7 +61,7 @@ func (m *MessageHandlerContext) OnRemove() error {
 	return m.onEditUpdateGrohere()
 }
 
-func getItemsToRemoveWithName(args []string, groceries []models.GroceryEntry, groceryListLabel string) ([]models.GroceryEntry, error) {
+func getItemsToRemoveWithName(args []string, groceries []models.GroceryEntry, groceryList *models.GroceryList) ([]models.GroceryEntry, error) {
 	searchStr := strings.Join(args, " ")
 	toDelete := make([]models.GroceryEntry, 1)
 	for _, g := range groceries {
@@ -65,10 +71,10 @@ func getItemsToRemoveWithName(args []string, groceries []models.GroceryEntry, gr
 			return toDelete, nil
 		}
 	}
-	return nil, errors.New(fmt.Sprintf("Whoops, I cannot find %s in %s.", searchStr, groceryListLabel))
+	return nil, errors.New(fmt.Sprintf("Whoops, I cannot find %s in %s.", searchStr, groceryList.GetName()))
 }
 
-func getItemsToRemoveWithIndex(args []string, groceryList []models.GroceryEntry, groceryListLabel string) ([]models.GroceryEntry, error) {
+func getItemsToRemoveWithIndex(args []string, groceries []models.GroceryEntry, groceryList *models.GroceryList) ([]models.GroceryEntry, error) {
 	itemIndexes, err := getItemIndexes(args)
 	if err != nil {
 		return nil, err
@@ -77,16 +83,16 @@ func getItemsToRemoveWithIndex(args []string, groceryList []models.GroceryEntry,
 	missingIndexes := make([]int, 0, len(itemIndexes))
 	for _, itemIndex := range itemIndexes {
 		// validate
-		if itemIndex > len(groceryList) {
+		if itemIndex > len(groceries) {
 			missingIndexes = append(missingIndexes, itemIndex)
 		} else if len(missingIndexes) == 0 {
-			toDelete = append(toDelete, groceryList[itemIndex-1])
+			toDelete = append(toDelete, groceries[itemIndex-1])
 		}
 	}
 	if len(missingIndexes) > 0 {
 		return nil, errors.New(fmt.Sprintf(
 			"Whoops, we can't seem to find the following item(s) in %s: %s",
-			groceryListLabel,
+			groceryList.GetName(),
 			prettyItemIndexList(missingIndexes),
 		))
 	}

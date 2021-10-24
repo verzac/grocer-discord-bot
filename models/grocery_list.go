@@ -24,3 +24,10 @@ func (gl *GroceryList) GetName() string {
 	}
 	return gl.ListLabel
 }
+
+func (gl *GroceryList) GetID() *uint {
+	if gl != nil {
+		return &gl.ID
+	}
+	return nil
+}

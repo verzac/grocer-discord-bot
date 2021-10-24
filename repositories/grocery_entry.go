@@ -11,6 +11,10 @@ var _ GroceryEntryRepository = &GroceryEntryRepositoryImpl{}
 
 const groceryEntryLimit = 100
 
+const (
+	queryGroceryListIDIsNil = "grocery_list_id IS NULL"
+)
+
 var (
 	ErrGroceryListGuildIDMismatch = &RepositoryError{
 		ErrCode: ErrInternal,
@@ -18,10 +22,14 @@ var (
 	}
 )
 
+type GroceryEntryQueryOpts struct {
+	IsStrongNilForGroceryListID bool
+}
+
 type GroceryEntryRepository interface {
-	GetByQuery(q *models.GroceryEntry) (*models.GroceryEntry, error)
 	GetByItemIndex(q *models.GroceryEntry, itemIndex int) (*models.GroceryEntry, error)
 	FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error)
+	FindByQueryWithConfig(q *models.GroceryEntry, config GroceryEntryQueryOpts) ([]models.GroceryEntry, error)
 	AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
 	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
 	Put(g *models.GroceryEntry) error
@@ -32,20 +40,14 @@ type GroceryEntryRepositoryImpl struct {
 	DB *gorm.DB
 }
 
-func (r *GroceryEntryRepositoryImpl) GetByQuery(q *models.GroceryEntry) (*models.GroceryEntry, error) {
-	g := models.GroceryEntry{}
-	if res := r.DB.Where(q).Take(g); res.Error != nil {
-		if res.Error == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-		return nil, res.Error
-	}
-	return &g, nil
-}
-
 func (r *GroceryEntryRepositoryImpl) GetByItemIndex(q *models.GroceryEntry, itemIndex int) (*models.GroceryEntry, error) {
 	g := models.GroceryEntry{}
-	if res := r.DB.Where(q).Offset(itemIndex - 1).First(&g); res.Error != nil {
+	dbQuery := r.DB.Where(q)
+	if q.GroceryListID == nil {
+		// force, since itemIndex is only relevant for a particular grocery list
+		dbQuery = dbQuery.Where(queryGroceryListIDIsNil)
+	}
+	if res := dbQuery.Offset(itemIndex - 1).First(&g); res.Error != nil {
 		if res.Error == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
@@ -54,9 +56,13 @@ func (r *GroceryEntryRepositoryImpl) GetByItemIndex(q *models.GroceryEntry, item
 	return &g, nil
 }
 
-func (r *GroceryEntryRepositoryImpl) FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error) {
+func (r *GroceryEntryRepositoryImpl) FindByQueryWithConfig(q *models.GroceryEntry, config GroceryEntryQueryOpts) ([]models.GroceryEntry, error) {
 	entries := make([]models.GroceryEntry, 0)
-	if res := r.DB.Where(q).Find(&entries); res.Error != nil {
+	dbQuery := r.DB.Where(q)
+	if config.IsStrongNilForGroceryListID && q.GroceryListID == nil {
+		dbQuery = dbQuery.Where(queryGroceryListIDIsNil)
+	}
+	if res := dbQuery.Find(&entries); res.Error != nil {
 		if res.Error != gorm.ErrRecordNotFound {
 			return nil, res.Error
 		}
@@ -64,8 +70,8 @@ func (r *GroceryEntryRepositoryImpl) FindByQuery(q *models.GroceryEntry) ([]mode
 	return entries, nil
 }
 
-func (r *GroceryEntryRepositoryImpl) FindByGroceryList(groceryList *models.GroceryList) ([]models.GroceryEntry, error) {
-	return r.FindByQuery(&models.GroceryEntry{GroceryListID: &groceryList.ID})
+func (r *GroceryEntryRepositoryImpl) FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error) {
+	return r.FindByQueryWithConfig(q, GroceryEntryQueryOpts{})
 }
 
 func (r *GroceryEntryRepositoryImpl) AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError {

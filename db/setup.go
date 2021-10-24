@@ -77,6 +77,7 @@ func Setup(dsn string, zlogger *zap.Logger, botVersion string) *gorm.DB {
 	isDBDebugMode := os.Getenv("GROCER_BOT_DB_DEBUG")
 	logLevel := logger.Error
 	if isDBDebugMode == "true" {
+		zlogger.Info("Using DB debug mode.")
 		logLevel = logger.Info
 	}
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
