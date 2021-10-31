@@ -16,12 +16,20 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: "^1.16"
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - run: go version
       - run: go mod download
       - run: make full_e2e
         env:
           GROCER_BOT_TOKEN: ${{ secrets.GROCER_BOT_TOKEN }}
           E2E_BOT_TOKEN: ${{ secrets.E2E_BOT_TOKEN }}
-          E2E_CHANNEL_ID: "828807918396375040"
-          E2E_GROCER_BOT_ID: "815481068533973002"
+          E2E_CHANNEL_ID: "904360698140831775"
+          E2E_GROCER_BOT_ID: "904359927710113802"
           E2E_GUILD_ID: "815482602278354944"
