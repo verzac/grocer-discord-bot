@@ -14,6 +14,7 @@ import (
 const (
 	msgCannotSaveNewGroceryList = "Whoops, can't seem to save your new grocery list. Please try again later!"
 	msgCmdNotFound              = ":thinking: Hmm... Not sure what you're looking for. Here are my available commands:\n`!grolist`\n`!grolist new <new list's label> <new list's fancy name - optional>`\n`!grolist:<label> delete`\n`!grolist:<label> edit-name <new fancy name>`\n`!grolist:<label> edit-label <new label>`"
+	msgPrefixDefault            = "Here's your grocery list:"
 	maxGroceryListPerServer     = 3
 )
 
@@ -33,27 +34,91 @@ func (m *MessageHandlerContext) OnList() error {
 	if strings.HasPrefix(m.commandContext.ArgStr, "edit-label ") {
 		return m.relabelList()
 	}
+	if m.commandContext.ArgStr == "all" {
+		return m.displayListAll()
+	}
 	return m.sendMessage(msgCmdNotFound)
 }
 
-func (m *MessageHandlerContext) displayList() error {
-	msgPrefix := "Here's your grocery list:"
-	groceries, err := m.groceryEntryRepo.FindByQuery(&models.GroceryEntry{GuildID: m.msg.GuildID})
-	if err != nil {
-		return m.onError(err)
-	}
+func (m *MessageHandlerContext) displayListAll() error {
+	msgPrefix := msgPrefixDefault
+	groceries, err := m.groceryEntryRepo.FindByQuery(
+		&models.GroceryEntry{
+			GuildID: m.msg.GuildID,
+		},
+	)
+
 	groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.msg.GuildID})
 	if err != nil {
 		return m.onError(err)
+	}
+	if len(groceries) == 0 {
+		// textBody will say something along the line of "You have no grocery lists."
+		msgPrefix = ""
+	}
+	textBody, err := m.getDisplayListText(groceryLists, groceries)
+	textComponents := make([]string, 0, 3)
+	for _, textComponent := range []string{msgPrefix, textBody} {
+		// filter empty strings
+		if textComponent != "" {
+			textComponents = append(textComponents, strings.TrimRight(textComponent, "\n"))
+		}
+	}
+	return m.sendMessage(strings.Join(textComponents, "\n"))
+}
+
+func (m *MessageHandlerContext) displayList() error {
+	msgPrefix := msgPrefixDefault
+	groceryList, err := m.GetGroceryListFromContext()
+	if err != nil {
+		return m.onError(err)
+	}
+	groceries, err := m.groceryEntryRepo.FindByQueryWithConfig(
+		&models.GroceryEntry{
+			GuildID:       m.msg.GuildID,
+			GroceryListID: groceryList.GetID(),
+		},
+		repositories.GroceryEntryQueryOpts{
+			IsStrongNilForGroceryListID: true,
+		},
+	)
+	if err != nil {
+		return m.onError(err)
+	}
+	// groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.msg.GuildID})
+	// if err != nil {
+	// 	return m.onError(err)
+	// }
+	groceryLists := make([]models.GroceryList, 0, 1)
+	if groceryList != nil {
+		groceryLists = append(groceryLists, *groceryList)
 	}
 	textBody, err := m.getDisplayListText(groceryLists, groceries)
 	if err != nil {
 		return m.onError(err)
 	}
-	if len(groceries) == 0 && len(groceryLists) == 0 {
+	if len(groceries) == 0 {
+		// textBody will say something along the line of "You have no grocery lists."
 		msgPrefix = ""
 	}
-	return m.sendMessage(strings.Join([]string{msgPrefix, textBody}, "\n"))
+	msgSuffix := ""
+	groceryListCount, err := m.groceryListRepo.Count(&models.GroceryList{
+		GuildID: m.msg.GuildID,
+	})
+	if err != nil {
+		// not fatal - simply a helper to improve adoption rate
+		m.LogError(err)
+	} else if groceryListCount > 0 {
+		msgSuffix = fmt.Sprintf("\nand %d other grocery lists (use `!grolist all`).", groceryListCount)
+	}
+	textComponents := make([]string, 0, 3)
+	for _, textComponent := range []string{msgPrefix, textBody, msgSuffix} {
+		// filter empty strings
+		if textComponent != "" {
+			textComponents = append(textComponents, strings.TrimRight(textComponent, "\n"))
+		}
+	}
+	return m.sendMessage(strings.Join(textComponents, "\n"))
 }
 
 func (m *MessageHandlerContext) getDisplayListText(groceryLists []models.GroceryList, groceries []models.GroceryEntry) (string, error) {
