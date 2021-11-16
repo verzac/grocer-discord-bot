@@ -44,5 +44,5 @@ func (m *MessageHandlerContext) OnAdd() error {
 	if err != nil {
 		return m.onError(err)
 	}
-	return m.onEditUpdateGrohere()
+	return m.onEditUpdateGrohereWithGroceryList()
 }

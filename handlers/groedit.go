@@ -49,5 +49,5 @@ func (m *MessageHandlerContext) OnEdit() error {
 	if err := m.sendMessage(fmt.Sprintf("Updated item #%d on your grocery list to *%s*", itemIndex, g.ItemDesc)); err != nil {
 		return m.onError(err)
 	}
-	return m.onEditUpdateGrohere()
+	return m.onEditUpdateGrohereWithGroceryList()
 }

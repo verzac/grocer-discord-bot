@@ -17,5 +17,5 @@ func (m *MessageHandlerContext) OnClear() error {
 	if err := m.sendMessage(msg); err != nil {
 		return m.onError(err)
 	}
-	return m.onEditUpdateGrohere()
+	return m.onEditUpdateGrohereWithGroceryList()
 }

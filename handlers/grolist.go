@@ -56,7 +56,7 @@ func (m *MessageHandlerContext) displayListAll() error {
 		// textBody will say something along the line of "You have no grocery lists."
 		msgPrefix = ""
 	}
-	textBody, err := m.getDisplayListText(groceryLists, groceries)
+	textBody := m.getDisplayListText(groceryLists, groceries)
 	textComponents := make([]string, 0, 3)
 	for _, textComponent := range []string{msgPrefix, textBody} {
 		// filter empty strings
@@ -71,7 +71,7 @@ func (m *MessageHandlerContext) displayList() error {
 	msgPrefix := msgPrefixDefault
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
-		return m.onError(err)
+		return m.onGetGroceryListError(err)
 	}
 	groceries, err := m.groceryEntryRepo.FindByQueryWithConfig(
 		&models.GroceryEntry{
@@ -93,10 +93,7 @@ func (m *MessageHandlerContext) displayList() error {
 	if groceryList != nil {
 		groceryLists = append(groceryLists, *groceryList)
 	}
-	textBody, err := m.getDisplayListText(groceryLists, groceries)
-	if err != nil {
-		return m.onError(err)
-	}
+	textBody := m.getDisplayListText(groceryLists, groceries)
 	if len(groceries) == 0 {
 		// textBody will say something along the line of "You have no grocery lists."
 		msgPrefix = ""
@@ -121,10 +118,10 @@ func (m *MessageHandlerContext) displayList() error {
 	return m.sendMessage(strings.Join(textComponents, "\n"))
 }
 
-func (m *MessageHandlerContext) getDisplayListText(groceryLists []models.GroceryList, groceries []models.GroceryEntry) (string, error) {
+func (m *MessageHandlerContext) getDisplayListText(groceryLists []models.GroceryList, groceries []models.GroceryEntry) string {
 	// group by their grocerylist
 	if len(groceryLists) == 0 && len(groceries) == 0 {
-		return getNoGroceryText(""), nil
+		return getNoGroceryText("")
 	}
 	noListGroceries, groupedGroceries, listlessGroceries := utils.GroupByGroceryLists(groceryLists, groceries)
 	for _, g := range listlessGroceries {
@@ -147,7 +144,7 @@ func (m *MessageHandlerContext) getDisplayListText(groceryLists []models.Grocery
 		}
 		labeledGroceriesTxt += fmt.Sprintf(":shopping_cart: %s\n%s\n", groceryListText, getGroceryListText(g, &groceryList))
 	}
-	return strings.Join([]string{noListGroceriesTxt, labeledGroceriesTxt}, "\n"), nil
+	return strings.Join([]string{noListGroceriesTxt, labeledGroceriesTxt}, "\n")
 }
 
 func (m *MessageHandlerContext) newList() error {
@@ -217,6 +214,9 @@ func (m *MessageHandlerContext) deleteList() error {
 	if count > 0 {
 		return m.sendMessage(fmt.Sprintf("Oops, you still have %d groceries in **%s**. Pro-tip: use `!groclear:%s` to clear your groceries!", count, groceryList.GetName(), groceryList.ListLabel))
 	}
+	if err := m.onListRemoveGrohereRecord(groceryList); err != nil {
+		return m.onError(err)
+	}
 	if err := m.groceryListRepo.Delete(groceryList); err != nil {
 		switch err {
 		case repositories.ErrGroceryListNotFound:
@@ -255,7 +255,7 @@ func (m *MessageHandlerContext) editList() error {
 	if err := m.sendMessage(fmt.Sprintf("Successfully edited grocery list with the label **%s** to have the following name: %s.", label, *groceryList.FancyName)); err != nil {
 		return m.onError(err)
 	}
-	return m.onEditUpdateGrohere()
+	return m.onEditUpdateGrohereWithGroceryList()
 }
 
 func (m *MessageHandlerContext) relabelList() error {
@@ -287,7 +287,7 @@ func (m *MessageHandlerContext) relabelList() error {
 	)); err != nil {
 		return m.onError(err)
 	}
-	return m.onEditUpdateGrohere()
+	return m.onEditUpdateGrohereWithGroceryList()
 }
 
 func getGroceryListText(groceries []models.GroceryEntry, groceryList *models.GroceryList) string {

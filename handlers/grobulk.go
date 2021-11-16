@@ -43,5 +43,5 @@ func (m *MessageHandlerContext) OnBulk() error {
 	if err := m.sendMessage(fmt.Sprintf("Added %d items into %s!", insertedItemsCount, listLabel)); err != nil {
 		return m.onError(err)
 	}
-	return m.onEditUpdateGrohere()
+	return m.onEditUpdateGrohereWithGroceryList()
 }

@@ -70,6 +70,11 @@ func Migrate(gormDB *gorm.DB, zlogger *zap.Logger, botVersion string) error {
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return err
 	}
+	version, dirty, err := m.Version()
+	if err != nil {
+		return err
+	}
+	zlogger.Info("Migration applied.", zap.Uint("DBVersion", version), zap.Bool("DBDirty", dirty))
 	return nil
 }
 

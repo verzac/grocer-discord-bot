@@ -20,7 +20,7 @@ func (m *MessageHandlerContext) OnRemove() error {
 	}
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
-		return m.onError(err)
+		return m.onGetGroceryListError(err)
 	}
 	var groceryListID *uint
 	if groceryList != nil {
@@ -58,7 +58,7 @@ func (m *MessageHandlerContext) OnRemove() error {
 	if err := m.sendMessage(fmt.Sprintf("Deleted %s off %s!", prettyItems(toDelete), groceryList.GetName())); err != nil {
 		return m.onError(err)
 	}
-	return m.onEditUpdateGrohere()
+	return m.onEditUpdateGrohereWithGroceryList()
 }
 
 func getItemsToRemoveWithName(args []string, groceries []models.GroceryEntry, groceryList *models.GroceryList) ([]models.GroceryEntry, error) {
