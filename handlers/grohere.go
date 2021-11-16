@@ -103,7 +103,8 @@ func (m *MessageHandlerContext) getGrohereText(groceryLists []models.GroceryList
 		}
 	}
 	beginningText := ":shopping_cart: **AUTO GROCERY LIST** :shopping_cart::\n"
-	if isSingleList {
+	if isSingleList && len(groceryLists) != 0 {
+		// the assumption here is that if isSingleList && groceryLists is populated, then they'd have their prefixes with the list label ready, so we don't need the original prefix
 		beginningText = ""
 	}
 	lastUpdatedByText := ""
