@@ -1,4 +1,4 @@
-FROM golang:1.16-alpine AS build
+FROM golang:1.16.9-alpine AS build
 ARG version
 RUN apk add build-base
 WORKDIR /src
