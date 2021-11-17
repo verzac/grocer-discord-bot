@@ -211,7 +211,7 @@ func (m *MessageHandlerContext) onEditUpdateGrohereWithGroceryList() error {
 			if r := m.db.Delete(&record); r.Error != nil {
 				m.LogError(r.Error)
 			}
-			err := m.sendMessage(fmt.Sprintf("_Psst, I can't seem to edit the !grohere message I attached for %s. If this was not intended, please use !grohere:%s again!_", groceryList.GetName(), groceryList.ListLabel))
+			err := m.sendMessage(fmt.Sprintf("_Psst, I can't seem to edit the !grohere message I attached for %s. If this was not intended, please use !grohere%s again!_", groceryList.GetName(), groceryList.GetLabelSuffix()))
 			if err != nil {
 				m.LogError(err)
 			}

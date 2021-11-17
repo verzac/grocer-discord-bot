@@ -31,3 +31,10 @@ func (gl *GroceryList) GetID() *uint {
 	}
 	return nil
 }
+
+func (gl *GroceryList) GetLabelSuffix() string {
+	if gl == nil {
+		return ""
+	}
+	return ":" + gl.ListLabel
+}
