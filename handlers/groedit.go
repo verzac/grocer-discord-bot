@@ -46,7 +46,7 @@ func (m *MessageHandlerContext) OnEdit() error {
 		m.LogError(err)
 		return m.sendMessage("Welp, something went wrong while saving. Please try again :)")
 	}
-	if err := m.sendMessage(fmt.Sprintf("Updated item #%d on your grocery list to *%s*", itemIndex, g.ItemDesc)); err != nil {
+	if err := m.sendMessage(fmt.Sprintf("Updated item #%d on %s to *%s*", itemIndex, groceryList.GetName(), g.ItemDesc)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohereWithGroceryList()
