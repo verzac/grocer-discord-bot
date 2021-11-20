@@ -21,77 +21,16 @@ var (
 	stableGroHelpMessageEmbed = &discordgo.MessageEmbed{
 		Fields: []*discordgo.MessageEmbedField{
 			{
-				Name:  "!grohelp",
-				Value: "Get help!",
+				Name:  "<command>:<grocery list label>",
+				Value: "[NEW - Multiple grocery lists] Runs <command> on a specific grocery list.\nExample: `!gro:amazon PS5` - adds PS5 to your server's grocery list with the label \"amazon\".",
 			},
 			{
-				Name:  "!gro <name>",
-				Value: "Adds an item to your grocery list.\nExample: `!gro Chicken katsu` - adds chicken katsu to your grocery list.",
+				Name:  "!grolist new <list label> <fancy display name - optional>",
+				Value: "[NEW - Multiple grocery lists] Creates a new grocery list for your server.\nExample: `!grolist new amazon My Amazon Shopping List` - creates a new grocery list; usable through `!gro:amazon your stuff`.",
 			},
 			{
-				Name:  "!groremove <n> <m> <o>...",
-				Value: "Removes item number #n, #m, and #o from your grocery list. You can chain as many items as you want.\nExample: `!groremove 1 2` - removes item #1 and #2.",
-			},
-			{
-				Name:  "!groremove <item name>",
-				Value: "Removes an item which contains <item name> from your grocery list. The item name is case-insensitive. This will delete the first item on your list that contains <new item>.\nExample: `!groremove katsu` - removes \"Chicken katsu\"",
-			},
-			{
-				Name:  "!grolist",
-				Value: "List all the groceries in your grocery list.",
-			},
-			{
-				Name:  "!grohere",
-				Value: "Attaches a self-updating grocery list to the current channel.",
-			},
-			{
-				Name:  "!groclear",
-				Value: "Clears your grocery list.",
-			},
-			{
-				Name:  "!groedit <n> <new name>",
-				Value: "Updates item #n to a new name/entry.\nExample: `!groedit 1 Katsudon` - edits item #1 to have the entry Katsudon.",
-			},
-			{
-				Name:  "!groreset",
-				Value: "When you want to clear all of your data from this bot. See our privacy policy at https://grocerybot.net/privacy-policy",
-			},
-			{
-				Name: "!grobulk",
-				Value: `
-Adds multiple items which are separated by newlines.
-Example:
-` + "```" + `
-!grobulk
-Chicken 500g
-Soap 50ml
-Salt
-` + "```",
-			},
-		},
-		Description: `
-**Release Note:**
-:eyes: Why hello there! We haven't had a release recently, but guess what: GroceryBot 2 is here! It comes with a lot of overhaul within the underyling infrastructure which would (hopefully) allow the development team to deliver a bigger and better GroceryBot for you.
-
-Also, this update comes with a not-yet-officially-released feature that a few of us have been waiting for. If you've been lurking in our Discord server's announcement channel, you probably know what this feature is :wink:. You can already start using it if you wish to get ahead of the pack, but be warned that this is "provided as is" (unlike the other commands) and the underlying commands might break/change without notice. We expect the official release date to be a month from now, so get keen on this while we're testing the new feature in production!
-
-[Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [Web](https://grocerybot.net)
-	`,
-	}
-
-	betaGrohelpMessageEmbed = &discordgo.MessageEmbed{
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:  "[NEW - Multiple grocery lists] <command>:<grocery list label>",
-				Value: "Runs <command> on a specific grocery list.\nExample: `!gro:amazon PS5` - adds PS5 to your server's grocery list with the label \"amazon\".",
-			},
-			{
-				Name:  "[NEW - Multiple grocery lists] !grolist new <list label> <fancy display name - optional>",
-				Value: "Creates a new grocery list for your server.\nExample: `!grolist new amazon My Amazon Shopping List` - creates a new grocery list; usable through `!gro:amazon your stuff`.",
-			},
-			{
-				Name:  "[NEW - Multiple grocery lists] !grolist:<label> delete",
-				Value: "Delete your custom grocery list.\nExample: `!grolist:amazon delete` deletes the grocery list with the label \"amazon\" from your server.\n!grolist also comes with other utility functions - just type `!grolist help`.",
+				Name:  "!grolist:<label> delete",
+				Value: "[NEW - Multiple grocery lists] Delete your custom grocery list.\nExample: `!grolist:amazon delete` deletes the grocery list with the label \"amazon\" from your server.\n!grolist also comes with other utility functions - just type `!grolist help`.",
 			},
 			{
 				Name:  "!grohelp",
@@ -144,11 +83,18 @@ Salt
 		},
 		Description: `
 **Release Note:**
-:eyes: Why hello there! We haven't had a release recently, but guess what: GroceryBot 2 is here! It comes with a lot of overhaul within the underyling infrastructure which would (hopefully) allow the development team to deliver a bigger and better GroceryBot for you.
+:shopping_bags: We're proud to announce the release of multiple grocery lists for GroceryBot 2.1! 
 
-Also, this update comes with a not-yet-officially-released feature that a few of us have been waiting for. If you've been lurking in our Discord server's announcement channel, you probably know what this feature is :wink:. You can already start using it if you wish to get ahead of the pack, but be warned that this is "provided as is" (unlike the other commands) and the underlying commands might break/change without notice. We expect the official release date to be a month from now, so get keen on this while we're testing the new feature in production!
+With this new feature, you will be able to maintain multiple grocery lists within your server - perfect for when you want to have separate shopping lists for your Sunday market trip and Amazon shopping spree.
+
+All commands support this new feature with the following syntax:` + "`<command>:<list-label>` (e.g. `!gro:amazon PS5`)" + `. We can't wait for you to try out this new feature, so please let us know in our Discord server if you see any issue (or potential improvement that we can do)!
+
+**What's next?**
+Discord is planning to deprecate (i.e. effectively get rid of) the usage of traditional "message commands" on April 2022, so we're planning to add support for slash commands very soon. Don't worry though: the change should be minimal, other than replacing "!" with "/" (e.g. "/grolist").
 
 [Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [Web](https://grocerybot.net)
 	`,
 	}
+
+	betaGrohelpMessageEmbed = stableGroHelpMessageEmbed
 )
