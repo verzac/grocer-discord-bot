@@ -53,8 +53,14 @@ var (
 				Value: "List all the groceries in your grocery list.",
 			},
 			{
-				Name:  "!grohere",
-				Value: "Attaches a self-updating grocery list to the current channel.",
+				Name:   "!grohere",
+				Value:  "Attaches a self-updating grocery list for your grocery list to the current channel.",
+				Inline: true,
+			},
+			{
+				Name:   "!grohere all",
+				Value:  "Pretty much `!grohere`, except that it displays ALL of your grocery lists.",
+				Inline: true,
 			},
 			{
 				Name:  "!groclear",
