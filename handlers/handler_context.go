@@ -244,7 +244,7 @@ func GetCommandContext(body string) (*CommandContext, error) {
 	commandContext := &CommandContext{
 		Command:        command,
 		GrocerySublist: sublistLabel,
-		ArgStr:         body[argStrStartIndex:],
+		ArgStr:         strings.TrimLeft(body[argStrStartIndex:], "\n "),
 	}
 	return commandContext, nil
 }
