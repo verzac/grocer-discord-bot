@@ -103,7 +103,7 @@ func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, gro
 
 func (m *MessageHandlerContext) onError(err error) error {
 	m.LogError(err)
-	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf("Oops! Something broke:\n%s", err.Error()))
+	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf(":helmet_with_cross: Oops, something broke! Give it a day or so and it'll be fixed by the team (or you can follow up this issue with us at our Discord server!). Error:\n```\n%s\n```", err.Error()))
 	if sErr != nil {
 		m.LogError(errors.Wrap(err, sErr.Error()))
 	}
