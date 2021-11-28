@@ -43,7 +43,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 		q = q.Where("grocery_list_id IS NULL")
 	}
 	grohereRecords := make([]models.GrohereRecord, 0)
-	if r := q.Find(&grohereRecords); r.Error != nil {
+	if r := q.Find(&grohereRecords); r.Error != nil && !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 		return m.onError(r.Error)
 	}
 	for _, record := range grohereRecords {
@@ -225,6 +225,10 @@ func (m *MessageHandlerContext) onEditUpdateGrohereWithGroceryList() error {
 func (m *MessageHandlerContext) onListRemoveGrohereRecord(groceryList *models.GroceryList) error {
 	record := models.GrohereRecord{}
 	if r := m.db.Model(&models.GrohereRecord{}).Where("guild_id = ? AND grocery_list_id = ?", m.msg.GuildID, groceryList.ID).Take(&record); r.Error != nil {
+		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+			// nothing needs to be cleaned up
+			return nil
+		}
 		return m.onError(r.Error)
 	}
 	_, err := m.sess.ChannelMessageEdit(record.GrohereChannelID, record.GrohereMessageID, fmt.Sprintf(":shopping_cart: %s\n *:wave: This grocery list has been deleted. Type `!grohere:<your-new-grocery-list>` to get a self-updating message for your grocery list!*", groceryList.GetName()))
