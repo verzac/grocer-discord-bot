@@ -185,7 +185,7 @@ func (m *MessageHandlerContext) newList() error {
 			return m.sendMessage(msgCannotSaveNewGroceryList)
 		}
 	}
-	if err := m.sendMessage(fmt.Sprintf("Yay! Your new grocery list **%s** has been successfully created. Use it in a command like so to add entries to your grocery list: `gro:%s Chicken`", newGroceryList.GetName(), newGroceryList.ListLabel)); err != nil {
+	if err := m.sendMessage(fmt.Sprintf("Yay! Your new grocery list **%s** has been successfully created. Use it in a command like so to add entries to your grocery list: `!gro:%s Chicken`", newGroceryList.GetName(), newGroceryList.ListLabel)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()
