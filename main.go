@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -21,6 +23,7 @@ import (
 
 var db *gorm.DB
 var GroBotVersion string = "local"
+var BuildTimestamp string = strconv.FormatInt(time.Now().Unix(), 10)
 var cw *cloudwatch.CloudWatch
 var logger *zap.Logger
 
@@ -107,6 +110,41 @@ func main() {
 	db = dbUtils.Setup(dsn, logger, GroBotVersion)
 	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
+	d.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		buildTimestampStr, err := strconv.ParseInt(BuildTimestamp, 10, 64)
+		if err != nil {
+			logger.Error("Cannot parse BuildTimestamp when updating activity status.",
+				zap.String("Error", err.Error()),
+				zap.String("BuildTimestamp", BuildTimestamp),
+			)
+			return
+		}
+		buildTime := time.Unix(buildTimestampStr, 0)
+		activityStatusString := fmt.Sprintf(
+			"%s (Updated %s)",
+			"v2.1.4",
+			buildTime.Local().Format("Jan 2"),
+		)
+		logger.Info("Updating activity status.",
+			zap.String("NewActivity", activityStatusString),
+			zap.String("BuildTimestamp", BuildTimestamp),
+		)
+		if err := d.UpdateStatusComplex(discordgo.UpdateStatusData{
+			Status: "online",
+			Activities: []*discordgo.Activity{
+				{
+					Name: fmt.Sprintf(
+						"%s (Updated %s)",
+						GroBotVersion,
+						buildTime.Local().Format("Jan 2"),
+					),
+					Type: discordgo.ActivityTypeGame,
+				},
+			},
+		}); err != nil {
+			logger.Error(err.Error())
+		}
+	})
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 	if err := d.Open(); err != nil {
 		panic(err)
