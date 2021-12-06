@@ -122,7 +122,7 @@ func main() {
 		buildTime := time.Unix(buildTimestampStr, 0)
 		activityStatusString := fmt.Sprintf(
 			"%s (Updated %s)",
-			"v2.1.4",
+			GroBotVersion,
 			buildTime.Local().Format("Jan 2"),
 		)
 		logger.Info("Updating activity status.",
@@ -133,11 +133,7 @@ func main() {
 			Status: "online",
 			Activities: []*discordgo.Activity{
 				{
-					Name: fmt.Sprintf(
-						"%s (Updated %s)",
-						GroBotVersion,
-						buildTime.Local().Format("Jan 2"),
-					),
+					Name: activityStatusString,
 					Type: discordgo.ActivityTypeGame,
 				},
 			},
