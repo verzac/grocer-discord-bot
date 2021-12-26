@@ -331,7 +331,7 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 	default:
 		err = ErrCmdNotProcessable
 	}
-	if err != ErrCmdNotProcessable {
+	if err != nil && err != ErrCmdNotProcessable {
 		return mh.onError(err)
 	}
 	return err
