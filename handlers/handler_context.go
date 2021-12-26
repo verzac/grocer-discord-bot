@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
@@ -84,6 +86,13 @@ func (m *MessageHandlerContext) GetLogger() *zap.Logger {
 	return m.logger
 }
 
+func (m *MessageHandlerContext) getDefaultLogFields() []zapcore.Field {
+	return []zapcore.Field{
+		zap.String("Command", m.commandContext.Command),
+		zap.String("GuildID", m.msg.GuildID),
+	}
+}
+
 func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
 	cc, err := GetCommandContext(msg.Content)
 	if err != nil {
@@ -101,13 +110,38 @@ func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, gro
 	}, nil
 }
 
+// onError handles errors coming in from the handlers and sends the appropriate err resp to the user. returns an error if an error occurs during error-handling; nil otherwise
 func (m *MessageHandlerContext) onError(err error) error {
+	if discordError, ok := err.(*discordgo.RESTError); ok {
+		if discordError.Response.StatusCode == 400 {
+			discordErrorResponse := dto.DiscordError{}
+			if unmarshalErr := json.Unmarshal(discordError.ResponseBody, &discordErrorResponse); unmarshalErr != nil {
+				m.LogError(unmarshalErr)
+			} else if discordErrorResponse.Code == 50035 {
+				maxLengthExceeded := false
+				for _, e := range discordErrorResponse.Errors.Content.Errors {
+					if e.Code == "BASE_TYPE_MAX_LENGTH" {
+						maxLengthExceeded = true
+					}
+				}
+				if maxLengthExceeded {
+					m.logger.Info("Max length for message sending exceeded.", m.getDefaultLogFields()...)
+					// not a big deal, tell the user off
+					if sErr := m.sendMessage(":exploding_head: Whoops, we can't send you a reply because the reply is going to be too big! Do try clearing your grocery lists or make your items shorter, as I can only send messages (e.g. grocery lists) which are below 2000 chars."); sErr != nil {
+						m.LogError(errors.Wrap(sErr, "Cannot send message to notify the caller that the message is too long."))
+					}
+					return err
+				}
+			}
+		}
+	}
 	m.LogError(err)
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf(":helmet_with_cross: Oops, something broke! Give it a day or so and it'll be fixed by the team (or you can follow up this issue with us at our Discord server!). Error:\n```\n%s\n```", err.Error()))
 	if sErr != nil {
 		m.LogError(errors.Wrap(err, sErr.Error()))
+		return err
 	}
-	return err
+	return nil // mark it as handled
 }
 
 func fmtItemNotFoundErrorMsg(itemIndex int) string {
@@ -115,14 +149,10 @@ func fmtItemNotFoundErrorMsg(itemIndex int) string {
 }
 
 func (m *MessageHandlerContext) LogError(err error, extraFields ...zapcore.Field) {
-	defaultFields := []zapcore.Field{
-		zap.String("Command", m.commandContext.Command),
-		zap.String("GuildID", m.msg.GuildID),
-	}
 	m.GetLogger().Error(
 		err.Error(),
 		append(
-			defaultFields,
+			m.getDefaultLogFields(),
 			extraFields...,
 		)...,
 	)
@@ -144,9 +174,6 @@ func (m *MessageHandlerContext) sendMessage(msg string) error {
 			Parse: []discordgo.AllowedMentionType{},
 		},
 	})
-	if sErr != nil {
-		m.LogError(errors.Wrap(sErr, "Unable to send message."))
-	}
 	return sErr
 }
 
@@ -303,6 +330,9 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 		err = mh.OnReset()
 	default:
 		err = ErrCmdNotProcessable
+	}
+	if err != ErrCmdNotProcessable {
+		return mh.onError(err)
 	}
 	return err
 }
