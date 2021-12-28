@@ -130,7 +130,7 @@ func (m *MessageHandlerContext) onError(err error) error {
 					if sErr := m.sendMessage(":exploding_head: Whoops, we can't send you a reply because the reply is going to be too big! Do try clearing your grocery lists or make your items shorter, as I can only send messages (e.g. grocery lists) which are below 2000 chars."); sErr != nil {
 						m.LogError(errors.Wrap(sErr, "Cannot send message to notify the caller that the message is too long."))
 					}
-					return err
+					return nil
 				}
 			}
 		}
@@ -139,7 +139,7 @@ func (m *MessageHandlerContext) onError(err error) error {
 	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf(":helmet_with_cross: Oops, something broke! Give it a day or so and it'll be fixed by the team (or you can follow up this issue with us at our Discord server!). Error:\n```\n%s\n```", err.Error()))
 	if sErr != nil {
 		m.LogError(errors.Wrap(err, sErr.Error()))
-		return err
+		return sErr
 	}
 	return nil // mark it as handled
 }
