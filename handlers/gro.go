@@ -23,7 +23,7 @@ func (m *MessageHandlerContext) OnAdd() error {
 			{
 				ItemDesc:    argStr,
 				GuildID:     m.commandContext.GuildID,
-				UpdatedByID: &m.msg.Author.ID,
+				UpdatedByID: &m.commandContext.AuthorID,
 				GroceryList: groceryList,
 			},
 		},

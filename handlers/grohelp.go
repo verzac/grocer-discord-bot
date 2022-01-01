@@ -13,7 +13,7 @@ func (m *MessageHandlerContext) OnHelp() error {
 		grohelpMsgEmbed = stableGroHelpMessageEmbed
 	}
 	grohelpMsgEmbed.Title = "GroceryBot " + version
-	_, err := m.sess.ChannelMessageSendEmbed(m.msg.ChannelID, grohelpMsgEmbed)
+	_, err := m.sess.ChannelMessageSendEmbed(m.commandContext.ChannelID, grohelpMsgEmbed)
 	return err
 }
 

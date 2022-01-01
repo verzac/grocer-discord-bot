@@ -47,8 +47,8 @@ const (
 )
 
 type MessageHandlerContext struct {
-	sess             *discordgo.Session
-	msg              *discordgo.MessageCreate
+	sess *discordgo.Session
+	// msg              *discordgo.MessageCreate
 	db               *gorm.DB
 	grobotVersion    string
 	commandContext   *CommandContext
@@ -62,6 +62,8 @@ type CommandContext struct {
 	GrocerySublist string
 	ArgStr         string
 	GuildID        string
+	AuthorID       string
+	ChannelID      string
 }
 
 func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList, error) {
@@ -95,13 +97,13 @@ func (m *MessageHandlerContext) getDefaultLogFields() []zapcore.Field {
 }
 
 func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
-	cc, err := GetCommandContext(msg.Content, msg.GuildID)
+	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID)
 	if err != nil {
 		return nil, err
 	}
 	return &MessageHandlerContext{
-		sess:             sess,
-		msg:              msg,
+		sess: sess,
+		// msg:              msg,
 		db:               db,
 		grobotVersion:    grobotVersion,
 		commandContext:   cc,
@@ -137,7 +139,7 @@ func (m *MessageHandlerContext) onError(err error) error {
 		}
 	}
 	m.LogError(err)
-	_, sErr := m.sess.ChannelMessageSend(m.msg.ChannelID, fmt.Sprintf(":helmet_with_cross: Oops, something broke! Give it a day or so and it'll be fixed by the team (or you can follow up this issue with us at our Discord server!). Error:\n```\n%s\n```", err.Error()))
+	_, sErr := m.sess.ChannelMessageSend(m.commandContext.ChannelID, fmt.Sprintf(":helmet_with_cross: Oops, something broke! Give it a day or so and it'll be fixed by the team (or you can follow up this issue with us at our Discord server!). Error:\n```\n%s\n```", err.Error()))
 	if sErr != nil {
 		wrappedErr := errors.Wrap(err, sErr.Error())
 		m.LogError(wrappedErr)
@@ -169,7 +171,7 @@ func (m *MessageHandlerContext) onItemNotFound(itemIndex int) error {
 }
 
 func (m *MessageHandlerContext) sendMessage(msg string) error {
-	_, sErr := m.sess.ChannelMessageSendComplex(m.msg.ChannelID, &discordgo.MessageSend{
+	_, sErr := m.sess.ChannelMessageSendComplex(m.commandContext.ChannelID, &discordgo.MessageSend{
 		Content: msg,
 		AllowedMentions: &discordgo.MessageAllowedMentions{
 			// do not allow mentions by default
@@ -226,7 +228,7 @@ func (mh *MessageHandlerContext) GetCommand() string {
 	return mh.commandContext.Command
 }
 
-func GetCommandContext(body string, guildID string) (*CommandContext, error) {
+func GetCommandContext(body string, guildID string, authorID string, channelID string) (*CommandContext, error) {
 	if !strings.HasPrefix(body, CmdPrefix) {
 		return nil, ErrCmdNotProcessable
 	}
@@ -275,6 +277,8 @@ func GetCommandContext(body string, guildID string) (*CommandContext, error) {
 		GrocerySublist: sublistLabel,
 		ArgStr:         strings.TrimLeft(body[argStrStartIndex:], "\n "),
 		GuildID:        guildID,
+		AuthorID:       authorID,
+		ChannelID:      channelID,
 	}
 	return commandContext, nil
 }

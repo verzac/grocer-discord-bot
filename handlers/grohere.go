@@ -58,7 +58,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 			return m.onError(r.Error)
 		}
 	}
-	attachMsg, err := m.sess.ChannelMessageSend(m.msg.ChannelID, "Placeholder")
+	attachMsg, err := m.sess.ChannelMessageSend(m.commandContext.ChannelID, "Placeholder")
 	grohereRecord := models.GrohereRecord{
 		GuildID:          m.commandContext.GuildID,
 		GrohereChannelID: attachMsg.ChannelID,
@@ -77,7 +77,7 @@ func (m *MessageHandlerContext) onAttachAll() error {
 	if err := m.sendMessage("Gotcha! Attaching a self-updating grocery list to the current channel. Please stand by..."); err != nil {
 		return m.onError(err)
 	}
-	attachMsg, err := m.sess.ChannelMessageSend(m.msg.ChannelID, "Placeholder")
+	attachMsg, err := m.sess.ChannelMessageSend(m.commandContext.ChannelID, "Placeholder")
 	if err != nil {
 		return m.onError(err)
 	}

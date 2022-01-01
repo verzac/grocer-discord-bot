@@ -41,7 +41,7 @@ func (m *MessageHandlerContext) OnEdit() error {
 		return m.onItemNotFound(itemIndex)
 	}
 	g.ItemDesc = newItemDesc
-	g.UpdatedByID = &m.msg.Author.ID
+	g.UpdatedByID = &m.commandContext.AuthorID
 	if err := m.groceryEntryRepo.Put(g); err != nil {
 		m.LogError(err)
 		return m.sendMessage("Welp, something went wrong while saving. Please try again :)")

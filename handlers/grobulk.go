@@ -19,7 +19,7 @@ func (m *MessageHandlerContext) OnBulk() error {
 	)
 	toInsert := make([]models.GroceryEntry, 0, len(items))
 	for _, item := range items {
-		aID := m.msg.Author.ID
+		aID := m.commandContext.AuthorID
 		cleanedItem := strings.Trim(item, " \n\t")
 		if cleanedItem != "" {
 			toInsert = append(toInsert, models.GroceryEntry{
