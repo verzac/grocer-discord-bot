@@ -5,9 +5,8 @@ go 1.16
 require (
 	github.com/andanhm/go-prettytime v1.1.0
 	github.com/aws/aws-sdk-go v1.40.32
-	github.com/bwmarrin/discordgo v0.23.1
+	github.com/bwmarrin/discordgo v0.23.3-0.20211228023845-29269347e820
 	github.com/golang-migrate/migrate/v4 v4.15.0
-	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/mattn/go-sqlite3 v1.14.8 // indirect
 	github.com/pkg/errors v0.9.1
