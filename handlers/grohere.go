@@ -36,7 +36,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 	if err := m.sendMessage(fmt.Sprintf("Gotcha! Attaching a self-updating grocery list for **%s** to the current channel. Please stand by...", groceryList.GetName())); err != nil {
 		return m.onError(err)
 	}
-	guildID := m.msg.GuildID
+	guildID := m.commandContext.GuildID
 	groceryListID := groceryList.GetID()
 	q := m.db.Where(&models.GrohereRecord{GuildID: guildID, GroceryListID: groceryListID})
 	if groceryListID == nil {
@@ -60,7 +60,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 	}
 	attachMsg, err := m.sess.ChannelMessageSend(m.msg.ChannelID, "Placeholder")
 	grohereRecord := models.GrohereRecord{
-		GuildID:          m.msg.GuildID,
+		GuildID:          m.commandContext.GuildID,
 		GrohereChannelID: attachMsg.ChannelID,
 		GrohereMessageID: attachMsg.ID,
 		GroceryListID:    groceryList.GetID(),
@@ -82,7 +82,7 @@ func (m *MessageHandlerContext) onAttachAll() error {
 		return m.onError(err)
 	}
 	gConfig := models.GuildConfig{
-		GuildID:          m.msg.GuildID,
+		GuildID:          m.commandContext.GuildID,
 		GrohereChannelID: &attachMsg.ChannelID,
 		GrohereMessageID: &attachMsg.ID,
 	}
@@ -117,7 +117,7 @@ func (m *MessageHandlerContext) getGrohereText(groceryLists []models.GroceryList
 
 func (m *MessageHandlerContext) onEditUpdateGrohere() error {
 	gConfig := models.GuildConfig{}
-	if r := m.db.Where(&models.GuildConfig{GuildID: m.msg.GuildID}).Take(&gConfig); r.Error != nil {
+	if r := m.db.Where(&models.GuildConfig{GuildID: m.commandContext.GuildID}).Take(&gConfig); r.Error != nil {
 		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 			// ignore
 			return nil
@@ -128,7 +128,7 @@ func (m *MessageHandlerContext) onEditUpdateGrohere() error {
 	if gConfig.GrohereChannelID == nil || gConfig.GrohereMessageID == nil {
 		return nil
 	}
-	guildID := m.msg.GuildID
+	guildID := m.commandContext.GuildID
 	groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: guildID})
 	if err != nil {
 		return m.onError(err)
@@ -166,7 +166,7 @@ func (m *MessageHandlerContext) onEditUpdateGrohereWithGroceryList() error {
 		return m.onGetGroceryListError(err)
 	}
 	groceryListID := groceryList.GetID()
-	q := m.db.Where(&models.GrohereRecord{GuildID: m.msg.GuildID, GroceryListID: groceryListID})
+	q := m.db.Where(&models.GrohereRecord{GuildID: m.commandContext.GuildID, GroceryListID: groceryListID})
 	if groceryListID == nil {
 		q = q.Where("grocery_list_id IS NULL")
 	}
@@ -179,7 +179,7 @@ func (m *MessageHandlerContext) onEditUpdateGrohereWithGroceryList() error {
 		return m.onError(r.Error)
 	}
 	// marshal text
-	guildID := m.msg.GuildID
+	guildID := m.commandContext.GuildID
 	groceryLists := make([]models.GroceryList, 0, 1)
 	if groceryList != nil {
 		groceryLists = append(groceryLists, *groceryList)
@@ -224,7 +224,7 @@ func (m *MessageHandlerContext) onEditUpdateGrohereWithGroceryList() error {
 
 func (m *MessageHandlerContext) onListRemoveGrohereRecord(groceryList *models.GroceryList) error {
 	record := models.GrohereRecord{}
-	if r := m.db.Model(&models.GrohereRecord{}).Where("guild_id = ? AND grocery_list_id = ?", m.msg.GuildID, groceryList.ID).Take(&record); r.Error != nil {
+	if r := m.db.Model(&models.GrohereRecord{}).Where("guild_id = ? AND grocery_list_id = ?", m.commandContext.GuildID, groceryList.ID).Take(&record); r.Error != nil {
 		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 			// nothing needs to be cleaned up
 			return nil

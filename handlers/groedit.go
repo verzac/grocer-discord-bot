@@ -22,7 +22,7 @@ func (m *MessageHandlerContext) OnEdit() error {
 		return m.onGetGroceryListError(err)
 	}
 	newItemDesc := argTokens[1]
-	guildID := m.msg.GuildID
+	guildID := m.commandContext.GuildID
 	var groceryListID *uint
 	if groceryList != nil {
 		groceryListID = &groceryList.ID

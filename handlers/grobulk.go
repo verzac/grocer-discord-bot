@@ -24,14 +24,14 @@ func (m *MessageHandlerContext) OnBulk() error {
 		if cleanedItem != "" {
 			toInsert = append(toInsert, models.GroceryEntry{
 				ItemDesc:    cleanedItem,
-				GuildID:     m.msg.GuildID,
+				GuildID:     m.commandContext.GuildID,
 				UpdatedByID: &aID,
 			})
 		}
 	}
 	insertedItemsCount := len(toInsert)
 	if len(toInsert) > 0 {
-		rErr := m.groceryEntryRepo.AddToGroceryList(groceryList, toInsert, m.msg.GuildID)
+		rErr := m.groceryEntryRepo.AddToGroceryList(groceryList, toInsert, m.commandContext.GuildID)
 		if rErr != nil {
 			return m.onError(rErr)
 		}

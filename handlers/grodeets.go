@@ -22,7 +22,7 @@ func (m *MessageHandlerContext) OnDetail() error {
 	}
 	g, err := m.groceryEntryRepo.GetByItemIndex(
 		&models.GroceryEntry{
-			GuildID:       m.msg.GuildID,
+			GuildID:       m.commandContext.GuildID,
 			GroceryListID: groceryListID,
 		},
 		itemIndex,

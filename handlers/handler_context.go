@@ -61,13 +61,14 @@ type CommandContext struct {
 	Command        string
 	GrocerySublist string
 	ArgStr         string
+	GuildID        string
 }
 
 func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList, error) {
 	groceryListLabel := m.commandContext.GrocerySublist
 	if groceryListLabel != "" {
 		groceryList := models.GroceryList{}
-		if r := m.db.Where(&models.GroceryList{ListLabel: groceryListLabel, GuildID: m.msg.GuildID}).Take(&groceryList); r.Error != nil {
+		if r := m.db.Where(&models.GroceryList{ListLabel: groceryListLabel, GuildID: m.commandContext.GuildID}).Take(&groceryList); r.Error != nil {
 			if r.Error == gorm.ErrRecordNotFound {
 				return nil, errGroceryListNotFound
 			}
@@ -89,12 +90,12 @@ func (m *MessageHandlerContext) GetLogger() *zap.Logger {
 func (m *MessageHandlerContext) getDefaultLogFields() []zapcore.Field {
 	return []zapcore.Field{
 		zap.String("Command", m.commandContext.Command),
-		zap.String("GuildID", m.msg.GuildID),
+		zap.String("GuildID", m.commandContext.GuildID),
 	}
 }
 
 func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
-	cc, err := GetCommandContext(msg.Content)
+	cc, err := GetCommandContext(msg.Content, msg.GuildID)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +226,7 @@ func (mh *MessageHandlerContext) GetCommand() string {
 	return mh.commandContext.Command
 }
 
-func GetCommandContext(body string) (*CommandContext, error) {
+func GetCommandContext(body string, guildID string) (*CommandContext, error) {
 	if !strings.HasPrefix(body, CmdPrefix) {
 		return nil, ErrCmdNotProcessable
 	}
@@ -273,6 +274,7 @@ func GetCommandContext(body string) (*CommandContext, error) {
 		Command:        command,
 		GrocerySublist: sublistLabel,
 		ArgStr:         strings.TrimLeft(body[argStrStartIndex:], "\n "),
+		GuildID:        guildID,
 	}
 	return commandContext, nil
 }
@@ -283,7 +285,7 @@ func (m *MessageHandlerContext) Recover() {
 			"Panic encountered! Recovering...",
 			zap.Any("Panic", r),
 			zap.String("Command", m.commandContext.Command),
-			zap.String("GuildID", m.msg.GuildID),
+			zap.String("GuildID", m.commandContext.GuildID),
 			zap.Stack("Stack"),
 		)
 		m.onError(errPanic)

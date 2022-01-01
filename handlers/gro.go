@@ -8,7 +8,7 @@ import (
 )
 
 func (m *MessageHandlerContext) OnAdd() error {
-	guildID := m.msg.GuildID
+	guildID := m.commandContext.GuildID
 	argStr := m.commandContext.ArgStr
 	if argStr == "" {
 		return m.sendMessage("Sorry, I need to know what you want to add to your grocery list :sweat_smile: (e.g. `!gro Chicken wings`)")
@@ -22,7 +22,7 @@ func (m *MessageHandlerContext) OnAdd() error {
 		[]models.GroceryEntry{
 			{
 				ItemDesc:    argStr,
-				GuildID:     m.msg.GuildID,
+				GuildID:     m.commandContext.GuildID,
 				UpdatedByID: &m.msg.Author.ID,
 				GroceryList: groceryList,
 			},

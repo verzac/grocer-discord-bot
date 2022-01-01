@@ -9,7 +9,7 @@ func (m *MessageHandlerContext) OnClear() error {
 	if err != nil {
 		return m.onGetGroceryListError(err)
 	}
-	rowsAffected, rErr := m.groceryEntryRepo.ClearGroceryList(groceryList, m.msg.GuildID)
+	rowsAffected, rErr := m.groceryEntryRepo.ClearGroceryList(groceryList, m.commandContext.GuildID)
 	if rErr != nil {
 		return m.onError(rErr)
 	}

@@ -44,11 +44,11 @@ func (m *MessageHandlerContext) displayListAll() error {
 	msgPrefix := msgPrefixDefault
 	groceries, err := m.groceryEntryRepo.FindByQuery(
 		&models.GroceryEntry{
-			GuildID: m.msg.GuildID,
+			GuildID: m.commandContext.GuildID,
 		},
 	)
 
-	groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.msg.GuildID})
+	groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.commandContext.GuildID})
 	if err != nil {
 		return m.onError(err)
 	}
@@ -75,7 +75,7 @@ func (m *MessageHandlerContext) displayList() error {
 	}
 	groceries, err := m.groceryEntryRepo.FindByQueryWithConfig(
 		&models.GroceryEntry{
-			GuildID:       m.msg.GuildID,
+			GuildID:       m.commandContext.GuildID,
 			GroceryListID: groceryList.GetID(),
 		},
 		repositories.GroceryEntryQueryOpts{
@@ -85,7 +85,7 @@ func (m *MessageHandlerContext) displayList() error {
 	if err != nil {
 		return m.onError(err)
 	}
-	// groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.msg.GuildID})
+	// groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.commandContext.GuildID})
 	// if err != nil {
 	// 	return m.onError(err)
 	// }
@@ -100,7 +100,7 @@ func (m *MessageHandlerContext) displayList() error {
 	}
 	msgSuffix := ""
 	groceryListCount, err := m.groceryListRepo.Count(&models.GroceryList{
-		GuildID: m.msg.GuildID,
+		GuildID: m.commandContext.GuildID,
 	})
 	if err != nil {
 		// not fatal - simply a helper to improve adoption rate
@@ -160,14 +160,14 @@ func (m *MessageHandlerContext) newList() error {
 	if len(splitArgs) >= 3 && splitArgs[2] != "" {
 		fancyName = splitArgs[2]
 	}
-	existingCountInGuild, err := m.groceryListRepo.Count(&models.GroceryList{GuildID: m.msg.GuildID})
+	existingCountInGuild, err := m.groceryListRepo.Count(&models.GroceryList{GuildID: m.commandContext.GuildID})
 	if err != nil {
 		return m.onError(err)
 	}
 	if existingCountInGuild+1 >= maxGroceryListPerServer {
 		m.logger.Info(
 			"maxGroceryListPerServer limit hit.",
-			zap.String("GuildID", m.msg.GuildID),
+			zap.String("GuildID", m.commandContext.GuildID),
 			zap.Int("maxGroceryListPerServer", maxGroceryListPerServer),
 		)
 		return m.sendMessage(fmt.Sprintf(
@@ -175,7 +175,7 @@ func (m *MessageHandlerContext) newList() error {
 			existingCountInGuild+1,
 		))
 	}
-	newGroceryList, err := m.groceryListRepo.CreateGroceryList(m.msg.GuildID, label, fancyName)
+	newGroceryList, err := m.groceryListRepo.CreateGroceryList(m.commandContext.GuildID, label, fancyName)
 	if err != nil {
 		switch err {
 		case repositories.ErrGroceryListDuplicate:
@@ -207,7 +207,7 @@ func (m *MessageHandlerContext) deleteList() error {
 	if groceryList == nil {
 		return m.sendMessage(fmtErrGroceryListNotFound(label))
 	}
-	count, rErr := m.groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: m.msg.GuildID, GroceryListID: &groceryList.ID})
+	count, rErr := m.groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: m.commandContext.GuildID, GroceryListID: &groceryList.ID})
 	if rErr != nil {
 		return m.onError(rErr)
 	}

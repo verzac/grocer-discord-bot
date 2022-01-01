@@ -28,7 +28,7 @@ func (m *MessageHandlerContext) OnRemove() error {
 	}
 	groceries, err := m.groceryEntryRepo.FindByQueryWithConfig(
 		&models.GroceryEntry{
-			GuildID:       m.msg.GuildID,
+			GuildID:       m.commandContext.GuildID,
 			GroceryListID: groceryListID,
 		},
 		repositories.GroceryEntryQueryOpts{
