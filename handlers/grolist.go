@@ -287,6 +287,8 @@ func (m *MessageHandlerContext) relabelList() error {
 	)); err != nil {
 		return m.onError(err)
 	}
+	// since it's re-labeled, have commandContext be updated with the new label
+	m.commandContext.GrocerySublist = newLabel
 	return m.onEditUpdateGrohereWithGroceryList()
 }
 
