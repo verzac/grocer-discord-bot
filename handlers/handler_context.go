@@ -21,13 +21,14 @@ const groceryEntryLimit = 100
 const maxCmdCharsProcessedBeforeGivingUp = 48
 
 var (
-	errCannotConvertInt    = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
-	errNotValidListNumber  = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
-	errOverLimit           = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
-	errPanic               = errors.New("Hmm... Something broke on my end. Please try again later.")
-	errCmdOverLimit        = errors.New(fmt.Sprintf("Command is too long and exceeds the predefined limit (%d).", maxCmdCharsProcessedBeforeGivingUp))
-	errGroceryListNotFound = errors.New("Cannot find grocery list from context.")
-	ErrCmdNotProcessable   = errors.New("Command is not a GroceryBot command.")
+	errCannotConvertInt           = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
+	errNotValidListNumber         = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
+	errOverLimit                  = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
+	errPanic                      = errors.New("Hmm... Something broke on my end. Please try again later.")
+	errCmdOverLimit               = errors.New(fmt.Sprintf("Command is too long and exceeds the predefined limit (%d).", maxCmdCharsProcessedBeforeGivingUp))
+	errGroceryListNotFound        = errors.New("Cannot find grocery list from context.")
+	ErrCmdNotProcessable          = errors.New("Command is not a GroceryBot command.")
+	ErrMessageSourceNotRecognised = errors.New("No valid message source is detected. ")
 )
 
 const CmdPrefix = "!gro"
@@ -46,6 +47,12 @@ const (
 	CmdGroReset  = "!groreset"
 )
 
+// Defines the enums to determine where the command is invoked from
+const (
+	CommandSourceMessageContent = iota
+	CommandSourceSlashCommand
+)
+
 type MessageHandlerContext struct {
 	sess *discordgo.Session
 	// msg              *discordgo.MessageCreate
@@ -55,6 +62,7 @@ type MessageHandlerContext struct {
 	logger           *zap.Logger
 	groceryEntryRepo repositories.GroceryEntryRepository
 	groceryListRepo  repositories.GroceryListRepository
+	replyCounter     int
 }
 
 type CommandContext struct {
@@ -64,6 +72,34 @@ type CommandContext struct {
 	GuildID        string
 	AuthorID       string
 	ChannelID      string
+	// see CommandSource* const above
+	CommandSourceType int
+	// nil if CommandSourceType != CommandSourceSlashCommand, ACCESS SPARINGLY
+	Interaction *discordgo.Interaction
+}
+
+func (m *MessageHandlerContext) reply(msg string) error {
+	if m.replyCounter > 0 {
+		m.logger.Warn(
+			"Handler has already replied (this shouldn't happen).",
+			append([]zap.Field{zap.Int("ReplyCounter", m.replyCounter)}, m.getDefaultLogFields()...)...,
+		)
+	}
+	switch m.commandContext.CommandSourceType {
+	case CommandSourceMessageContent:
+		m.replyCounter += 1
+		return m.sendMessage(msg)
+	case CommandSourceSlashCommand:
+		m.replyCounter += 1
+		return m.sess.InteractionRespond(m.commandContext.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: msg,
+			},
+		})
+	default:
+		return ErrMessageSourceNotRecognised
+	}
 }
 
 func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList, error) {
@@ -96,7 +132,7 @@ func (m *MessageHandlerContext) getDefaultLogFields() []zapcore.Field {
 	}
 }
 
-func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
+func NewMessageHandler(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
 	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID)
 	if err != nil {
 		return nil, err
@@ -111,6 +147,18 @@ func New(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, gro
 		groceryEntryRepo: &repositories.GroceryEntryRepositoryImpl{DB: db},
 		groceryListRepo:  &repositories.GroceryListRepositoryImpl{DB: db},
 	}, nil
+}
+
+func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobotVersion string, logger *zap.Logger) *MessageHandlerContext {
+	return &MessageHandlerContext{
+		sess:             sess,
+		db:               db,
+		grobotVersion:    grobotVersion,
+		commandContext:   cc,
+		logger:           logger,
+		groceryEntryRepo: &repositories.GroceryEntryRepositoryImpl{DB: db},
+		groceryListRepo:  &repositories.GroceryListRepositoryImpl{DB: db},
+	}
 }
 
 // onError handles errors coming in from the handlers and sends the appropriate err resp to the user. returns an error if an error occurs during error-handling; nil otherwise
@@ -130,7 +178,7 @@ func (m *MessageHandlerContext) onError(err error) error {
 				if maxLengthExceeded {
 					m.logger.Info("Max length for message sending exceeded.", m.getDefaultLogFields()...)
 					// not a big deal, tell the user off
-					if sErr := m.sendMessage(":exploding_head: Whoops, we can't send you a reply because the reply is going to be too big! Do try clearing your grocery lists or make your items shorter, as I can only send messages (e.g. grocery lists) which are below 2000 chars."); sErr != nil {
+					if sErr := m.reply(":exploding_head: Whoops, we can't send you a reply because the reply is going to be too big! Do try clearing your grocery lists or make your items shorter, as I can only send messages (e.g. grocery lists) which are below 2000 chars."); sErr != nil {
 						m.LogError(errors.Wrap(sErr, "Cannot send message to notify the caller that the message is too long."))
 					}
 					return nil
@@ -273,12 +321,13 @@ func GetCommandContext(body string, guildID string, authorID string, channelID s
 		argStrStartIndex = loopIndex + 1
 	}
 	commandContext := &CommandContext{
-		Command:        command,
-		GrocerySublist: sublistLabel,
-		ArgStr:         strings.TrimLeft(body[argStrStartIndex:], "\n "),
-		GuildID:        guildID,
-		AuthorID:       authorID,
-		ChannelID:      channelID,
+		Command:           command,
+		GrocerySublist:    sublistLabel,
+		ArgStr:            strings.TrimLeft(body[argStrStartIndex:], "\n "),
+		GuildID:           guildID,
+		AuthorID:          authorID,
+		ChannelID:         channelID,
+		CommandSourceType: CommandSourceMessageContent,
 	}
 	return commandContext, nil
 }

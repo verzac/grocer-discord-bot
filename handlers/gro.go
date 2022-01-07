@@ -11,7 +11,7 @@ func (m *MessageHandlerContext) OnAdd() error {
 	guildID := m.commandContext.GuildID
 	argStr := m.commandContext.ArgStr
 	if argStr == "" {
-		return m.sendMessage("Sorry, I need to know what you want to add to your grocery list :sweat_smile: (e.g. `!gro Chicken wings`)")
+		return m.reply("Sorry, I need to know what you want to add to your grocery list :sweat_smile: (e.g. `!gro Chicken wings`)")
 	}
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
@@ -31,7 +31,7 @@ func (m *MessageHandlerContext) OnAdd() error {
 	if rErr != nil {
 		switch rErr.ErrCode {
 		case repositories.ErrCodeValidationError:
-			return m.sendMessage(rErr.Error())
+			return m.reply(rErr.Error())
 		default:
 			return m.onError(rErr)
 		}
@@ -40,7 +40,7 @@ func (m *MessageHandlerContext) OnAdd() error {
 	if groceryList != nil {
 		groceryListName = groceryList.GetName()
 	}
-	err = m.sendMessage(fmt.Sprintf("Added *%s* into %s!", argStr, groceryListName))
+	err = m.reply(fmt.Sprintf("Added *%s* into %s!", argStr, groceryListName))
 	if err != nil {
 		return m.onError(err)
 	}

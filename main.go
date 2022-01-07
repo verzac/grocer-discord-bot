@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	dbUtils "github.com/verzac/grocer-discord-bot/db"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/handlers/slash"
 	"github.com/verzac/grocer-discord-bot/monitoring"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -32,7 +33,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	mh, err := handlers.New(s, m, db, GroBotVersion, logger)
+	mh, err := handlers.NewMessageHandler(s, m, db, GroBotVersion, logger)
 	if err == handlers.ErrCmdNotProcessable {
 		return
 	}
@@ -145,6 +146,22 @@ func main() {
 	if err := d.Open(); err != nil {
 		panic(err)
 	}
+	// NOT FATAL SINCE SLASH COMMANDS ARE OPTIONAL
+	if err := slash.Cleanup(d); err != nil {
+		logger.Error("Cannot cleanup slash commands", zap.Any("Error", err))
+	} else {
+		err, cleanupSlashCommands := slash.Register(d, db, logger, GroBotVersion)
+		if err != nil {
+			logger.Error("Cannot register slash commands", zap.Any("Error", err))
+		}
+		logger.Info("Registered slash commands successfully!")
+		defer func() {
+			if err := cleanupSlashCommands(GroBotVersion == "local"); err != nil {
+				logger.Error("Cannot cleanup previously-registered slash commands", zap.Any("Error", err))
+			}
+		}()
+	}
+
 	logger.Info(
 		"Bot is online!",
 		zap.String("Version", GroBotVersion),
