@@ -16,9 +16,10 @@ var (
 type argStrMarshaller = func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error)
 
 type slashCommandHandlerMetadata struct {
-	// maintains compatibility with
+	// maintains compatibility with the legacy command handlers
 	customArgStrMarshaller argStrMarshaller
-	mainInputOptionKey     string
+	// determines which option to extract the argStr from
+	mainInputOptionKey string
 }
 
 var (
@@ -43,9 +44,34 @@ var (
 				defaultListLabelOption,
 			},
 		},
+		{
+			Name:        "groclear",
+			Description: "Clears your grocery list",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				defaultListLabelOption,
+			},
+		},
+		{
+			Name:        "groremove",
+			Description: "Removes a grocery entry",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "entry",
+					Description: "The grocery entry or entry # to be removed.",
+					Required:    true,
+				},
+				defaultListLabelOption,
+			},
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
+			mainInputOptionKey: "entry",
+		},
+		"groremove": {
 			mainInputOptionKey: "entry",
 		},
 	}
@@ -95,17 +121,17 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		listLabel := getListLabelFromOptions(commandData.Options)
 		argStrMarshaller := defaultSlashCommandArgStrMarshaller
 		commandMetadata, ok := commandsMetadata[commandData.Name]
-		if !ok {
-			onHandlingErrorRespond(logger, sess, i.Interaction)
-			return
-		}
-		if commandMetadata.customArgStrMarshaller != nil {
-			argStrMarshaller = commandMetadata.customArgStrMarshaller
-		}
-		argStr, err := argStrMarshaller(commandData.Options, &commandMetadata)
-		if err != nil {
-			onHandlingErrorRespond(logger, sess, i.Interaction)
-			return
+		argStr := ""
+		if ok {
+			if commandMetadata.customArgStrMarshaller != nil {
+				argStrMarshaller = commandMetadata.customArgStrMarshaller
+			}
+			marshalledArgStr, err := argStrMarshaller(commandData.Options, &commandMetadata)
+			if err != nil {
+				onHandlingErrorRespond(logger, sess, i.Interaction)
+				return
+			}
+			argStr = marshalledArgStr
 		}
 		handler := handlers.NewHandler(sess, &handlers.CommandContext{
 			Command:           command,

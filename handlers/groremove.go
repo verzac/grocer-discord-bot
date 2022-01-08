@@ -40,7 +40,7 @@ func (m *MessageHandlerContext) OnRemove() error {
 	}
 	if len(groceries) == 0 {
 		msg := fmt.Sprintf("Whoops, you do not have any items in %s.", groceryList.GetName())
-		return m.sendMessage(msg)
+		return m.reply(msg)
 	}
 	var getItemsToRemoveFunc getItemsToRemoveFuncType
 	if _, err := strconv.Atoi(args[0]); err == nil {
@@ -50,12 +50,12 @@ func (m *MessageHandlerContext) OnRemove() error {
 	}
 	toDelete, err := getItemsToRemoveFunc(args, groceries, groceryList)
 	if err != nil {
-		return m.sendMessage(err.Error())
+		return m.reply(err.Error())
 	}
 	if rDel := m.db.Delete(toDelete); rDel.Error != nil {
 		return m.onError(rDel.Error)
 	}
-	if err := m.sendMessage(fmt.Sprintf("Deleted %s off %s!", prettyItems(toDelete), groceryList.GetName())); err != nil {
+	if err := m.reply(fmt.Sprintf("Deleted %s off %s!", prettyItems(toDelete), groceryList.GetName())); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohereWithGroceryList()
