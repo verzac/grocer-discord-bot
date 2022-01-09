@@ -89,10 +89,17 @@ var (
 			},
 		},
 		{
-			// need to figure out how to send embeds in slash command replies
 			Name:        "grohelp",
 			Description: "Get help!",
 			Type:        discordgo.ChatApplicationCommand,
+		},
+		{
+			Name:        "grolist",
+			Description: "View your current grocery list.",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				defaultListLabelOption,
+			},
 		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
