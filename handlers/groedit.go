@@ -11,11 +11,11 @@ func (m *MessageHandlerContext) OnEdit() error {
 	argStr := m.commandContext.ArgStr
 	argTokens := strings.SplitN(argStr, " ", 2)
 	if len(argTokens) != 2 {
-		return m.sendMessage(fmt.Sprintf("Oops, I can't seem to understand you. Perhaps try typing **!groedit 1 Whatever you want the name of this entry to be**?"))
+		return m.reply(fmt.Sprintf("Oops, I can't seem to understand you. Perhaps try typing **!groedit 1 Whatever you want the name of this entry to be**?"))
 	}
 	itemIndex, err := toItemIndex(argTokens[0])
 	if err != nil {
-		return m.sendMessage(err.Error())
+		return m.reply(err.Error())
 	}
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
@@ -44,9 +44,9 @@ func (m *MessageHandlerContext) OnEdit() error {
 	g.UpdatedByID = &m.commandContext.AuthorID
 	if err := m.groceryEntryRepo.Put(g); err != nil {
 		m.LogError(err)
-		return m.sendMessage("Welp, something went wrong while saving. Please try again :)")
+		return m.reply("Welp, something went wrong while saving. Please try again :)")
 	}
-	if err := m.sendMessage(fmt.Sprintf("Updated item #%d on %s to *%s*", itemIndex, groceryList.GetName(), g.ItemDesc)); err != nil {
+	if err := m.reply(fmt.Sprintf("Updated item #%d on %s to *%s*", itemIndex, groceryList.GetName(), g.ItemDesc)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohereWithGroceryList()

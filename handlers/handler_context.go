@@ -78,13 +78,17 @@ type CommandContext struct {
 	Interaction *discordgo.Interaction
 }
 
-func (m *MessageHandlerContext) reply(msg string) error {
+func (m *MessageHandlerContext) checkReplyCounter() {
 	if m.replyCounter > 0 {
 		m.logger.Warn(
 			"Handler has already replied (this shouldn't happen).",
 			append([]zap.Field{zap.Int("ReplyCounter", m.replyCounter)}, m.getDefaultLogFields()...)...,
 		)
 	}
+}
+
+func (m *MessageHandlerContext) reply(msg string) error {
+	m.checkReplyCounter()
 	switch m.commandContext.CommandSourceType {
 	case CommandSourceMessageContent:
 		m.replyCounter += 1
@@ -95,6 +99,26 @@ func (m *MessageHandlerContext) reply(msg string) error {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: msg,
+			},
+		})
+	default:
+		return ErrMessageSourceNotRecognised
+	}
+}
+
+func (m *MessageHandlerContext) replyWithEmbed(embed *discordgo.MessageEmbed) error {
+	m.checkReplyCounter()
+	switch m.commandContext.CommandSourceType {
+	case CommandSourceMessageContent:
+		m.replyCounter += 1
+		_, err := m.sess.ChannelMessageSendEmbed(m.commandContext.ChannelID, embed)
+		return err
+	case CommandSourceSlashCommand:
+		m.replyCounter += 1
+		return m.sess.InteractionRespond(m.commandContext.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Embeds: []*discordgo.MessageEmbed{embed},
 			},
 		})
 	default:

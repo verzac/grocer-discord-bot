@@ -2,6 +2,7 @@ package slash
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
@@ -10,7 +11,8 @@ import (
 )
 
 var (
-	ErrMissingSlashCommandOption = errors.New("Cannot find slash command option.")
+	ErrMissingSlashCommandOption            = errors.New("Cannot find slash command option.")
+	ErrMissingOptionKeyForDefaultMarshaller = errors.New("Cannot find mainInputOptionKey, which is required if the default marshaller is used.")
 )
 
 type argStrMarshaller = func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error)
@@ -60,11 +62,37 @@ var (
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "entry",
-					Description: "The grocery entry or entry # to be removed.",
+					Description: "The grocery entry (or entry #) to be removed.",
 					Required:    true,
 				},
 				defaultListLabelOption,
 			},
+		},
+		{
+			Name:        "groedit",
+			Description: "Edits a grocery entry",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "entry-index",
+					Description: "The entry # to be edited.",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "new-name",
+					Description: "The name to edit the entry # to.",
+					Required:    true,
+				},
+				defaultListLabelOption,
+			},
+		},
+		{
+			// need to figure out how to send embeds in slash command replies
+			Name:        "grohelp",
+			Description: "Get help!",
+			Type:        discordgo.ChatApplicationCommand,
 		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
@@ -74,10 +102,31 @@ var (
 		"groremove": {
 			mainInputOptionKey: "entry",
 		},
+		"groedit": {
+			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
+				entryIndex := int64(-1)
+				newName := ""
+				for _, o := range options {
+					switch o.Name {
+					case "entry-index":
+						entryIndex = o.IntValue()
+					case "new-name":
+						newName = o.StringValue()
+					}
+				}
+				if entryIndex == -1 || newName == "" {
+					return "", ErrMissingSlashCommandOption
+				}
+				return fmt.Sprintf("%d %s", entryIndex, newName), nil
+			},
+		},
 	}
 )
 
 var defaultSlashCommandArgStrMarshaller argStrMarshaller = func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
+	if commandMetadata.mainInputOptionKey == "" {
+		return "", ErrMissingOptionKeyForDefaultMarshaller
+	}
 	for _, option := range options {
 		if option.Name == commandMetadata.mainInputOptionKey {
 			return option.StringValue(), nil
