@@ -22,6 +22,8 @@ type slashCommandHandlerMetadata struct {
 	customArgStrMarshaller argStrMarshaller
 	// determines which option to extract the argStr from
 	mainInputOptionKey string
+	// maybe you want /grolist-new to execute !grolist new instead?
+	commandMappingOverride string
 }
 
 var (
@@ -101,6 +103,38 @@ var (
 				defaultListLabelOption,
 			},
 		},
+		{
+			Name:        "grolist-new",
+			Description: "Creates a new grocery list.",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "label",
+					Description: "The label to put on your new grocery list - will be used to refer to your grocery list.",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "pretty-name",
+					Description: "A pretty name for your new grocery list - will be used when displaying your grocery list.",
+					Required:    false,
+				},
+			},
+		},
+		{
+			Name:        "grolist-delete",
+			Description: "Deletes your grocery list (does not delete your entries - use /groclear for that).",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "list-label",
+					Description: "Label for your custom grocery list",
+					Required:    true,
+				},
+			},
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
@@ -125,6 +159,35 @@ var (
 					return "", ErrMissingSlashCommandOption
 				}
 				return fmt.Sprintf("%d %s", entryIndex, newName), nil
+			},
+		},
+		"grolist-new": {
+			commandMappingOverride: "!grolist",
+			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
+				label := ""
+				prettyName := ""
+				for _, o := range options {
+					switch o.Name {
+					case "label":
+						label = o.StringValue()
+					case "pretty-name":
+						prettyName = o.StringValue()
+					}
+				}
+				if label == "" {
+					return "", ErrMissingSlashCommandOption
+				}
+				argStr = "new " + label
+				if prettyName != "" {
+					argStr += " " + prettyName
+				}
+				return argStr, nil
+			},
+		},
+		"grolist-delete": {
+			commandMappingOverride: "!grolist",
+			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
+				return "delete", nil
 			},
 		},
 	}
@@ -173,7 +236,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		defer handlers.Recover(logger)
 		commandData := i.ApplicationCommandData()
 		command := "!" + commandData.Name
-		logger.Info("Received slash command.", zap.String("Command", command), zap.Any("commandData", commandData))
+		logger.Info("Received slash command.", zap.String("Command", commandData.Name), zap.Any("commandData", commandData))
 		listLabel := getListLabelFromOptions(commandData.Options)
 		argStrMarshaller := defaultSlashCommandArgStrMarshaller
 		commandMetadata, ok := commandsMetadata[commandData.Name]
@@ -188,6 +251,9 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 				return
 			}
 			argStr = marshalledArgStr
+			if commandMetadata.commandMappingOverride != "" {
+				command = commandMetadata.commandMappingOverride
+			}
 		}
 		handler := handlers.NewHandler(sess, &handlers.CommandContext{
 			Command:           command,
@@ -201,6 +267,12 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		}, db, grobotVersion, logger)
 		if err := handler.Handle(); err != nil {
 			logger.Error("TEMP: Unable to handle.", zap.Any("Error", err))
+			sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Whoops, something went wrong! My hoomans will fix that ASAP (usually within 24h) - sorry for the inconvenience!",
+				},
+			})
 		}
 		// s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,

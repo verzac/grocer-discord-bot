@@ -153,6 +153,7 @@ func main() {
 		err, cleanupSlashCommands := slash.Register(d, db, logger, GroBotVersion)
 		if err != nil {
 			logger.Error("Cannot register slash commands", zap.Any("Error", err))
+			return
 		}
 		logger.Info("Registered slash commands successfully!")
 		defer func() {
