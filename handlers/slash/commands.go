@@ -345,9 +345,9 @@ func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		go func() {
+		go func(goroutineID int) {
 			for cmd := range cmdChan {
-				l := logger.With(zap.String("CommandName", cmd.Name))
+				l := logger.With(zap.String("CommandName", cmd.Name), zap.Int("GoroutineID", goroutineID))
 				err := sess.ApplicationCommandDelete(sess.State.User.ID, targetGuildID, cmd.ID)
 				if err != nil {
 					errChan <- err
@@ -355,7 +355,7 @@ func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
 				l.Info("Application command deleted.")
 			}
 			wg.Done()
-		}()
+		}(i)
 	}
 	for _, cmd := range commands {
 		cmdChan <- cmd
