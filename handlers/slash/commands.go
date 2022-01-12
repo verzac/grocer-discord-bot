@@ -3,10 +3,12 @@ package slash
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 )
 
@@ -30,19 +32,19 @@ var (
 	defaultListLabelOption = &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionString,
 		Name:        "list-label",
-		Description: "Label for your custom grocery list",
+		Description: "Label for your custom grocery list.",
 		Required:    false,
 	}
 	commands = []*discordgo.ApplicationCommand{
 		{
 			Name:        "gro",
-			Description: "Add a grocery entry",
+			Description: "Add a grocery entry.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "entry",
-					Description: "New grocery entry",
+					Description: "Your new grocery entry.",
 					Required:    true,
 				},
 				defaultListLabelOption,
@@ -50,7 +52,7 @@ var (
 		},
 		{
 			Name:        "groclear",
-			Description: "Clears your grocery list",
+			Description: "Clear your grocery list.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				defaultListLabelOption,
@@ -58,7 +60,7 @@ var (
 		},
 		{
 			Name:        "groremove",
-			Description: "Removes a grocery entry",
+			Description: "Remove a grocery entry.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -72,7 +74,7 @@ var (
 		},
 		{
 			Name:        "groedit",
-			Description: "Edits a grocery entry",
+			Description: "Edit a grocery entry.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -105,7 +107,7 @@ var (
 		},
 		{
 			Name:        "grolist-new",
-			Description: "Creates a new grocery list.",
+			Description: "Create a new grocery list.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -124,15 +126,34 @@ var (
 		},
 		{
 			Name:        "grolist-delete",
-			Description: "Deletes your grocery list (does not delete your entries - use /groclear for that).",
+			Description: "Delete your grocery list (does not delete your entries - use /groclear for that).",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "list-label",
-					Description: "Label for your custom grocery list",
+					Description: "Label for your custom grocery list.",
 					Required:    true,
 				},
+			},
+		},
+		{
+			Name:        "groreset",
+			Description: "Clear all of your data from GroceryBot.",
+			Type:        discordgo.ChatApplicationCommand,
+		},
+		{
+			Name:        "grohere",
+			Description: "Attach a self-updating list for your grocery list to the current channel.",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "all",
+					Description: "Display all of your grocery lists instead of the one denoted in list-label.",
+					Required:    false,
+				},
+				defaultListLabelOption,
 			},
 		},
 	}
@@ -284,6 +305,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 	return nil, func(useAllCommands bool) error {
 		commands := createdCommands
 		if useAllCommands {
+			logger.Info("Retrieving all commands.")
 			allCommands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)
 			if err != nil {
 				return err
@@ -291,6 +313,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			commands = allCommands
 		}
 		for _, cmd := range commands {
+			logger.Info("Deleting command.", zap.String("CommandName", cmd.Name))
 			err := sess.ApplicationCommandDelete(sess.State.User.ID, targetGuildID, cmd.ID)
 			if err != nil {
 				return err
@@ -301,17 +324,58 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 	}
 }
 
-func Cleanup(sess *discordgo.Session) error {
+func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
 	targetGuildID := "815482602278354944"
+	logger.Info("Starting cleanup process.")
+	logger.Info("Retrieving all commands.")
 	commands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)
+	logger.Info("All commands retrieved.",
+		zap.Array("Commands", zapcore.ArrayMarshalerFunc(func(ae zapcore.ArrayEncoder) error {
+			for _, c := range commands {
+				ae.AppendString(c.Name)
+			}
+			return nil
+		})),
+	)
 	if err != nil {
 		return err
 	}
-	for _, cmd := range commands {
-		err := sess.ApplicationCommandDelete(sess.State.User.ID, targetGuildID, cmd.ID)
-		if err != nil {
-			return err
-		}
+	errChan := make(chan error, len(commands))
+	cmdChan := make(chan *discordgo.ApplicationCommand)
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			for cmd := range cmdChan {
+				l := logger.With(zap.String("CommandName", cmd.Name))
+				err := sess.ApplicationCommandDelete(sess.State.User.ID, targetGuildID, cmd.ID)
+				if err != nil {
+					errChan <- err
+				}
+				l.Info("Application command deleted.")
+			}
+			wg.Done()
+		}()
 	}
+	for _, cmd := range commands {
+		cmdChan <- cmd
+	}
+	close(cmdChan)
+	wg.Wait()
+	close(errChan)
+	logger.Info("De-registration complete.")
+	errs := make([]error, 0, len(commands))
+	for err := range errChan {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		logger.Error("Encountered error while deleting commands.", zap.Any("Errors", errs))
+		errMsg := ""
+		for _, err := range errs {
+			errMsg += err.Error()
+		}
+		return errors.New(errMsg)
+	}
+	logger.Info("Commands have been cleaned up successfully.")
 	return nil
 }

@@ -147,9 +147,11 @@ func main() {
 		panic(err)
 	}
 	// NOT FATAL SINCE SLASH COMMANDS ARE OPTIONAL
-	if err := slash.Cleanup(d); err != nil {
+	logger.Info("Starting the slash command registration process...")
+	if err := slash.Cleanup(d, logger); err != nil {
 		logger.Error("Cannot cleanup slash commands", zap.Any("Error", err))
 	} else {
+		logger.Info("Registering slash commands...")
 		err, cleanupSlashCommands := slash.Register(d, db, logger, GroBotVersion)
 		if err != nil {
 			logger.Error("Cannot register slash commands", zap.Any("Error", err))

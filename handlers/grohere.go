@@ -33,7 +33,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 	if err != nil {
 		return m.onGetGroceryListError(err)
 	}
-	if err := m.sendMessage(fmt.Sprintf("Gotcha! Attaching a self-updating grocery list for **%s** to the current channel. Please stand by...", groceryList.GetName())); err != nil {
+	if err := m.reply(fmt.Sprintf("Gotcha! Attaching a self-updating grocery list for **%s** to the current channel. Please stand by...", groceryList.GetName())); err != nil {
 		return m.onError(err)
 	}
 	guildID := m.commandContext.GuildID
@@ -74,7 +74,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 }
 
 func (m *MessageHandlerContext) onAttachAll() error {
-	if err := m.sendMessage("Gotcha! Attaching a self-updating grocery list to the current channel. Please stand by..."); err != nil {
+	if err := m.reply("Gotcha! Attaching a self-updating grocery list to the current channel. Please stand by..."); err != nil {
 		return m.onError(err)
 	}
 	attachMsg, err := m.sess.ChannelMessageSend(m.commandContext.ChannelID, "Placeholder")
