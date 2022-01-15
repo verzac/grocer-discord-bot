@@ -33,13 +33,14 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	mh, err := handlers.NewMessageHandler(s, m, db, GroBotVersion, logger)
+	mLogger := logger.Named("msg.handler")
+	mh, err := handlers.NewMessageHandler(s, m, db, GroBotVersion, mLogger)
 	if err == handlers.ErrCmdNotProcessable {
 		return
 	}
 	if err != nil {
 		// errors shouldn't happen here, but you never know
-		logger.Error(err.Error())
+		mLogger.Error(err.Error())
 		return
 	}
 	metric := monitoring.NewCommandMetric(cw, mh)
@@ -108,7 +109,7 @@ func main() {
 		panic(err)
 	}
 	logger.Info(fmt.Sprintf("Using %s\n", dsn))
-	db = dbUtils.Setup(dsn, logger, GroBotVersion)
+	db = dbUtils.Setup(dsn, logger.Named("db"), GroBotVersion)
 	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
 	d.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
@@ -147,23 +148,21 @@ func main() {
 		panic(err)
 	}
 	// NOT FATAL SINCE SLASH COMMANDS ARE OPTIONAL
-	logger.Info("Starting the slash command registration process...")
-	if err := slash.Cleanup(d, logger); err != nil {
-		logger.Error("Cannot cleanup slash commands", zap.Any("Error", err))
-	} else {
-		logger.Info("Registering slash commands...")
-		err, cleanupSlashCommands := slash.Register(d, db, logger, GroBotVersion)
-		if err != nil {
-			logger.Error("Cannot register slash commands", zap.Any("Error", err))
-			return
-		}
-		logger.Info("Registered slash commands successfully!")
-		defer func() {
-			if err := cleanupSlashCommands(GroBotVersion == "local"); err != nil {
-				logger.Error("Cannot cleanup previously-registered slash commands", zap.Any("Error", err))
+	go func() {
+		slashLog := logger.Named("slash")
+		slashLog.Info("Starting the slash command registration process...")
+		if err := slash.Cleanup(d, slashLog); err != nil {
+			slashLog.Error("Cannot cleanup slash commands", zap.Any("Error", err))
+		} else {
+			slashLog.Info("Registering slash commands...")
+			err, _ := slash.Register(d, db, slashLog, GroBotVersion)
+			if err != nil {
+				slashLog.Error("Cannot register slash commands", zap.Any("Error", err))
+				return
 			}
-		}()
-	}
+			slashLog.Info("Registered slash commands successfully!")
+		}
+	}()
 
 	logger.Info(
 		"Bot is online!",

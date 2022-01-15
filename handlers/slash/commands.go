@@ -248,12 +248,12 @@ func onHandlingErrorRespond(logger *zap.Logger, sess *discordgo.Session, interac
 
 func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string) (err error, cleanup func(useAllCommands bool) error) {
 	targetGuildID := "815482602278354944"
-	// TODO do cleanup
 	createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commands)
 	if err != nil {
 		return err, nil
 	}
 	cleanupHandler := sess.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		logger = logger.Named("handler")
 		defer handlers.Recover(logger)
 		commandData := i.ApplicationCommandData()
 		command := "!" + commandData.Name
@@ -324,23 +324,8 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 	}
 }
 
-func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
-	targetGuildID := "815482602278354944"
-	logger.Info("Starting cleanup process.")
-	logger.Info("Retrieving all commands.")
-	commands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)
-	logger.Info("All commands retrieved.",
-		zap.Array("Commands", zapcore.ArrayMarshalerFunc(func(ae zapcore.ArrayEncoder) error {
-			for _, c := range commands {
-				ae.AppendString(c.Name)
-			}
-			return nil
-		})),
-	)
-	if err != nil {
-		return err
-	}
-	errChan := make(chan error, len(commands))
+func CleanupCommands(sess *discordgo.Session, logger *zap.Logger, targetGuildID string, cmds []*discordgo.ApplicationCommand) []error {
+	errChan := make(chan error, len(cmds))
 	cmdChan := make(chan *discordgo.ApplicationCommand)
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
@@ -357,18 +342,37 @@ func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
 			wg.Done()
 		}(i)
 	}
-	for _, cmd := range commands {
+	for _, cmd := range cmds {
 		cmdChan <- cmd
 	}
 	close(cmdChan)
 	wg.Wait()
 	close(errChan)
-	logger.Info("De-registration complete.")
-	errs := make([]error, 0, len(commands))
+	errs := make([]error, 0, len(cmds))
 	for err := range errChan {
 		errs = append(errs, err)
 	}
-	if len(errs) > 0 {
+	return errs
+}
+
+func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
+	logger = logger.Named("manualcleanup")
+	targetGuildID := "815482602278354944"
+	logger.Info("Starting cleanup process.")
+	logger.Info("Retrieving all commands.")
+	registeredCommands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)
+	logger.Info("All commands retrieved.",
+		zap.Array("Commands", zapcore.ArrayMarshalerFunc(func(ae zapcore.ArrayEncoder) error {
+			for _, c := range registeredCommands {
+				ae.AppendString(c.Name)
+			}
+			return nil
+		})),
+	)
+	if err != nil {
+		return err
+	}
+	if errs := CleanupCommands(sess, logger, targetGuildID, registeredCommands); len(errs) > 0 {
 		logger.Error("Encountered error while deleting commands.", zap.Any("Errors", errs))
 		errMsg := ""
 		for _, err := range errs {
