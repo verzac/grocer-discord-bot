@@ -15,6 +15,10 @@ import (
 var (
 	ErrMissingSlashCommandOption            = errors.New("Cannot find slash command option.")
 	ErrMissingOptionKeyForDefaultMarshaller = errors.New("Cannot find mainInputOptionKey, which is required if the default marshaller is used.")
+	targetGuildIDs                          = []string{
+		"815482602278354944",
+		"301321320946466818",
+	}
 )
 
 type argStrMarshaller = func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error)
@@ -246,14 +250,31 @@ func onHandlingErrorRespond(logger *zap.Logger, sess *discordgo.Session, interac
 	}
 }
 
+func isSkippableError(err error) bool {
+	if discordErr, ok := err.(*discordgo.RESTError); ok && discordErr.Response.StatusCode == 403 {
+		// if 403, assume that they have no access to the guild - continue anyways
+		return true
+	}
+	return false
+}
+
 func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string) (err error, cleanup func(useAllCommands bool) error) {
-	targetGuildID := "815482602278354944"
-	createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commands)
-	if err != nil {
-		return err, nil
+	createdCommandsMap := make(map[string][]*discordgo.ApplicationCommand, 0)
+	for _, targetGuildID := range targetGuildIDs {
+		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID)).Named("registration")
+		createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commands)
+		if err != nil {
+			if isSkippableError(err) {
+				// if 403, assume that they have no access to the guild - continue anyways
+				loopLog.Info(fmt.Sprintf("Skipping slash command registration for %s.", targetGuildID), zap.Any("Error", err))
+				continue
+			}
+			return err, nil
+		}
+		createdCommandsMap[targetGuildID] = createdCommands
 	}
 	cleanupHandler := sess.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		logger = logger.Named("handler")
+		logger := logger.Named("handler")
 		defer handlers.Recover(logger)
 		commandData := i.ApplicationCommandData()
 		command := "!" + commandData.Name
@@ -287,13 +308,15 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			AuthorID:          i.Member.User.ID,
 		}, db, grobotVersion, logger)
 		if err := handler.Handle(); err != nil {
-			logger.Error("TEMP: Unable to handle.", zap.Any("Error", err))
-			sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			logger.Error("Unable to handle.", zap.Any("Error", err))
+			if err := sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: "Whoops, something went wrong! My hoomans will fix that ASAP (usually within 24h) - sorry for the inconvenience!",
 				},
-			})
+			}); err != nil {
+				handler.LogError(err)
+			}
 		}
 		// s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -303,20 +326,13 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		// })
 	})
 	return nil, func(useAllCommands bool) error {
-		commands := createdCommands
-		if useAllCommands {
-			logger.Info("Retrieving all commands.")
-			allCommands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)
-			if err != nil {
-				return err
-			}
-			commands = allCommands
-		}
-		for _, cmd := range commands {
-			logger.Info("Deleting command.", zap.String("CommandName", cmd.Name))
-			err := sess.ApplicationCommandDelete(sess.State.User.ID, targetGuildID, cmd.ID)
-			if err != nil {
-				return err
+		for guildID, cmds := range createdCommandsMap {
+			for _, cmd := range cmds {
+				logger.Info("Deleting command.", zap.String("CommandName", cmd.Name))
+				err := sess.ApplicationCommandDelete(sess.State.User.ID, guildID, cmd.ID)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		cleanupHandler()
@@ -337,7 +353,7 @@ func CleanupCommands(sess *discordgo.Session, logger *zap.Logger, targetGuildID 
 				if err != nil {
 					errChan <- err
 				}
-				l.Info("Application command deleted.")
+				l.Debug("Application command deleted.")
 			}
 			wg.Done()
 		}(i)
@@ -357,28 +373,35 @@ func CleanupCommands(sess *discordgo.Session, logger *zap.Logger, targetGuildID 
 
 func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
 	logger = logger.Named("manualcleanup")
-	targetGuildID := "815482602278354944"
 	logger.Info("Starting cleanup process.")
-	logger.Info("Retrieving all commands.")
-	registeredCommands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)
-	logger.Info("All commands retrieved.",
-		zap.Array("Commands", zapcore.ArrayMarshalerFunc(func(ae zapcore.ArrayEncoder) error {
-			for _, c := range registeredCommands {
-				ae.AppendString(c.Name)
+	for _, targetGuildID := range targetGuildIDs {
+		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID))
+		loopLog.Debug("Retrieving all commands.")
+		registeredCommands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)
+		if err != nil {
+			if isSkippableError(err) {
+				// if 403, assume that they have no access to the guild - continue anyways
+				loopLog.Info(fmt.Sprintf("Skipping slash command cleanup for %s.", targetGuildID), zap.Any("Error", err))
+				continue
 			}
-			return nil
-		})),
-	)
-	if err != nil {
-		return err
-	}
-	if errs := CleanupCommands(sess, logger, targetGuildID, registeredCommands); len(errs) > 0 {
-		logger.Error("Encountered error while deleting commands.", zap.Any("Errors", errs))
-		errMsg := ""
-		for _, err := range errs {
-			errMsg += err.Error()
+			return err
 		}
-		return errors.New(errMsg)
+		loopLog.Debug("All commands retrieved.",
+			zap.Array("Commands", zapcore.ArrayMarshalerFunc(func(ae zapcore.ArrayEncoder) error {
+				for _, c := range registeredCommands {
+					ae.AppendString(c.Name)
+				}
+				return nil
+			})),
+		)
+		if errs := CleanupCommands(sess, loopLog, targetGuildID, registeredCommands); len(errs) > 0 {
+			loopLog.Error("Encountered error while deleting commands.", zap.Any("Errors", errs))
+			errMsg := ""
+			for _, err := range errs {
+				errMsg += err.Error()
+			}
+			return errors.New(errMsg)
+		}
 	}
 	logger.Info("Commands have been cleaned up successfully.")
 	return nil

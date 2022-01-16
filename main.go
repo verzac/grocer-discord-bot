@@ -113,6 +113,7 @@ func main() {
 	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
 	d.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		logger := logger.Named("activity")
 		buildTimestampStr, err := strconv.ParseInt(BuildTimestamp, 10, 64)
 		if err != nil {
 			logger.Error("Cannot parse BuildTimestamp when updating activity status.",
