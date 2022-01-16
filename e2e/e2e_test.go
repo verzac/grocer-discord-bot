@@ -88,9 +88,6 @@ func TestReset(t *testing.T) {
 	setup(tss)
 	defer tss.recoverFromPanic()
 	assert := require.New(t)
-	// doing it...
 	tss.SendAndAwaitReply("!groreset")
-	// confirmed deletion
-	tss.AwaitReply()
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
 }
