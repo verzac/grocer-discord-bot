@@ -34,9 +34,16 @@ type slashCommandHandlerMetadata struct {
 
 var (
 	defaultListLabelOption = &discordgo.ApplicationCommandOption{
+		Type:         discordgo.ApplicationCommandOptionString,
+		Name:         "list-label",
+		Description:  "Label for your custom grocery list.",
+		Required:     false,
+		Autocomplete: true,
+	}
+	defaultAllListOption = &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionString,
-		Name:        "list-label",
-		Description: "Label for your custom grocery list.",
+		Name:        "all",
+		Description: "Display all of your grocery lists instead of the one denoted in list-label.",
 		Required:    false,
 	}
 	commands = []*discordgo.ApplicationCommand{
@@ -68,10 +75,11 @@ var (
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "entry",
-					Description: "The grocery entry (or entry #) to be removed.",
-					Required:    true,
+					Type:         discordgo.ApplicationCommandOptionString,
+					Name:         "entry",
+					Description:  "The grocery entry (or entry #) to be removed.",
+					Required:     true,
+					Autocomplete: true,
 				},
 				defaultListLabelOption,
 			},
@@ -106,6 +114,7 @@ var (
 			Description: "View your current grocery list.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
+				defaultAllListOption,
 				defaultListLabelOption,
 			},
 		},
@@ -151,12 +160,7 @@ var (
 			Description: "Attach a self-updating list for your grocery list to the current channel.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "all",
-					Description: "Display all of your grocery lists instead of the one denoted in list-label.",
-					Required:    false,
-				},
+				defaultAllListOption,
 				defaultListLabelOption,
 			},
 		},
@@ -213,6 +217,16 @@ var (
 			commandMappingOverride: "!grolist",
 			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
 				return "delete", nil
+			},
+		},
+		"grolist": {
+			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
+				for _, o := range options {
+					if o.Name == defaultAllListOption.Name {
+						return "all", nil
+					}
+				}
+				return "", nil
 			},
 		},
 	}
@@ -274,11 +288,21 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		createdCommandsMap[targetGuildID] = createdCommands
 	}
 	cleanupHandler := sess.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		logger := logger.Named("handler")
 		defer handlers.Recover(logger)
 		commandData := i.ApplicationCommandData()
+		logger := logger.Named("handler").With(
+			zap.String("GuildID", i.GuildID),
+			zap.String("SlashCommandName", commandData.Name),
+		)
+		if i.Type == discordgo.InteractionApplicationCommandAutocomplete {
+			err := NewAutoCompleteHandler(sess, db, logger, i).Handle()
+			if err != nil {
+				logger.Error("Failed to handle auto-complete event.", zap.Error(err))
+			}
+			return
+		}
 		command := "!" + commandData.Name
-		logger.Info("Received slash command.", zap.String("Command", commandData.Name), zap.Any("commandData", commandData))
+		logger.Info("Received slash command.", zap.Any("commandData", commandData))
 		listLabel := getListLabelFromOptions(commandData.Options)
 		argStrMarshaller := defaultSlashCommandArgStrMarshaller
 		commandMetadata, ok := commandsMetadata[commandData.Name]

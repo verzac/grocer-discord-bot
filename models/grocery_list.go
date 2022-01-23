@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 const (
 	EnumDefaultGroceryList = -1
@@ -23,6 +26,17 @@ func (gl *GroceryList) GetName() string {
 		return *gl.FancyName
 	}
 	return gl.ListLabel
+}
+
+func (gl *GroceryList) GetTitle() string {
+	if gl == nil {
+		return gl.GetName()
+	}
+	if gl.FancyName != nil {
+		return fmt.Sprintf("%s (%s)", *gl.FancyName, gl.ListLabel)
+	} else {
+		return fmt.Sprintf("%s", gl.ListLabel)
+	}
 }
 
 func (gl *GroceryList) GetID() *uint {
