@@ -143,10 +143,11 @@ var (
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "list-label",
-					Description: "Label for your custom grocery list.",
-					Required:    true,
+					Type:         defaultListLabelOption.Type,
+					Name:         defaultListLabelOption.Name,
+					Description:  defaultListLabelOption.Description,
+					Autocomplete: defaultListLabelOption.Autocomplete,
+					Required:     true,
 				},
 			},
 		},
