@@ -91,10 +91,24 @@ func (a *AutocompleteHandler) Handle() error {
 				},
 			})
 		}
-		return nil
+	case handlers.CmdGroEdit:
+		entryIndex, ok := a.nameToOptionsMap["entry-index"]
+		if !ok {
+			return ErrAutocompleteMissingOption
+		}
+		if entryIndex.Focused == true {
+			choices := a.GetGroceryEntryChoices(entryIndex.StringValue())
+			return a.sess.InteractionRespond(a.interaction.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+				Data: &discordgo.InteractionResponseData{
+					Choices: choices,
+				},
+			})
+		}
 	default:
 		return ErrAutocompleteCommandNotRecognised
 	}
+	return nil
 }
 
 func (a *AutocompleteHandler) GetGroceryListChoices(queryString string) []*discordgo.ApplicationCommandOptionChoice {

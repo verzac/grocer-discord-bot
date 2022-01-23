@@ -3,6 +3,7 @@ package slash
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
@@ -15,6 +16,7 @@ import (
 var (
 	ErrMissingSlashCommandOption            = errors.New("Cannot find slash command option.")
 	ErrMissingOptionKeyForDefaultMarshaller = errors.New("Cannot find mainInputOptionKey, which is required if the default marshaller is used.")
+	ErrIncorrectFormatInt                   = errors.New("Expected a number as an input.")
 	targetGuildIDs                          = []string{
 		"815482602278354944",
 		"301321320946466818",
@@ -77,7 +79,7 @@ var (
 				{
 					Type:         discordgo.ApplicationCommandOptionString,
 					Name:         "entry",
-					Description:  "The grocery entry (or entry #) to be removed.",
+					Description:  "The grocery entry (or entry #) to be removed. Remove multiple items by inputting multiple #.",
 					Required:     true,
 					Autocomplete: true,
 				},
@@ -90,10 +92,11 @@ var (
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:        discordgo.ApplicationCommandOptionInteger,
-					Name:        "entry-index",
-					Description: "The entry # to be edited.",
-					Required:    true,
+					Type:         discordgo.ApplicationCommandOptionString,
+					Name:         "entry-index",
+					Description:  "The entry # to be edited.",
+					Required:     true,
+					Autocomplete: true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
@@ -180,7 +183,11 @@ var (
 				for _, o := range options {
 					switch o.Name {
 					case "entry-index":
-						entryIndex = o.IntValue()
+						s, err := strconv.Atoi(o.StringValue())
+						if err != nil {
+							return "", ErrIncorrectFormatInt
+						}
+						entryIndex = int64(s)
 					case "new-name":
 						newName = o.StringValue()
 					}
