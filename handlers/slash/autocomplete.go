@@ -150,7 +150,7 @@ func (a *AutocompleteHandler) GetGroceryEntryChoices(queryString string) []*disc
 		if strings.Contains(strings.ToLower(g.ItemDesc), strings.ToLower(queryString)) {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
 				Name:  g.ItemDesc,
-				Value: strconv.Itoa(idx),
+				Value: strconv.Itoa(idx + 1),
 			})
 		}
 		if len(choices) >= 25 {
