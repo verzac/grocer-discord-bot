@@ -18,6 +18,9 @@ var (
 	ErrMissingOptionKeyForDefaultMarshaller = errors.New("Cannot find mainInputOptionKey, which is required if the default marshaller is used.")
 	ErrIncorrectFormatInt                   = errors.New("Expected a number as an input.")
 	targetGuildIDs                          = []string{
+		"",
+	}
+	guildIDsToCleanup = []string{
 		"815482602278354944",
 		"301321320946466818",
 	}
@@ -406,7 +409,7 @@ func CleanupCommands(sess *discordgo.Session, logger *zap.Logger, targetGuildID 
 func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
 	logger = logger.Named("manualcleanup")
 	logger.Info("Starting cleanup process.")
-	for _, targetGuildID := range targetGuildIDs {
+	for _, targetGuildID := range guildIDsToCleanup {
 		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID))
 		loopLog.Debug("Retrieving all commands.")
 		registeredCommands, err := sess.ApplicationCommands(sess.State.User.ID, targetGuildID)

@@ -152,10 +152,10 @@ func main() {
 	go func() {
 		slashLog := logger.Named("slash")
 		slashLog.Info("Starting the slash command registration process...")
-		// if err := slash.Cleanup(d, slashLog); err != nil {
-		// 	slashLog.Error("Cannot cleanup slash commands", zap.Error(err))
-		// 	return
-		// }
+		if err := slash.Cleanup(d, slashLog); err != nil {
+			slashLog.Error("Cannot cleanup slash commands", zap.Error(err))
+			return
+		}
 		slashLog.Info("Registering slash commands...")
 		err, _ := slash.Register(d, db, slashLog, GroBotVersion)
 		if err != nil {

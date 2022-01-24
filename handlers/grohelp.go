@@ -88,14 +88,15 @@ Salt
 		},
 		Description: `
 **Release Note:**
-:shopping_bags: We're proud to announce the release of multiple grocery lists for GroceryBot 2.1! 
+:wave: As of April 2022, Discord is effectively deprecating the usage of message commands (the commands you type as a message in your chat box - e.g.` + "`!grohelp`" + `) with their newer "slash commands".
 
-With this new feature, you will be able to maintain multiple grocery lists within your server - perfect for when you want to have separate shopping lists for your Sunday market trip and Amazon shopping spree.
+The TL:DR; of this change is that all GroceryBot commands (except !grobulk, because Discord doesn't have the technology to support multi-line input) will have its slash command counterpart. For example, ` + "`!grohelp`" + ` will eventually be replaced by ` + "`/grohelp`" + `.
 
-All commands support this new feature with the following syntax:` + "`<command>:<list-label>` (e.g. `!gro:amazon PS5`)" + `. We can't wait for you to try out this new feature, so please let us know in our Discord server if you see any issue (or potential improvement that we can do)!
+We understand that this change might not be what you want, so GroceryBot will keep supporting message commands until Discord cuts off our access to your message commands (or, alternatively, you can host an unverified version of GroceryBot to keep using message commands - Discord is only removing message commands for verified bots).
 
-**What's next?**
-Discord is planning to deprecate (i.e. effectively get rid of) the usage of traditional "message commands" on April 2022, so we're planning to add support for slash commands very soon. Don't worry though: the change should be minimal, other than replacing "!" with "/" (e.g. "/grolist").
+On a bright side, our slash commands now have Autocomplete so that you'll get suggestions for the grocery entries / lists that you want to edit / delete while typing in your commands!
+
+Thank you, and please let us know in our Discord server if you have feedback on our new slash commands! :smile:
 
 [Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [Web](https://grocerybot.net)
 	`,
