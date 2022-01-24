@@ -313,7 +313,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			return
 		}
 		command := "!" + commandData.Name
-		logger.Info("Received slash command.", zap.Any("commandData", commandData))
+		logger.Debug("Received slash command.", zap.Any("commandData", commandData))
 		listLabel := getListLabelFromOptions(commandData.Options)
 		argStrMarshaller := defaultSlashCommandArgStrMarshaller
 		commandMetadata, ok := commandsMetadata[commandData.Name]

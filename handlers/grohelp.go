@@ -88,7 +88,9 @@ Salt
 		},
 		Description: `
 **Release Note:**
-:wave: As of April 2022, Discord is effectively deprecating the usage of message commands (the commands you type as a message in your chat box - e.g.` + "`!grohelp`" + `) with their newer "slash commands".
+:wave: Slash commands are here!
+
+As of April 2022, Discord is effectively deprecating the usage of message commands (the commands you type as a message in your chat box - e.g.` + "`!grohelp`" + `) with their newer "slash commands".
 
 The TL:DR; of this change is that all GroceryBot commands (except !grobulk, because Discord doesn't have the technology to support multi-line input) will have its slash command counterpart. For example, ` + "`!grohelp`" + ` will eventually be replaced by ` + "`/grohelp`" + `.
 
