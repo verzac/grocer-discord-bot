@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -157,7 +158,7 @@ func (m *MessageHandlerContext) getDefaultLogFields() []zapcore.Field {
 }
 
 func NewMessageHandler(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
-	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID)
+	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID, sess.State.User.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +301,12 @@ func (mh *MessageHandlerContext) GetCommand() string {
 	return mh.commandContext.Command
 }
 
-func GetCommandContext(body string, guildID string, authorID string, channelID string) (*CommandContext, error) {
+func GetCommandContext(body string, guildID string, authorID string, channelID string, selfID string) (*CommandContext, error) {
+	mentionRegex, err := regexp.Compile(fmt.Sprintf("<@!%s>", selfID))
+	if err != nil {
+		return nil, err
+	}
+	body = strings.Trim(mentionRegex.ReplaceAllString(body, ""), " \n")
 	if !strings.HasPrefix(body, CmdPrefix) {
 		return nil, ErrCmdNotProcessable
 	}
