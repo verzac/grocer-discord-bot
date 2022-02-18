@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	dbUtils "github.com/verzac/grocer-discord-bot/db"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/handlers/api"
 	"github.com/verzac/grocer-discord-bot/handlers/slash"
 	"github.com/verzac/grocer-discord-bot/monitoring"
 	"go.uber.org/zap"
@@ -110,6 +111,12 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Using %s\n", dsn))
 	db = dbUtils.Setup(dsn, logger.Named("db"), GroBotVersion)
+	// API handler
+	go func() {
+		if err := api.RegisterAndStart(logger, db); err != nil {
+			logger.Error("API returned an error while starting.", zap.Error(err))
+		}
+	}()
 	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
 	d.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
