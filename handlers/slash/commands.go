@@ -171,6 +171,23 @@ var (
 				defaultListLabelOption,
 			},
 		},
+		{
+			Name:        "gropatron",
+			Description: "Do stuff for your account here",
+			// Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "register",
+					Description: "Registers your Patreon entitlement & benefits for this server.",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
+					Name:        "deregister",
+					Description: "Remove your Patreon benefits for this server, so that you can use it for other servers.",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+			},
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
@@ -238,6 +255,16 @@ var (
 					}
 				}
 				return "", nil
+			},
+		},
+		"gropatron": {
+			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
+				for _, o := range options {
+					if o.Type == discordgo.ApplicationCommandOptionSubCommand {
+						argStr += o.Name
+					}
+				}
+				return argStr, nil
 			},
 		},
 	}

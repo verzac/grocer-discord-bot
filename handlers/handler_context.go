@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
@@ -18,18 +19,19 @@ import (
 	"gorm.io/gorm"
 )
 
-const groceryEntryLimit = 100
 const maxCmdCharsProcessedBeforeGivingUp = 48
 
 var (
 	errCannotConvertInt           = errors.New("Oops, I couldn't see any number there... (ps: you can type !grohelp to get help)")
 	errNotValidListNumber         = errors.New("Oops, that doesn't seem like a valid list number! (ps: you can type !grohelp to get help)")
-	errOverLimit                  = errors.New(fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit))
 	errPanic                      = errors.New("Hmm... Something broke on my end. Please try again later.")
 	errCmdOverLimit               = errors.New(fmt.Sprintf("Command is too long and exceeds the predefined limit (%d).", maxCmdCharsProcessedBeforeGivingUp))
 	errGroceryListNotFound        = errors.New("Cannot find grocery list from context.")
 	ErrCmdNotProcessable          = errors.New("Command is not a GroceryBot command.")
 	ErrMessageSourceNotRecognised = errors.New("No valid message source is detected. ")
+	msgOverLimit                  = func(limit int) string {
+		return fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through GitHub (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", limit)
+	}
 )
 
 const CmdPrefix = "!gro"
@@ -37,6 +39,7 @@ const CmdPrefix = "!gro"
 // Note: make sure this is alphabetically ordered so that we don't get confused
 const (
 	CmdGroAdd    = "!gro"
+	CmdGroPatron = "!gropatron"
 	CmdGroBulk   = "!grobulk"
 	CmdGroClear  = "!groclear"
 	CmdGroDeets  = "!grodeets"
@@ -57,13 +60,15 @@ const (
 type MessageHandlerContext struct {
 	sess *discordgo.Session
 	// msg              *discordgo.MessageCreate
-	db               *gorm.DB
-	grobotVersion    string
-	commandContext   *CommandContext
-	logger           *zap.Logger
-	groceryEntryRepo repositories.GroceryEntryRepository
-	groceryListRepo  repositories.GroceryListRepository
-	replyCounter     int
+	db                          *gorm.DB
+	grobotVersion               string
+	commandContext              *CommandContext
+	logger                      *zap.Logger
+	groceryEntryRepo            repositories.GroceryEntryRepository
+	groceryListRepo             repositories.GroceryListRepository
+	guildRegistrationRepo       repositories.GuildRegistrationRepository
+	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
+	replyCounter                int
 }
 
 type CommandContext struct {
@@ -83,7 +88,7 @@ func (m *MessageHandlerContext) checkReplyCounter() {
 	if m.replyCounter > 0 {
 		m.logger.Warn(
 			"Handler has already replied (this shouldn't happen).",
-			append([]zap.Field{zap.Int("ReplyCounter", m.replyCounter)}, m.getDefaultLogFields()...)...,
+			zap.Int("ReplyCounter", m.replyCounter),
 		)
 	}
 }
@@ -142,6 +147,29 @@ func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList
 	return nil, nil
 }
 
+func (m *MessageHandlerContext) ValidateGroceryEntryLimit(guildID string, newItemCount int) (limitOk bool, limit int, err error) {
+	limit = config.GetDefaultMaxGroceryEntriesPerServer()
+	registrations, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
+	if err == nil {
+		for _, r := range registrations {
+			if limit < *r.RegistrationEntitlement.RegistrationTier.MaxGroceryEntry {
+				limit = *r.RegistrationEntitlement.RegistrationTier.MaxGroceryEntry
+			}
+		}
+	} else {
+		m.GetLogger().Error("Failed to retrieve grocery entry limit.", zap.Error(err))
+	}
+	count, err := m.groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: guildID})
+	if err != nil {
+		return false, limit, err
+	}
+	if count+int64(newItemCount) > int64(limit) {
+		m.GetLogger().Error("max grocery list limit exceeded.", zap.Int("Limit", limit), zap.Int64("PreviousCount", count), zap.Int("NewItemCount", newItemCount))
+		return false, limit, nil
+	}
+	return true, limit, nil
+}
+
 func (cc *CommandContext) FmtErrInvalidGroceryList() string {
 	return fmt.Sprintf("Whoops, I can't seem to find the grocery list labeled as *%s*.", cc.GrocerySublist)
 }
@@ -150,39 +178,28 @@ func (m *MessageHandlerContext) GetLogger() *zap.Logger {
 	return m.logger
 }
 
-func (m *MessageHandlerContext) getDefaultLogFields() []zapcore.Field {
-	return []zapcore.Field{
-		zap.String("Command", m.commandContext.Command),
-		zap.String("GuildID", m.commandContext.GuildID),
-	}
-}
-
 func NewMessageHandler(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
 	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID, sess.State.User.ID)
 	if err != nil {
 		return nil, err
 	}
-	return &MessageHandlerContext{
-		sess: sess,
-		// msg:              msg,
-		db:               db,
-		grobotVersion:    grobotVersion,
-		commandContext:   cc,
-		logger:           logger,
-		groceryEntryRepo: &repositories.GroceryEntryRepositoryImpl{DB: db},
-		groceryListRepo:  &repositories.GroceryListRepositoryImpl{DB: db},
-	}, nil
+	newLogger := logger.With(zap.String("Command", cc.Command),
+		zap.String("GuildID", cc.GuildID),
+	)
+	return NewHandler(sess, cc, db, grobotVersion, newLogger), nil
 }
 
 func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobotVersion string, logger *zap.Logger) *MessageHandlerContext {
 	return &MessageHandlerContext{
-		sess:             sess,
-		db:               db,
-		grobotVersion:    grobotVersion,
-		commandContext:   cc,
-		logger:           logger,
-		groceryEntryRepo: &repositories.GroceryEntryRepositoryImpl{DB: db},
-		groceryListRepo:  &repositories.GroceryListRepositoryImpl{DB: db},
+		sess:                        sess,
+		db:                          db,
+		grobotVersion:               grobotVersion,
+		commandContext:              cc,
+		logger:                      logger,
+		groceryEntryRepo:            &repositories.GroceryEntryRepositoryImpl{DB: db},
+		groceryListRepo:             &repositories.GroceryListRepositoryImpl{DB: db},
+		guildRegistrationRepo:       &repositories.GuildRegistrationRepositoryImpl{DB: db},
+		registrationEntitlementRepo: &repositories.RegistrationEntitlementRepositoryImpl{DB: db},
 	}
 }
 
@@ -201,7 +218,7 @@ func (m *MessageHandlerContext) onError(err error) error {
 					}
 				}
 				if maxLengthExceeded {
-					m.logger.Info("Max length for message sending exceeded.", m.getDefaultLogFields()...)
+					m.logger.Info("Max length for message sending exceeded.")
 					// not a big deal, tell the user off
 					if sErr := m.reply(":exploding_head: Whoops, we can't send you a reply because the reply is going to be too big! Do try clearing your grocery lists or make your items shorter, as I can only send messages (e.g. grocery lists) which are below 2000 chars."); sErr != nil {
 						m.LogError(errors.Wrap(sErr, "Cannot send message to notify the caller that the message is too long."))
@@ -228,10 +245,7 @@ func fmtItemNotFoundErrorMsg(itemIndex int) string {
 func (m *MessageHandlerContext) LogError(err error, extraFields ...zapcore.Field) {
 	m.GetLogger().Error(
 		err.Error(),
-		append(
-			m.getDefaultLogFields(),
-			extraFields...,
-		)...,
+		extraFields...,
 	)
 }
 
@@ -414,6 +428,8 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 		err = mh.OnAttach()
 	case CmdGroReset:
 		err = mh.OnReset()
+	case CmdGroPatron:
+		err = mh.OnPatron()
 	default:
 		err = ErrCmdNotProcessable
 	}

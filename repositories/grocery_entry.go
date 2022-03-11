@@ -33,7 +33,7 @@ type GroceryEntryRepository interface {
 	AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
 	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
 	Put(g *models.GroceryEntry) error
-	GetCount(query *models.GroceryEntry) (count int64, err *RepositoryError)
+	GetCount(query *models.GroceryEntry) (count int64, err error)
 }
 
 type GroceryEntryRepositoryImpl struct {
@@ -94,9 +94,13 @@ func (r *GroceryEntryRepositoryImpl) AddToGroceryList(groceryList *models.Grocer
 			groceryEntries[i].GroceryListID = &groceryList.ID
 		}
 	}
-	if err := r.checkLimit(guildID, len(groceryEntries)); err != nil {
+	if err := r.Create(groceryEntries); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (r *GroceryEntryRepositoryImpl) Create(groceryEntries []models.GroceryEntry) *RepositoryError {
 	if res := r.DB.Omit("GroceryList").Create(&groceryEntries); res.Error != nil {
 		return &RepositoryError{
 			ErrCode: ErrInternal,
@@ -133,26 +137,9 @@ func (r *GroceryEntryRepositoryImpl) Put(g *models.GroceryEntry) error {
 	return nil
 }
 
-func (r *GroceryEntryRepositoryImpl) checkLimit(guildID string, newItemCount int) *RepositoryError {
-	count, err := r.GetCount(&models.GroceryEntry{GuildID: guildID})
-	if err != nil {
-		return err
-	}
-	if count+int64(newItemCount) > groceryEntryLimit {
-		return &RepositoryError{
-			ErrCode: ErrCodeValidationError,
-			Message: fmt.Sprintf("Whoops, you've gone over the limit allowed by the bot (max %d grocery entries per server). Please log an issue through our Discord server (look at `!grohelp`) to request an increase! Thank you for being a power user! :tada:", groceryEntryLimit),
-		}
-	}
-	return nil
-}
-
-func (r *GroceryEntryRepositoryImpl) GetCount(query *models.GroceryEntry) (count int64, err *RepositoryError) {
+func (r *GroceryEntryRepositoryImpl) GetCount(query *models.GroceryEntry) (count int64, err error) {
 	if r := r.DB.Model(&models.GroceryEntry{}).Where(query).Count(&count); r.Error != nil {
-		return 0, &RepositoryError{
-			ErrCode: ErrInternal,
-			Message: r.Error.Error(),
-		}
+		return 0, r.Error
 	}
 	return count, nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"go.uber.org/zap"
 )
 
 func (m *MessageHandlerContext) OnAdd() error {
@@ -16,6 +17,13 @@ func (m *MessageHandlerContext) OnAdd() error {
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
 		return m.onGetGroceryListError(err)
+	}
+	limitOk, groceryEntryLimit, err := m.ValidateGroceryEntryLimit(guildID, 1)
+	if err != nil {
+		return m.onError(err)
+	}
+	if !limitOk {
+		return m.reply(msgOverLimit(groceryEntryLimit))
 	}
 	rErr := m.groceryEntryRepo.AddToGroceryList(
 		groceryList,

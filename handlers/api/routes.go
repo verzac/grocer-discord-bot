@@ -16,12 +16,16 @@ import (
 )
 
 var (
-	groceryEntryRepo repositories.GroceryEntryRepository
+	groceryEntryRepo            repositories.GroceryEntryRepository
+	guildRegistrationRepo       repositories.GuildRegistrationRepository
+	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
 )
 
+// RegisterAndStart starts the API handler goroutine. TO BE USED IN DEV ONLY FOR NOW
 func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	logger = logger.Named("api")
 	e := echo.New()
+	e.HideBanner = true
 	e.Use(middleware.Recover())
 
 	ao := os.Getenv("GROCER_BOT_API_ALLOW_ORIGINS")
@@ -38,6 +42,8 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	}))
 	e.Validator = utils.NewCustomValidator()
 	groceryEntryRepo = &repositories.GroceryEntryRepositoryImpl{DB: db}
+	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
+	registrationEntitlementRepo = &repositories.RegistrationEntitlementRepositoryImpl{DB: db}
 	e.GET("/grocery-lists/:guildID", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		guildID := c.Param("guildID")
@@ -47,5 +53,28 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		}
 		return c.JSON(200, groceryEntries)
 	})
+	e.GET("/registrations/:guildID", func(c echo.Context) error {
+		defer handlers.Recover(logger)
+		guildID := c.Param("guildID")
+		registrations, err := guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
+		if err != nil {
+			return c.String(500, err.Error())
+		}
+		return c.JSON(200, registrations)
+	})
+	// if err := registrationEntitlementRepo.Save(&models.RegistrationEntitlement{
+	// 	UserID:             "183947835467759617",
+	// 	MaxRedemption:      99,
+	// 	RegistrationTierID: 1,
+	// }); err != nil {
+	// 	logger.Error("Failed to save entitlement.", zap.Error(err))
+	// }
+	// if err := guildRegistrationRepo.Save(&models.GuildRegistration{
+	// 	GuildID:                       "815482602278354944",
+	// 	RegistrationEntitlementUserID: "183947835467759617",
+	// }); err != nil {
+	// 	logger.Error("Failed to save registration.", zap.Error(err))
+	// }
+	logger.Info("Starting API!")
 	return e.Start(":8080")
 }

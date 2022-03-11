@@ -158,6 +158,7 @@ func main() {
 	// NOT FATAL SINCE SLASH COMMANDS ARE OPTIONAL
 	go func() {
 		slashLog := logger.Named("slash")
+		defer logPanic()
 		slashLog.Info("Starting the slash command registration process...")
 		if err := slash.Cleanup(d, slashLog); err != nil {
 			slashLog.Error("Cannot cleanup slash commands", zap.Error(err))

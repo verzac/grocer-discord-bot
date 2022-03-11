@@ -79,6 +79,12 @@ func Migrate(gormDB *gorm.DB, zlogger *zap.Logger, botVersion string) error {
 }
 
 func Setup(dsn string, zlogger *zap.Logger, botVersion string) *gorm.DB {
+	if _, err := os.Stat(dsn); err == nil && os.Getenv("GROCER_BOT_DB_DROP") == "true" && botVersion == "local" {
+		zlogger.Info("WARN: Dropping DB.")
+		if err := os.Remove(dsn); err != nil {
+			zlogger.Error("Failed to remove gorm.db.", zap.Error(err))
+		}
+	}
 	isDBDebugMode := os.Getenv("GROCER_BOT_DB_DEBUG")
 	logLevel := logger.Error
 	if isDBDebugMode == "true" {

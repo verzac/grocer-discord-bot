@@ -8,4 +8,5 @@ type GuildConfig struct {
 	GrohereMessageID *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	// LastSeenAt       *time.Time
 }

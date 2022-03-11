@@ -31,6 +31,13 @@ func (m *MessageHandlerContext) OnBulk() error {
 	}
 	insertedItemsCount := len(toInsert)
 	if len(toInsert) > 0 {
+		limitOk, groceryEntryLimit, err := m.ValidateGroceryEntryLimit(m.commandContext.GuildID, len(toInsert))
+		if err != nil {
+			return m.onError(err)
+		}
+		if !limitOk {
+			return m.reply(msgOverLimit(groceryEntryLimit))
+		}
 		rErr := m.groceryEntryRepo.AddToGroceryList(groceryList, toInsert, m.commandContext.GuildID)
 		if rErr != nil {
 			return m.onError(rErr)
