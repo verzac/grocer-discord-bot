@@ -78,6 +78,7 @@ type CommandContext struct {
 	GuildID        string
 	AuthorID       string
 	ChannelID      string
+	IsMentioned    bool
 	// see CommandSource* const above
 	CommandSourceType int
 	// nil if CommandSourceType != CommandSourceSlashCommand, ACCESS SPARINGLY
@@ -258,6 +259,9 @@ func (m *MessageHandlerContext) onItemNotFound(itemIndex int) error {
 }
 
 func (m *MessageHandlerContext) sendMessage(msg string) error {
+	if !m.commandContext.IsMentioned {
+		msg += fmt.Sprintf("\n\nNotice: due to a Discord policy change, from April 2022, you need to mention <@%s> if you use commands prefixed with `!gro`, otherwise I won't be able to read your commands! Alternatively, you can also use slash commands - just start typing `/gro`! :person_bowing:", m.sess.State.User.ID)
+	}
 	_, sErr := m.sess.ChannelMessageSendComplex(m.commandContext.ChannelID, &discordgo.MessageSend{
 		Content: msg,
 		AllowedMentions: &discordgo.MessageAllowedMentions{
@@ -320,6 +324,7 @@ func GetCommandContext(body string, guildID string, authorID string, channelID s
 	if err != nil {
 		return nil, err
 	}
+	isMentioned := mentionRegex.MatchString(body)
 	body = strings.Trim(mentionRegex.ReplaceAllString(body, ""), " \n")
 	if !strings.HasPrefix(body, CmdPrefix) {
 		return nil, ErrCmdNotProcessable
@@ -372,6 +377,7 @@ func GetCommandContext(body string, guildID string, authorID string, channelID s
 		AuthorID:          authorID,
 		ChannelID:         channelID,
 		CommandSourceType: CommandSourceMessageContent,
+		IsMentioned:       isMentioned,
 	}
 	return commandContext, nil
 }
