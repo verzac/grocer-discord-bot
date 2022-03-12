@@ -5,7 +5,6 @@ import (
 
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
-	"go.uber.org/zap"
 )
 
 func (m *MessageHandlerContext) OnAdd() error {
