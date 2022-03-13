@@ -88,19 +88,15 @@ Salt
 		},
 		Description: `
 **Release Note:**
-:wave: Slash commands are here!
+:tada: Become a GroPatron through my Patreon page (link below) to get access to higher limits and support the bot's development!
 
-As of April 2022, Discord is effectively deprecating the usage of message commands (the commands you type as a message in your chat box - e.g.` + "`!grohelp`" + `) with their newer "slash commands".
+--- IMPORTANT NEWS --
 
-The TL:DR; of this change is that all GroceryBot commands (except !grobulk, because Discord doesn't have the technology to support multi-line input) will have its slash command counterpart. For example, ` + "`!grohelp`" + ` will eventually be replaced by ` + "`/grohelp`" + `.
+:mega: On April 30 2022, Discord will be removing GroceryBot's ability to see messages that do not directly mention it. Therefore: 
+1. **Make sure you mention @GroceryBot before running your commands** (do this: ` + "`" + `@GroceryBot !gro chicken` + "`" + `, not this: ` + "`" + `!gro chicken` + "`" + `); OR
+2. Use our new slash commands (which comes with nifty auto-completion)!
 
-We understand that this change might not be what you want, so GroceryBot will keep supporting message commands until Discord cuts off our access to your message commands (or, alternatively, you can host an unverified version of GroceryBot to keep using message commands - Discord is only removing message commands for verified bots).
-
-On a bright side, our slash commands now have Autocomplete so that you'll get suggestions for the grocery entries / lists that you want to edit / delete while typing in your commands!
-
-Thank you, and please let us know in our Discord server if you have feedback on our new slash commands! :smile:
-
-[Get Support](https://discord.com/invite/rBjUaZyskg) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [Web](https://grocerybot.net)
+[Get Support](https://discord.com/invite/rBjUaZyskg) | [Patreon](https://www.patreon.com/verzac) | [Vote for us at top.gg](https://top.gg/bot/815120759680532510) | [Web](https://grocerybot.net)
 	`,
 	}
 
