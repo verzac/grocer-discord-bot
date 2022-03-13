@@ -47,6 +47,9 @@ func (m *MessageHandlerContext) getMaxGroceryListPerServer() int {
 		m.GetLogger().Error("Failed to find registration.", zap.Error(err))
 		return config.GetDefaultMaxGroceryListsPerServer()
 	}
+	if len(registrations) == 0 {
+		return config.GetDefaultMaxGroceryListsPerServer()
+	}
 	maxFound := 0
 	for _, r := range registrations {
 		if currentMax := r.RegistrationEntitlement.RegistrationTier.MaxGroceryList; currentMax != nil && *currentMax > maxFound {

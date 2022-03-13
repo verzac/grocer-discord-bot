@@ -196,7 +196,7 @@ func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobot
 		db:                          db,
 		grobotVersion:               grobotVersion,
 		commandContext:              cc,
-		logger:                      logger,
+		logger:                      logger.With(zap.Int("CommandSource", cc.CommandSourceType)),
 		groceryEntryRepo:            &repositories.GroceryEntryRepositoryImpl{DB: db},
 		groceryListRepo:             &repositories.GroceryListRepositoryImpl{DB: db},
 		guildRegistrationRepo:       &repositories.GuildRegistrationRepositoryImpl{DB: db},
