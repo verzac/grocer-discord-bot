@@ -23,7 +23,18 @@ type RegistrationEntitlementRepositoryImpl struct {
 
 func (r *RegistrationEntitlementRepositoryImpl) GetActive(q *models.RegistrationEntitlement) (*models.RegistrationEntitlement, error) {
 	data := &models.RegistrationEntitlement{}
-	if res := r.DB.Where(q).Where(activeClause, time.Now()).Take(data); res.Error != nil {
+	actualQuery := *q
+	actualQuery.UserID = nil
+	actualQuery.Username = nil
+	actualQuery.UsernameDiscriminator = nil
+	userQuery := r.DB
+	if q.UserID != nil {
+		userQuery = userQuery.Or(&models.RegistrationEntitlement{UserID: q.UserID})
+	}
+	if q.Username != nil && q.UsernameDiscriminator != nil {
+		userQuery = userQuery.Or(&models.RegistrationEntitlement{Username: q.Username, UsernameDiscriminator: q.UsernameDiscriminator})
+	}
+	if res := r.DB.Where(&actualQuery).Where(activeClause, time.Now()).Where(userQuery).Take(data); res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}

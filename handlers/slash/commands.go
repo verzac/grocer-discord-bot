@@ -360,14 +360,16 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 		}
 		handler := handlers.NewHandler(sess, &handlers.CommandContext{
-			Command:           command,
-			GrocerySublist:    listLabel,
-			ArgStr:            argStr,
-			GuildID:           i.GuildID,
-			ChannelID:         i.ChannelID,
-			CommandSourceType: handlers.CommandSourceSlashCommand,
-			Interaction:       i.Interaction,
-			AuthorID:          i.Member.User.ID,
+			Command:                     command,
+			GrocerySublist:              listLabel,
+			ArgStr:                      argStr,
+			GuildID:                     i.GuildID,
+			ChannelID:                   i.ChannelID,
+			CommandSourceType:           handlers.CommandSourceSlashCommand,
+			Interaction:                 i.Interaction,
+			AuthorID:                    i.Member.User.ID,
+			AuthorUsername:              i.Member.User.Username,
+			AuthorUsernameDiscriminator: i.Member.User.Discriminator,
 		}, db, grobotVersion, logger)
 		if err := handler.Handle(); err != nil {
 			logger.Error("Unable to handle.", zap.Any("Error", err))

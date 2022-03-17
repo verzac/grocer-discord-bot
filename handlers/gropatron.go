@@ -23,17 +23,23 @@ Hmm... Not sure what you were looking for. Here are my available commands:
 	}
 }
 
-func (m *MessageHandlerContext) onRegister() error {
+func (m *MessageHandlerContext) getEntitlement() (*models.RegistrationEntitlement, error) {
 	authorID := m.commandContext.AuthorID
+	username := m.commandContext.AuthorUsername
+	discriminator := m.commandContext.AuthorUsernameDiscriminator
+	return m.registrationEntitlementRepo.GetActive(&models.RegistrationEntitlement{UserID: &authorID, Username: &username, UsernameDiscriminator: &discriminator})
+}
+
+func (m *MessageHandlerContext) onRegister() error {
 	guildID := m.commandContext.GuildID
-	entitlement, err := m.registrationEntitlementRepo.GetActive(&models.RegistrationEntitlement{UserID: authorID})
+	entitlement, err := m.getEntitlement()
 	if err != nil {
 		return m.onError(err)
 	}
 	if entitlement == nil {
 		return m.reply("Oops, you do not have the entitlement to register this server.")
 	}
-	guildRegistrationsByUser, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{RegistrationEntitlementUserID: authorID})
+	guildRegistrationsByUser, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{RegistrationEntitlementID: entitlement.ID})
 	if len(guildRegistrationsByUser) >= entitlement.MaxRedemption {
 		return m.reply(fmt.Sprintf("Oops, you already have registered %d server under your account (max: %d). You can deregister servers from your account using `/gropatron deregister`.", len(guildRegistrationsByUser), entitlement.MaxRedemption))
 	}
@@ -43,9 +49,9 @@ func (m *MessageHandlerContext) onRegister() error {
 		}
 	}
 	if err := m.guildRegistrationRepo.Save(&models.GuildRegistration{
-		GuildID:                       guildID,
-		RegistrationEntitlementUserID: authorID,
-		ExpiresAt:                     entitlement.ExpiresAt,
+		GuildID:                   guildID,
+		RegistrationEntitlementID: entitlement.ID,
+		ExpiresAt:                 entitlement.ExpiresAt,
 	}); err != nil {
 		return m.onError(err)
 	}
@@ -53,9 +59,12 @@ func (m *MessageHandlerContext) onRegister() error {
 }
 
 func (m *MessageHandlerContext) onDeregister() error {
-	authorID := m.commandContext.AuthorID
 	guildID := m.commandContext.GuildID
-	guildRegistrationsByUser, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID, RegistrationEntitlementUserID: authorID})
+	entitlement, err := m.getEntitlement()
+	if err != nil {
+		return m.onError(err)
+	}
+	guildRegistrationsByUser, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID, RegistrationEntitlementID: entitlement.ID})
 	if err != nil {
 		return m.onError(err)
 	}

@@ -72,13 +72,15 @@ type MessageHandlerContext struct {
 }
 
 type CommandContext struct {
-	Command        string
-	GrocerySublist string
-	ArgStr         string
-	GuildID        string
-	AuthorID       string
-	ChannelID      string
-	IsMentioned    bool
+	Command                     string
+	GrocerySublist              string
+	ArgStr                      string
+	GuildID                     string
+	AuthorID                    string
+	ChannelID                   string
+	IsMentioned                 bool
+	AuthorUsername              string
+	AuthorUsernameDiscriminator string
 	// see CommandSource* const above
 	CommandSourceType int
 	// nil if CommandSourceType != CommandSourceSlashCommand, ACCESS SPARINGLY
@@ -180,7 +182,7 @@ func (m *MessageHandlerContext) GetLogger() *zap.Logger {
 }
 
 func NewMessageHandler(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
-	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID, sess.State.User.ID)
+	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID, sess.State.User.ID, msg.Author.Username, msg.Author.Discriminator)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +321,7 @@ func (mh *MessageHandlerContext) GetCommand() string {
 	return mh.commandContext.Command
 }
 
-func GetCommandContext(body string, guildID string, authorID string, channelID string, selfID string) (*CommandContext, error) {
+func GetCommandContext(body string, guildID string, authorID string, channelID string, selfID string, authorUsername string, authorUsernameDiscriminator string) (*CommandContext, error) {
 	mentionRegex, err := regexp.Compile(fmt.Sprintf("<@!%s>", selfID))
 	if err != nil {
 		return nil, err
@@ -370,14 +372,16 @@ func GetCommandContext(body string, guildID string, authorID string, channelID s
 		argStrStartIndex = loopIndex + 1
 	}
 	commandContext := &CommandContext{
-		Command:           command,
-		GrocerySublist:    sublistLabel,
-		ArgStr:            strings.TrimLeft(body[argStrStartIndex:], "\n "),
-		GuildID:           guildID,
-		AuthorID:          authorID,
-		ChannelID:         channelID,
-		CommandSourceType: CommandSourceMessageContent,
-		IsMentioned:       isMentioned,
+		Command:                     command,
+		GrocerySublist:              sublistLabel,
+		ArgStr:                      strings.TrimLeft(body[argStrStartIndex:], "\n "),
+		GuildID:                     guildID,
+		AuthorID:                    authorID,
+		ChannelID:                   channelID,
+		CommandSourceType:           CommandSourceMessageContent,
+		IsMentioned:                 isMentioned,
+		AuthorUsername:              authorUsername,
+		AuthorUsernameDiscriminator: authorUsernameDiscriminator,
 	}
 	return commandContext, nil
 }
