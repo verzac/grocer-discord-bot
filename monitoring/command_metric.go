@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
-	"github.com/verzac/grocer-discord-bot/handlers"
+	"go.uber.org/zap"
 )
 
 var (
@@ -23,15 +23,16 @@ func CloudWatchEnabled() bool {
 type CommandMetric struct {
 	cw        *cloudwatch.CloudWatch
 	startTime time.Time
-	mh        *handlers.MessageHandlerContext
+	logger    *zap.Logger
+	command   string
 }
 
-func NewCommandMetric(cw *cloudwatch.CloudWatch, mh *handlers.MessageHandlerContext) *CommandMetric {
-	return &CommandMetric{cw: cw, startTime: time.Now(), mh: mh}
+func NewCommandMetric(cw *cloudwatch.CloudWatch, command string, logger *zap.Logger) *CommandMetric {
+	return &CommandMetric{cw: cw, startTime: time.Now(), command: command, logger: logger.Named("metric")}
 }
 
 func (cm *CommandMetric) Done() {
-	command := cm.mh.GetCommand()
+	command := cm.command
 	if command == "" {
 		return
 	}
@@ -53,9 +54,9 @@ func (cm *CommandMetric) Done() {
 			},
 			Namespace: &namespace,
 		}); err != nil {
-			cm.mh.LogError(err)
+			cm.logger.Error("Cannot send metrics to CloudWatch.", zap.Error(err))
 		}
 	} else if IsMonitoringEnabled() {
-		cm.mh.GetLogger().Info(fmt.Sprintf("%s: %fms", command, completedIn))
+		cm.logger.Info(fmt.Sprintf("%s: %fms", command, completedIn))
 	}
 }

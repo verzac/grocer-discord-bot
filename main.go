@@ -44,7 +44,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		mLogger.Error(err.Error())
 		return
 	}
-	metric := monitoring.NewCommandMetric(cw, mh)
+	metric := monitoring.NewCommandMetric(cw, mh.GetCommand(), logger)
 	err = mh.Handle()
 	if err == handlers.ErrCmdNotProcessable {
 		return
@@ -165,7 +165,7 @@ func main() {
 			return
 		}
 		slashLog.Info("Registering slash commands...")
-		err, _ := slash.Register(d, db, slashLog, GroBotVersion)
+		err, _ := slash.Register(d, db, slashLog, GroBotVersion, cw)
 		if err != nil {
 			slashLog.Error("Cannot register slash commands", zap.Any("Error", err))
 			return

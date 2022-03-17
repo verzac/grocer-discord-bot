@@ -310,7 +310,7 @@ func isSkippableError(err error) bool {
 	return false
 }
 
-func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string) (err error, cleanup func(useAllCommands bool) error) {
+func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string, cw *cloudwatch.CloudWatch) (err error, cleanup func(useAllCommands bool) error) {
 	createdCommandsMap := make(map[string][]*discordgo.ApplicationCommand, 0)
 	for _, targetGuildID := range targetGuildIDs {
 		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID)).Named("registration")
@@ -341,6 +341,8 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		}
 		command := "!" + commandData.Name
 		logger.Debug("Received slash command.", zap.Any("commandData", commandData))
+		cm := monitoring.NewCommandMetric(cw, command, logger)
+		defer cm.Done()
 		listLabel := getListLabelFromOptions(commandData.Options)
 		argStrMarshaller := defaultSlashCommandArgStrMarshaller
 		commandMetadata, ok := commandsMetadata[commandData.Name]
@@ -382,12 +384,6 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 				handler.LogError(err)
 			}
 		}
-		// s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		// 	Data: &discordgo.InteractionResponseData{
-		// 		Content: "Hey there! Congratulations, you just executed your first slash command",
-		// 	},
-		// })
 	})
 	return nil, func(useAllCommands bool) error {
 		for guildID, cmds := range createdCommandsMap {
