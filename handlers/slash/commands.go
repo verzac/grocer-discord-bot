@@ -6,8 +6,10 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/monitoring"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
