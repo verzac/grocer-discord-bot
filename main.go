@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
+	"github.com/verzac/grocer-discord-bot/config"
 	dbUtils "github.com/verzac/grocer-discord-bot/db"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/handlers/api"
@@ -135,12 +136,18 @@ func main() {
 			GroBotVersion,
 			buildTime.Local().Format("Jan 2"),
 		)
+		botStatus := "online"
+		if config.IsMaintenanceMode() {
+			botStatus = "dnd"
+			activityStatusString = "Doing maintenance - I'll be back in 10 mins!"
+		}
 		logger.Info("Updating activity status.",
 			zap.String("NewActivity", activityStatusString),
 			zap.String("BuildTimestamp", BuildTimestamp),
+			zap.String("botStatus", botStatus),
 		)
 		if err := d.UpdateStatusComplex(discordgo.UpdateStatusData{
-			Status: "online",
+			Status: botStatus,
 			Activities: []*discordgo.Activity{
 				{
 					Name: activityStatusString,

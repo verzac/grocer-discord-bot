@@ -446,6 +446,10 @@ func Recover(logger *zap.Logger) {
 
 func (mh *MessageHandlerContext) Handle() (err error) {
 	defer mh.Recover()
+	if config.IsMaintenanceMode() {
+		mh.GetLogger().Error("Command issued in maintenance mode. Ignoring.")
+		return mh.reply(":helmet_with_cross: Hey hey! I'm currently in maintenance mode, which means I won't be able to handle your commands. Please try again in a few minutes (or check when my Discord status is no longer \"Doing maintenance\").\n\nThank you for your patience! :smile:")
+	}
 	mh.GetLogger().Debug(
 		"Handling command.",
 		zap.String("Command", mh.commandContext.Command),
