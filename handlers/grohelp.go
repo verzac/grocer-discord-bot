@@ -28,12 +28,12 @@ func getSpecialThanksMsg(mentions []string) string {
 func (m *MessageHandlerContext) OnHelp() error {
 	version := m.grobotVersion
 	subCmd := m.commandContext.ArgStr
-	var grohelpMsgEmbed *discordgo.MessageEmbed
+	var grohelpMsgEmbed discordgo.MessageEmbed
 	switch subCmd {
 	case "beta":
-		grohelpMsgEmbed = betaGrohelpMessageEmbed
+		grohelpMsgEmbed = *betaGrohelpMessageEmbed
 	default:
-		grohelpMsgEmbed = stableGroHelpMessageEmbed
+		grohelpMsgEmbed = *stableGroHelpMessageEmbed
 	}
 	grohelpMsgEmbed.Title = "GroceryBot " + version
 	registrationCtx := m.GetRegistrationContext()
@@ -46,7 +46,7 @@ func (m *MessageHandlerContext) OnHelp() error {
 			`, registrationCtx.MaxGroceryEntriesPerServer, registrationCtx.MaxGroceryListsPerServer, getSpecialThanksMsg(registrationCtx.RegistrationsOwnersMention),
 		) + grohelpMsgEmbed.Description
 	}
-	return m.replyWithEmbed(grohelpMsgEmbed)
+	return m.replyWithEmbed(&grohelpMsgEmbed)
 }
 
 var (
