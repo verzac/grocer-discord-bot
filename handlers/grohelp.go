@@ -38,7 +38,6 @@ func (m *MessageHandlerContext) OnHelp() error {
 	grohelpMsgEmbed.Title = "GroceryBot " + version
 	registrationCtx := m.GetRegistrationContext()
 	if !registrationCtx.IsDefault {
-		m.logger.Info("###" + getSpecialThanksMsg(registrationCtx.RegistrationsOwnersMention))
 		grohelpMsgEmbed.Description = fmt.Sprintf(`
 			**YOUR BENEFITS**
 			Max grocery entries: %d
