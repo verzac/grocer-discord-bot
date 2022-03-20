@@ -1,6 +1,29 @@
 package handlers
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"fmt"
+
+	"github.com/bwmarrin/discordgo"
+)
+
+func getSpecialThanksMsg(mentions []string) string {
+	const msgFormat = "Special thanks to %s for your patronage!"
+	if len(mentions) == 0 {
+		return fmt.Sprintf(msgFormat, "you guys")
+	} else {
+		mentionsString := ""
+		for i, m := range mentions {
+			if i == 0 {
+				mentionsString += m
+			} else if i == len(mentions)-1 {
+				mentionsString += ", and" + m
+			} else {
+				mentionsString += ", " + m
+			}
+		}
+		return fmt.Sprintf(msgFormat, mentionsString)
+	}
+}
 
 func (m *MessageHandlerContext) OnHelp() error {
 	version := m.grobotVersion
@@ -13,6 +36,17 @@ func (m *MessageHandlerContext) OnHelp() error {
 		grohelpMsgEmbed = stableGroHelpMessageEmbed
 	}
 	grohelpMsgEmbed.Title = "GroceryBot " + version
+	registrationCtx := m.GetRegistrationContext()
+	if !registrationCtx.IsDefault {
+		m.logger.Info("###" + getSpecialThanksMsg(registrationCtx.RegistrationsOwnersMention))
+		grohelpMsgEmbed.Description = fmt.Sprintf(`
+			**YOUR BENEFITS**
+			Max grocery entries: %d
+			Max grocery lists: %d
+			%s
+			`, registrationCtx.MaxGroceryEntriesPerServer, registrationCtx.MaxGroceryListsPerServer, getSpecialThanksMsg(registrationCtx.RegistrationsOwnersMention),
+		) + grohelpMsgEmbed.Description
+	}
 	return m.replyWithEmbed(grohelpMsgEmbed)
 }
 
@@ -30,10 +64,6 @@ var (
 			{
 				Name:  "!grolist:<label> delete",
 				Value: "[NEW - Multiple grocery lists] Delete your custom grocery list.\nExample: `!grolist:amazon delete` deletes the grocery list with the label \"amazon\" from your server.\n!grolist also comes with other utility functions - just type `!grolist help`.",
-			},
-			{
-				Name:  "!grohelp",
-				Value: "Get help!",
 			},
 			{
 				Name:  "!gro <name>",
@@ -87,10 +117,8 @@ Salt
 			},
 		},
 		Description: `
-**Release Note:**
+**WHAT'S NEW**
 :tada: Become a GroPatron through my Patreon page (link below) to get access to higher limits and support the bot's development!
-
---- IMPORTANT NEWS --
 
 :mega: On April 30 2022, Discord will be removing GroceryBot's ability to see messages that do not directly mention it. Therefore: 
 1. **Make sure you mention @GroceryBot before running your commands** (do this: ` + "`" + `@GroceryBot !gro chicken` + "`" + `, not this: ` + "`" + `!gro chicken` + "`" + `); OR

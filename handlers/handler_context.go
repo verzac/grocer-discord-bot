@@ -76,6 +76,7 @@ type RegistrationContext struct {
 	MaxGroceryListsPerServer   int
 	MaxGroceryEntriesPerServer int
 	IsDefault                  bool
+	RegistrationsOwnersMention []string
 }
 
 type CommandContext struct {
@@ -289,6 +290,7 @@ func (m *MessageHandlerContext) GetRegistrationContext() *RegistrationContext {
 		MaxGroceryEntriesPerServer: config.GetDefaultMaxGroceryEntriesPerServer(),
 		IsDefault:                  true,
 	}
+	registrationsOwnersMention := []string{}
 	guildID := m.commandContext.GuildID
 	registrations, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
 	if err != nil {
@@ -298,13 +300,16 @@ func (m *MessageHandlerContext) GetRegistrationContext() *RegistrationContext {
 	for _, r := range registrations {
 		if currentMaxLists := r.RegistrationEntitlement.RegistrationTier.MaxGroceryList; currentMaxLists != nil && *currentMaxLists > registrationContext.MaxGroceryListsPerServer {
 			registrationContext.MaxGroceryListsPerServer = *currentMaxLists
-			registrationContext.IsDefault = false
 		}
 		if currentMaxEntries := r.RegistrationEntitlement.RegistrationTier.MaxGroceryEntry; currentMaxEntries != nil && *currentMaxEntries > registrationContext.MaxGroceryEntriesPerServer {
 			registrationContext.MaxGroceryEntriesPerServer = *currentMaxEntries
-			registrationContext.IsDefault = false
 		}
+		if registrationUserID := r.RegistrationEntitlement.UserID; registrationUserID != nil {
+			registrationsOwnersMention = append(registrationsOwnersMention, fmt.Sprintf("<@%s>", *r.RegistrationEntitlement.UserID))
+		}
+		registrationContext.IsDefault = false
 	}
+	registrationContext.RegistrationsOwnersMention = registrationsOwnersMention
 	m.registrationContext = &registrationContext
 	return &registrationContext
 }
