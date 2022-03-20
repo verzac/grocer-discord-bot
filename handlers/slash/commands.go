@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/bwmarrin/discordgo"
+	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/monitoring"
 	"go.uber.org/zap"
@@ -19,13 +20,6 @@ var (
 	ErrMissingSlashCommandOption            = errors.New("Cannot find slash command option.")
 	ErrMissingOptionKeyForDefaultMarshaller = errors.New("Cannot find mainInputOptionKey, which is required if the default marshaller is used.")
 	ErrIncorrectFormatInt                   = errors.New("Expected a number as an input.")
-	targetGuildIDs                          = []string{
-		"",
-	}
-	guildIDsToCleanup = []string{
-		"815482602278354944",
-		"301321320946466818",
-	}
 )
 
 type argStrMarshaller = func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error)
@@ -314,6 +308,9 @@ func isSkippableError(err error) bool {
 
 func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string, cw *cloudwatch.CloudWatch) (err error, cleanup func(useAllCommands bool) error) {
 	createdCommandsMap := make(map[string][]*discordgo.ApplicationCommand, 0)
+	logger = logger.Named("registration")
+	targetGuildIDs := config.GetGuildIDsToRegisterSlashCommandsOn()
+	logger.Info("Starting the registration process for guilds.", zap.Any("targetGuildIDs", targetGuildIDs))
 	for _, targetGuildID := range targetGuildIDs {
 		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID)).Named("registration")
 		createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commands)
@@ -435,7 +432,8 @@ func CleanupCommands(sess *discordgo.Session, logger *zap.Logger, targetGuildID 
 
 func Cleanup(sess *discordgo.Session, logger *zap.Logger) error {
 	logger = logger.Named("manualcleanup")
-	logger.Info("Starting cleanup process.")
+	guildIDsToCleanup := config.GetGuildIDsToDeregisterSlashCommandsFrom()
+	logger.Info("Starting cleanup process.", zap.Any("guildIDsToCleanup", guildIDsToCleanup))
 	for _, targetGuildID := range guildIDsToCleanup {
 		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID))
 		loopLog.Debug("Retrieving all commands.")
