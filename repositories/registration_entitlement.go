@@ -56,7 +56,7 @@ func (r *RegistrationEntitlementRepositoryImpl) FindByQuery(q *models.Registrati
 }
 
 func (r *RegistrationEntitlementRepositoryImpl) Save(newEntitlement *models.RegistrationEntitlement) error {
-	if res := r.DB.Create(newEntitlement); res.Error != nil {
+	if res := r.DB.Save(newEntitlement); res.Error != nil {
 		return res.Error
 	}
 	return nil

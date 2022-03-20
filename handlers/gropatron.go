@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/verzac/grocer-discord-bot/models"
+	"go.uber.org/zap"
 )
 
 func (m *MessageHandlerContext) OnPatron() error {
@@ -54,6 +55,12 @@ func (m *MessageHandlerContext) onRegister() error {
 		ExpiresAt:                 entitlement.ExpiresAt,
 	}); err != nil {
 		return m.onError(err)
+	}
+	if entitlement.UserID == nil && m.commandContext.AuthorID != "" {
+		entitlement.UserID = &m.commandContext.AuthorID
+		if err := m.registrationEntitlementRepo.Save(entitlement); err != nil {
+			m.GetLogger().Error("Failed to hydrate entitlement with user ID.", zap.Error(err))
+		}
 	}
 	return m.reply(":tada: Yay! You've successfully registered your server to your account. You can now enjoy GroceryBot's extra benefits on this server.")
 }
