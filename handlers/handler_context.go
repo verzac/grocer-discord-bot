@@ -69,6 +69,12 @@ type MessageHandlerContext struct {
 	guildRegistrationRepo       repositories.GuildRegistrationRepository
 	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
 	replyCounter                int
+	registrationContext         *RegistrationContext // do not use directly - use GetRegistrationContext
+}
+
+type RegistrationContext struct {
+	MaxGroceryListsPerServer   int
+	MaxGroceryEntriesPerServer int
 }
 
 type CommandContext struct {
@@ -151,17 +157,7 @@ func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList
 }
 
 func (m *MessageHandlerContext) ValidateGroceryEntryLimit(guildID string, newItemCount int) (limitOk bool, limit int, err error) {
-	limit = config.GetDefaultMaxGroceryEntriesPerServer()
-	registrations, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
-	if err == nil {
-		for _, r := range registrations {
-			if limit < *r.RegistrationEntitlement.RegistrationTier.MaxGroceryEntry {
-				limit = *r.RegistrationEntitlement.RegistrationTier.MaxGroceryEntry
-			}
-		}
-	} else {
-		m.GetLogger().Error("Failed to retrieve grocery entry limit.", zap.Error(err))
-	}
+	limit = m.GetRegistrationContext().MaxGroceryEntriesPerServer
 	count, err := m.groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: guildID})
 	if err != nil {
 		return false, limit, err
@@ -281,6 +277,36 @@ func (m *MessageHandlerContext) onGetGroceryListError(err error) error {
 	default:
 		return m.onError(err)
 	}
+}
+
+func (m *MessageHandlerContext) GetRegistrationContext() *RegistrationContext {
+	if m.registrationContext != nil {
+		return m.registrationContext // return cached values
+	}
+	registrationContext := RegistrationContext{
+		MaxGroceryListsPerServer:   config.GetDefaultMaxGroceryListsPerServer(),
+		MaxGroceryEntriesPerServer: config.GetDefaultMaxGroceryEntriesPerServer(),
+	}
+	guildID := m.commandContext.GuildID
+	registrations, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
+	if err != nil {
+		m.GetLogger().Error("Failed to find registration.", zap.Error(err))
+		return &registrationContext
+	}
+	for _, r := range registrations {
+		if currentMaxLists := r.RegistrationEntitlement.RegistrationTier.MaxGroceryList; currentMaxLists != nil && *currentMaxLists > registrationContext.MaxGroceryListsPerServer {
+			registrationContext.MaxGroceryListsPerServer = *currentMaxLists
+		}
+		if currentMaxEntries := r.RegistrationEntitlement.RegistrationTier.MaxGroceryList; currentMaxEntries != nil && *currentMaxEntries > registrationContext.MaxGroceryListsPerServer {
+			registrationContext.MaxGroceryEntriesPerServer = *currentMaxEntries
+		}
+	}
+	m.registrationContext = &registrationContext
+	return &registrationContext
+}
+
+func (m *MessageHandlerContext) getMaxGroceryListPerServer() int {
+	return m.GetRegistrationContext().MaxGroceryListsPerServer
 }
 
 func toItemIndex(argStr string) (int, error) {

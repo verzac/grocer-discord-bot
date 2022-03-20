@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"github.com/verzac/grocer-discord-bot/utils"
@@ -38,25 +37,6 @@ func (m *MessageHandlerContext) OnList() error {
 		return m.displayListAll()
 	}
 	return m.reply(msgCmdNotFound)
-}
-
-func (m *MessageHandlerContext) getMaxGroceryListPerServer() int {
-	guildID := m.commandContext.GuildID
-	registrations, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
-	if err != nil {
-		m.GetLogger().Error("Failed to find registration.", zap.Error(err))
-		return config.GetDefaultMaxGroceryListsPerServer()
-	}
-	if len(registrations) == 0 {
-		return config.GetDefaultMaxGroceryListsPerServer()
-	}
-	maxFound := 0
-	for _, r := range registrations {
-		if currentMax := r.RegistrationEntitlement.RegistrationTier.MaxGroceryList; currentMax != nil && *currentMax > maxFound {
-			maxFound = *currentMax
-		}
-	}
-	return maxFound
 }
 
 func (m *MessageHandlerContext) displayListAll() error {
