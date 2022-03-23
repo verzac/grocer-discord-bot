@@ -18,6 +18,9 @@ func (m *MessageHandlerContext) OnReset() error {
 	if r := m.db.Delete(models.GrohereRecord{}, "guild_id = ?", m.commandContext.GuildID); r.Error != nil {
 		return m.onError(r.Error)
 	}
+	if r := m.db.Delete(models.GuildRegistration{}, "guild_id = ?", m.commandContext.GuildID); r.Error != nil {
+		return m.onError(r.Error)
+	}
 	if err := m.reply(":wave: I've successfully deleted all of your data from my database! (p.s. you may need to set up commands such as !grohere again)"); err != nil {
 		return m.onError(err)
 	}
