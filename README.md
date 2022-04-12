@@ -1,6 +1,6 @@
 # GroceryBot
 
-[Add this bot to your server](https://discord.com/oauth2/authorize?client_id=815120759680532510&permissions=2048&scope=bot) | [View us at top.gg](https://top.gg/bot/815120759680532510)
+[Add this bot to your server](https://discord.com/oauth2/authorize?client_id=815120759680532510&permissions=2048&scope=bot%20applications.commands) | [View us at top.gg](https://top.gg/bot/815120759680532510)
 
 GroceryBot allows you to maintain a grocery list for your server/guild/household. You can add and remove entries as you see fit.
 
