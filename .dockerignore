@@ -6,3 +6,4 @@ gorm.db
 .github/
 e2e/
 docs/
+.env

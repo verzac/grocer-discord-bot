@@ -119,7 +119,7 @@ Salt
 **WHAT'S NEW**
 :tada: Become a GroPatron through my Patreon page (link below) to get access to higher limits and support the bot's development!
 
-:mega: On April 30 2022, Discord will be removing GroceryBot's ability to see messages that do not directly mention it. Therefore: 
+:mega: On September 1 2022, Discord will be removing GroceryBot's ability to see messages that do not directly mention it. Therefore: 
 1. **Make sure you mention @GroceryBot before running your commands** (do this: ` + "`" + `@GroceryBot !gro chicken` + "`" + `, not this: ` + "`" + `!gro chicken` + "`" + `); OR
 2. Use our new slash commands (which comes with nifty auto-completion)!
 

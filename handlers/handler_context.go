@@ -259,9 +259,9 @@ func (m *MessageHandlerContext) onItemNotFound(itemIndex int) error {
 }
 
 func (m *MessageHandlerContext) sendMessage(msg string) error {
-	if !m.commandContext.IsMentioned {
-		msg += fmt.Sprintf("\n\nNotice: due to a Discord policy change, from April 2022, you need to mention <@%s> if you use commands prefixed with `!gro`, otherwise I won't be able to read your commands! Alternatively, you can also use slash commands - just start typing `/gro`! :person_bowing:", m.sess.State.User.ID)
-	}
+	// if !m.commandContext.IsMentioned {
+	// 	msg += fmt.Sprintf("\n\nNotice: due to a Discord policy change, from April 2022, you need to mention <@%s> if you use commands prefixed with `!gro`, otherwise I won't be able to read your commands! Alternatively, you can also use slash commands - just start typing `/gro`! :person_bowing:", m.sess.State.User.ID)
+	// }
 	_, sErr := m.sess.ChannelMessageSendComplex(m.commandContext.ChannelID, &discordgo.MessageSend{
 		Content: msg,
 		AllowedMentions: &discordgo.MessageAllowedMentions{
