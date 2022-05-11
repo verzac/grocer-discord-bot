@@ -10,12 +10,12 @@ const (
 )
 
 type GroceryList struct {
-	ID        uint   `gorm:"primaryKey"`
-	GuildID   string `gorm:"not null;index"`
-	ListLabel string `gorm:"not null;index"`
-	FancyName *string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	GuildID   string    `json:"guild_id" gorm:"not null;index"`
+	ListLabel string    `json:"list_label" gorm:"not null;index"`
+	FancyName *string   `json:"fancy_name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (gl *GroceryList) GetName() string {

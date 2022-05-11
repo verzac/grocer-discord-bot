@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
@@ -19,6 +20,7 @@ var (
 	groceryEntryRepo            repositories.GroceryEntryRepository
 	guildRegistrationRepo       repositories.GuildRegistrationRepository
 	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
+	groceryListRepo             repositories.GroceryListRepository
 )
 
 // RegisterAndStart starts the API handler goroutine. TO BE USED IN DEV ONLY FOR NOW
@@ -42,6 +44,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	}))
 	e.Validator = utils.NewCustomValidator()
 	groceryEntryRepo = &repositories.GroceryEntryRepositoryImpl{DB: db}
+	groceryListRepo = &repositories.GroceryListRepositoryImpl{DB: db}
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	registrationEntitlementRepo = &repositories.RegistrationEntitlementRepositoryImpl{DB: db}
 	e.GET("/grocery-lists/:guildID", func(c echo.Context) error {
@@ -51,7 +54,15 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		if err != nil {
 			return c.String(500, err.Error())
 		}
-		return c.JSON(200, groceryEntries)
+		groceryLists, err := groceryListRepo.FindByQuery(&models.GroceryList{GuildID: guildID})
+		if err != nil {
+			return c.String(500, err.Error())
+		}
+		return c.JSON(200, &dto.GuildGroceryList{
+			GuildID:        guildID,
+			GroceryEntries: groceryEntries,
+			GroceryLists:   groceryLists,
+		})
 	})
 	e.GET("/registrations/:guildID", func(c echo.Context) error {
 		defer handlers.Recover(logger)
@@ -62,10 +73,15 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		}
 		return c.JSON(200, registrations)
 	})
+	// myUserID := "183947835467759617"
+	// myUsername := "verzac"
+	// myDiscriminator := "6377"
 	// if err := registrationEntitlementRepo.Save(&models.RegistrationEntitlement{
-	// 	UserID:             "183947835467759617",
-	// 	MaxRedemption:      99,
-	// 	RegistrationTierID: 1,
+	// 	// UserID: &myUserID,
+	// 	Username:              &myUsername,
+	// 	UsernameDiscriminator: &myDiscriminator,
+	// 	MaxRedemption:         99,
+	// 	RegistrationTierID:    1,
 	// }); err != nil {
 	// 	logger.Error("Failed to save entitlement.", zap.Error(err))
 	// }
