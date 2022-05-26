@@ -258,6 +258,18 @@ func (m *MessageHandlerContext) onItemNotFound(itemIndex int) error {
 	return m.displayList()
 }
 
+func (m *MessageHandlerContext) sendDirectMessage(msg string, userID string) error {
+	channel, err := m.sess.UserChannelCreate(m.commandContext.AuthorID)
+	if err != nil {
+		return err
+	}
+	_, err = m.sess.ChannelMessageSend(channel.ID, msg)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *MessageHandlerContext) sendMessage(msg string) error {
 	// if !m.commandContext.IsMentioned {
 	// 	msg += fmt.Sprintf("\n\nNotice: due to a Discord policy change, from April 2022, you need to mention <@%s> if you use commands prefixed with `!gro`, otherwise I won't be able to read your commands! Alternatively, you can also use slash commands - just start typing `/gro`! :person_bowing:", m.sess.State.User.ID)
@@ -269,7 +281,19 @@ func (m *MessageHandlerContext) sendMessage(msg string) error {
 			Parse: []discordgo.AllowedMentionType{},
 		},
 	})
-	return sErr
+	// try to notify the user that this is messed up
+	if sErr != nil {
+		m.GetLogger().Info("Unable to send message to user.", zap.Error(sErr))
+		dmErr := m.sendDirectMessage(fmt.Sprintf(
+			":wave: Heyo! Just letting you know: I can't reply to the message / command that you sent me because I am missing the server permission to do so (oh no). If you give me the **\"Send Messages\" permission** to send messages in your server, I'd be able to reply over there (alternatively you can just reinvite me with all the :white_check_mark:-looking things enabled). Thank you!\n\n- your trusty GroceryBot\n\nOriginal reply: %s",
+			msg,
+		), m.commandContext.AuthorID)
+		if dmErr != nil {
+			m.GetLogger().Error("Unable to DM user that GroBot is missing permission.", zap.NamedError("OriginalError", sErr), zap.NamedError("DMError", dmErr))
+			return sErr
+		}
+	}
+	return nil
 }
 
 func (m *MessageHandlerContext) onGetGroceryListError(err error) error {
