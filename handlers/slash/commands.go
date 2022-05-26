@@ -184,6 +184,18 @@ var (
 				},
 			},
 		},
+		{
+			Name:        "grorecipe",
+			Description: "Recipes are a pre-built set of grocery entries that you can add to any of your grocery lists",
+			// Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "make",
+					Description: "Create a new grorecipe.",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+			},
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
@@ -337,6 +349,14 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 				logger.Error("Failed to handle auto-complete event.", zap.Error(err))
 			}
 			return
+		}
+		// if it's a modal slash command
+		if handler, ok := modalCommandHandlers[commandData.Name]; ok {
+			data := handler(i)
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseModal,
+				Data: data,
+			})
 		}
 		command := "!" + commandData.Name
 		logger.Debug("Received slash command.", zap.Any("commandData", commandData))
