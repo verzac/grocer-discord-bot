@@ -59,6 +59,10 @@ func (m *MessageHandlerContext) onAttachList() error {
 		}
 	}
 	attachMsg, err := m.sess.ChannelMessageSend(m.commandContext.ChannelID, "Placeholder")
+	if err != nil || attachMsg == nil {
+		m.GetLogger().Error("Unable to attach a message to the channel for !grohere.", zap.Error(err))
+		return m.sendDirectMessage("Oops, I can't seem to attach the grocery list through `grohere`. Have you added the \"Send Message\" permission for me in your server / channel?", m.commandContext.AuthorID)
+	}
 	grohereRecord := models.GrohereRecord{
 		GuildID:          m.commandContext.GuildID,
 		GrohereChannelID: attachMsg.ChannelID,
