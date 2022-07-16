@@ -46,7 +46,9 @@ func (m *MessageHandlerContext) displayListAll() error {
 			GuildID: m.commandContext.GuildID,
 		},
 	)
-
+	if err != nil {
+		return m.onError(err)
+	}
 	groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: m.commandContext.GuildID})
 	if err != nil {
 		return m.onError(err)
@@ -125,7 +127,7 @@ func (m *MessageHandlerContext) getDisplayListText(groceryLists []models.Grocery
 	noListGroceries, groupedGroceries, listlessGroceries := utils.GroupByGroceryLists(groceryLists, groceries)
 	for _, g := range listlessGroceries {
 		m.LogError(
-			errors.New("Unknown grocery list ID in grocery entry."),
+			errors.New("unknown grocery list ID in grocery entry"),
 			zap.Uint("GroceryListID", *g.GroceryListID),
 		)
 	}

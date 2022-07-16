@@ -401,9 +401,8 @@ func GetCommandContext(body string, guildID string, authorID string, channelID s
 		switch char {
 		case " ", "\n", "\t":
 			doBreak = true
-			break
 		case ":":
-			if isProcessingSublistLabel == true {
+			if isProcessingSublistLabel {
 				return nil, ErrCmdNotProcessable
 			}
 			isProcessingSublistLabel = true

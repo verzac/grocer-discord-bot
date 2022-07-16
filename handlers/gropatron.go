@@ -41,6 +41,9 @@ func (m *MessageHandlerContext) onRegister() error {
 		return m.reply("Oops, you do not have the entitlement to register this server.")
 	}
 	guildRegistrationsByUser, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{RegistrationEntitlementID: entitlement.ID})
+	if err != nil {
+		return m.onError(err)
+	}
 	if len(guildRegistrationsByUser) >= entitlement.MaxRedemption {
 		return m.reply(fmt.Sprintf("Oops, you already have registered %d server under your account (max: %d). You can deregister servers from your account using `/gropatron deregister`.", len(guildRegistrationsByUser), entitlement.MaxRedemption))
 	}
