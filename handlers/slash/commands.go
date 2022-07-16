@@ -360,6 +360,17 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 				command = commandMetadata.commandMappingOverride
 			}
 		}
+		if i.Member == nil {
+			if err := sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "I do not currently support commands through my DM. Please put me in a server and I'll work magic for you!",
+				},
+			}); err != nil {
+				logger.Error("Cannot respond to DM interaction.", zap.Error(err))
+				return
+			}
+		}
 		handler := handlers.NewHandler(sess, &handlers.CommandContext{
 			Command:                     command,
 			GrocerySublist:              listLabel,
