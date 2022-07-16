@@ -171,7 +171,7 @@ func (m *MessageHandlerContext) newList() error {
 			zap.Int("maxGroceryListPerServer", maxGroceryListPerServer),
 		)
 		return m.reply(fmt.Sprintf(
-			":shopping_bags: Whoops, you already have the maximum of %d grocery lists for this server. Please delete one through `!grolist delete <list label>` to make room for new ones. Alternatively, you can use `!grolist edit-label` and `!grolist edit-name` to edit your grocery list (see `!grohelp` for more details).\n\nPS: We're looking to introduce a Premium tier with higher limits!",
+			":shopping_bags: Whoops, you already have the maximum of %d grocery lists for this server. Please delete one through `!grolist delete <list label>` to make room for new ones. Alternatively, you can use `!grolist edit-label` and `!grolist edit-name` to edit your grocery list (see `!grohelp` for more details).\n\nPS: You can get higher limits by supporting me on Patreon through `!grohelp` or `/grohelp`!",
 			existingCountInGuild+1,
 		))
 	}
