@@ -20,8 +20,8 @@ type testSuiteSession struct {
 }
 
 var (
-	errReplyTimeout                = errors.New("Timed out when waiting for reply.")
-	errAwaitTesteeReadinessTimeout = errors.New("Timed out when waiting for tested bot to come online.")
+	errReplyTimeout                = errors.New("timed out when waiting for reply")
+	errAwaitTesteeReadinessTimeout = errors.New("timed out when waiting for tested bot to come online")
 )
 
 func setupTestSuite() *testSuiteSession {
@@ -65,7 +65,7 @@ func setupTestSuite() *testSuiteSession {
 	tss.AwaitTesteeReadiness()
 	log.Printf("Testee %s is now ready.", tss.testeeClientID)
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	go func() {
 		<-sc
 		tss.Cleanup()
@@ -98,7 +98,7 @@ func (tss *testSuiteSession) AwaitTesteeReadiness() {
 		}
 	})
 	defer removeGuildChunkHandler()
-	if err := tss.d.RequestGuildMembers(tss.guildID, "", 0, true); err != nil {
+	if err := tss.d.RequestGuildMembers(tss.guildID, "", 0, "e2e_test", true); err != nil {
 		panic(err)
 	}
 	select {
