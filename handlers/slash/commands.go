@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	ErrMissingSlashCommandOption            = errors.New("Cannot find slash command option.")
-	ErrMissingOptionKeyForDefaultMarshaller = errors.New("Cannot find mainInputOptionKey, which is required if the default marshaller is used.")
-	ErrIncorrectFormatInt                   = errors.New("Expected a number as an input.")
+	ErrMissingSlashCommandOption            = errors.New("cannot find slash command option")
+	ErrMissingOptionKeyForDefaultMarshaller = errors.New("cannot find mainInputOptionKey, which is required if the default marshaller is used")
+	ErrIncorrectFormatInt                   = errors.New("expected a number as an input")
 )
 
 type argStrMarshaller = func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error)
@@ -156,6 +156,11 @@ var (
 		{
 			Name:        "groreset",
 			Description: "Clear all of your data from GroceryBot.",
+			Type:        discordgo.ChatApplicationCommand,
+		},
+		{
+			Name:        "grobulk",
+			Description: "Add multiple grocery entries to your list.",
 			Type:        discordgo.ChatApplicationCommand,
 		},
 		{
@@ -306,7 +311,60 @@ func isSkippableError(err error) bool {
 	return false
 }
 
-func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string, cw *cloudwatch.CloudWatch) (err error, cleanup func(useAllCommands bool) error) {
+func getCommandName(i *discordgo.InteractionCreate) string {
+	switch i.Type {
+	case discordgo.InteractionModalSubmit:
+		return i.ModalSubmitData().CustomID
+	default:
+		return i.ApplicationCommandData().Name
+	}
+}
+
+func getMessageCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
+	command := "!" + commandName
+	commandData := i.ApplicationCommandData()
+	listLabel := getListLabelFromOptions(commandData.Options)
+	argStrMarshaller := defaultSlashCommandArgStrMarshaller
+	commandMetadata, ok := commandsMetadata[commandData.Name]
+	argStr := ""
+	if ok {
+		if commandMetadata.customArgStrMarshaller != nil {
+			argStrMarshaller = commandMetadata.customArgStrMarshaller
+		}
+		marshalledArgStr, err := argStrMarshaller(commandData.Options, &commandMetadata)
+		if err != nil {
+			return nil, err
+		}
+		argStr = marshalledArgStr
+		if commandMetadata.commandMappingOverride != "" {
+			command = commandMetadata.commandMappingOverride
+		}
+	}
+	commandContext := &handlers.CommandContext{
+		Command:                     command,
+		GrocerySublist:              listLabel,
+		ArgStr:                      argStr,
+		GuildID:                     i.GuildID,
+		ChannelID:                   i.ChannelID,
+		CommandSourceType:           handlers.CommandSourceSlashCommand,
+		Interaction:                 i.Interaction,
+		AuthorID:                    i.Member.User.ID,
+		AuthorUsername:              i.Member.User.Username,
+		AuthorUsernameDiscriminator: i.Member.User.Discriminator,
+	}
+	return commandContext, nil
+}
+
+func getCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
+	switch i.Type {
+	case discordgo.InteractionModalSubmit:
+		return getCommandContextFromModalSubmission(i, commandName)
+	default:
+		return getMessageCommandContext(i, commandName)
+	}
+}
+
+func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string, cw *cloudwatch.CloudWatch) (cleanup func(useAllCommands bool) error, err error) {
 	createdCommandsMap := make(map[string][]*discordgo.ApplicationCommand, 0)
 	logger = logger.Named("registration")
 	targetGuildIDs := config.GetGuildIDsToRegisterSlashCommandsOn()
@@ -320,46 +378,12 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 				loopLog.Info(fmt.Sprintf("Skipping slash command registration for %s.", targetGuildID), zap.Any("Error", err))
 				continue
 			}
-			return err, nil
+			return nil, err
 		}
 		createdCommandsMap[targetGuildID] = createdCommands
 	}
 	cleanupHandler := sess.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		defer handlers.Recover(logger)
-		commandData := i.ApplicationCommandData()
-		logger := logger.Named("handler").With(
-			zap.String("GuildID", i.GuildID),
-			zap.String("SlashCommandName", commandData.Name),
-		)
-		if i.Type == discordgo.InteractionApplicationCommandAutocomplete {
-			err := NewAutoCompleteHandler(sess, db, logger, i).Handle()
-			if err != nil {
-				logger.Error("Failed to handle auto-complete event.", zap.Error(err))
-			}
-			return
-		}
-		command := "!" + commandData.Name
-		logger.Debug("Received slash command.", zap.Any("commandData", commandData))
-		cm := monitoring.NewCommandMetric(cw, command, logger)
-		defer cm.Done()
-		listLabel := getListLabelFromOptions(commandData.Options)
-		argStrMarshaller := defaultSlashCommandArgStrMarshaller
-		commandMetadata, ok := commandsMetadata[commandData.Name]
-		argStr := ""
-		if ok {
-			if commandMetadata.customArgStrMarshaller != nil {
-				argStrMarshaller = commandMetadata.customArgStrMarshaller
-			}
-			marshalledArgStr, err := argStrMarshaller(commandData.Options, &commandMetadata)
-			if err != nil {
-				onHandlingErrorRespond(logger, sess, i.Interaction)
-				return
-			}
-			argStr = marshalledArgStr
-			if commandMetadata.commandMappingOverride != "" {
-				command = commandMetadata.commandMappingOverride
-			}
-		}
 		if i.Member == nil {
 			if err := sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -371,18 +395,33 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 				return
 			}
 		}
-		handler := handlers.NewHandler(sess, &handlers.CommandContext{
-			Command:                     command,
-			GrocerySublist:              listLabel,
-			ArgStr:                      argStr,
-			GuildID:                     i.GuildID,
-			ChannelID:                   i.ChannelID,
-			CommandSourceType:           handlers.CommandSourceSlashCommand,
-			Interaction:                 i.Interaction,
-			AuthorID:                    i.Member.User.ID,
-			AuthorUsername:              i.Member.User.Username,
-			AuthorUsernameDiscriminator: i.Member.User.Discriminator,
-		}, db, grobotVersion, logger)
+		if modalCreationCtx := NewModalCreationContext(sess, db, logger, i, grobotVersion); modalCreationCtx != nil {
+			modalCreationCtx.Handle()
+			return
+		}
+		commandName := getCommandName(i)
+		logger := logger.Named("handler").With(
+			zap.String("GuildID", i.GuildID),
+			zap.String("SlashCommandName", commandName),
+		)
+		if i.Type == discordgo.InteractionApplicationCommandAutocomplete {
+			err := NewAutoCompleteHandler(sess, db, logger, i).Handle()
+			if err != nil {
+				logger.Error("Failed to handle auto-complete event.", zap.Error(err))
+			}
+			return
+		}
+		// proxy to message handler
+		command := "!" + commandName
+		cm := monitoring.NewCommandMetric(cw, command, logger)
+		defer cm.Done()
+		logger.Debug("Received slash command.")
+		commandContext, err := getCommandContext(i, commandName)
+		if err != nil {
+			onHandlingErrorRespond(logger, sess, i.Interaction)
+			return
+		}
+		handler := handlers.NewHandler(sess, commandContext, db, grobotVersion, logger)
 		if err := handler.Handle(); err != nil {
 			logger.Error("Unable to handle.", zap.Any("Error", err))
 			if err := sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -395,7 +434,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 		}
 	})
-	return nil, func(useAllCommands bool) error {
+	return func(useAllCommands bool) error {
 		for guildID, cmds := range createdCommandsMap {
 			for _, cmd := range cmds {
 				logger.Info("Deleting command.", zap.String("CommandName", cmd.Name))
@@ -407,7 +446,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		}
 		cleanupHandler()
 		return nil
-	}
+	}, nil
 }
 
 func CleanupCommands(sess *discordgo.Session, logger *zap.Logger, targetGuildID string, cmds []*discordgo.ApplicationCommand) []error {

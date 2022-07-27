@@ -47,7 +47,7 @@ func (m *MessageHandlerContext) OnBulk() error {
 	if groceryList != nil {
 		listLabel = groceryList.GetName()
 	}
-	if err := m.sendMessage(fmt.Sprintf("Added %d items into %s!", insertedItemsCount, listLabel)); err != nil {
+	if err := m.reply(fmt.Sprintf("Added %d items into %s!", insertedItemsCount, listLabel)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohereWithGroceryList()
