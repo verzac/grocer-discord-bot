@@ -68,10 +68,11 @@ var (
 				components = append(components, discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.SelectMenu{
-							CustomID:  "Which grocery list do you want to put it into?",
-							MinValues: &minValues,
-							MaxValues: 1,
-							Options:   groceryListSelectOptions,
+							CustomID:    "bulk_list_label",
+							Placeholder: "Which grocery list do you want to put it into?",
+							MinValues:   &minValues,
+							MaxValues:   1,
+							Options:     groceryListSelectOptions,
 						},
 					},
 				})
@@ -144,10 +145,16 @@ func (c *ModalCreationContext) Handle() {
 var (
 	commandContextGetters = map[string]func(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error){
 		"grobulk": func(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
+			data := i.ModalSubmitData()
+			argStr := data.Components[0].(*discordgo.ActionsRow).
+				Components[0].(*discordgo.TextInput).
+				Value
+			// listLabel := data.Components[1].(*discordgo.ActionsRow).
+			// 	Components[0].(*discordgo.SelectMenu)
 			return &handlers.CommandContext{
 				Command:                     "!" + commandName,
 				GrocerySublist:              "",
-				ArgStr:                      "chicken", // TODO ASSIGN ME
+				ArgStr:                      argStr, // TODO ASSIGN ME
 				GuildID:                     i.GuildID,
 				AuthorID:                    i.Member.User.ID, // nil-check this in caller
 				ChannelID:                   i.ChannelID,

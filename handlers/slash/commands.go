@@ -369,9 +369,21 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 	logger = logger.Named("registration")
 	targetGuildIDs := config.GetGuildIDsToRegisterSlashCommandsOn()
 	logger.Info("Starting the registration process for guilds.", zap.Any("targetGuildIDs", targetGuildIDs))
+	ignoredSlashCommands := config.GetIgnoredSlashCommands(grobotVersion)
+	if len(ignoredSlashCommands) > 0 {
+		logger.Info("Ignoring slash commands.", zap.Any("ignoredSlashCommands", ignoredSlashCommands))
+	} else {
+		logger.Debug("No slash commands to ignore.")
+	}
+	commandsToRegister := make([]*discordgo.ApplicationCommand, 0, len(commands))
+	for _, cmd := range commands {
+		if _, ok := ignoredSlashCommands[cmd.Name]; !ok {
+			commandsToRegister = append(commandsToRegister, cmd)
+		}
+	}
 	for _, targetGuildID := range targetGuildIDs {
 		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID)).Named("registration")
-		createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commands)
+		createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commandsToRegister)
 		if err != nil {
 			if isSkippableError(err) {
 				// if 403, assume that they have no access to the guild - continue anyways

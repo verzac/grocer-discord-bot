@@ -172,7 +172,7 @@ func main() {
 			return
 		}
 		slashLog.Info("Registering slash commands...")
-		err, _ := slash.Register(d, db, slashLog, GroBotVersion, cw)
+		_, err := slash.Register(d, db, slashLog, GroBotVersion, cw)
 		if err != nil {
 			slashLog.Error("Cannot register slash commands", zap.Any("Error", err))
 			return

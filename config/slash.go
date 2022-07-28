@@ -24,3 +24,26 @@ func GetGuildIDsToDeregisterSlashCommandsFrom() []string {
 	}
 	return defaultGuildIDs
 }
+
+var (
+	disabledSlashCommands = []string{
+		"grobulk",
+	}
+)
+
+func GetIgnoredSlashCommands(grobotVersion string) map[string]interface{} {
+	ignoredSlashCommands := make(map[string]interface{}, 0)
+	if grobotVersion != "local" {
+		for _, cmd := range disabledSlashCommands {
+			ignoredSlashCommands[cmd] = struct{}{}
+		}
+	}
+	ignoredSlashCommandsStr := os.Getenv("GROCER_BOT_SLASH_IGNORE_COMMANDS")
+	if ignoredSlashCommandsStr != "" {
+		ignoredSlashCommandsFromEnv := strings.Split(ignoredSlashCommandsStr, ",")
+		for _, cmd := range ignoredSlashCommandsFromEnv {
+			ignoredSlashCommands[cmd] = struct{}{}
+		}
+	}
+	return ignoredSlashCommands
+}
