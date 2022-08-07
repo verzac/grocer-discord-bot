@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/handlers/slash/native"
 	"github.com/verzac/grocer-discord-bot/monitoring"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -189,6 +190,11 @@ var (
 				},
 			},
 		},
+		{
+			Name:        "developer",
+			Description: "Create a new API key so that you can integrate directly with GroceryBot!",
+			Type:        discordgo.ChatApplicationCommand,
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
@@ -315,6 +321,8 @@ func getCommandName(i *discordgo.InteractionCreate) string {
 	switch i.Type {
 	case discordgo.InteractionModalSubmit:
 		return i.ModalSubmitData().CustomID
+	case discordgo.InteractionMessageComponent:
+		return i.MessageComponentData().CustomID
 	default:
 		return i.ApplicationCommandData().Name
 	}
@@ -428,6 +436,15 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		cm := monitoring.NewCommandMetric(cw, command, logger)
 		defer cm.Done()
 		logger.Debug("Received slash command.")
+		if isHandled := native.Handle(native.NativeSlashHandlingParams{
+			Session:           s,
+			InteractionCreate: i,
+			CommandName:       commandName,
+			DB:                db,
+			Logger:            logger,
+		}); isHandled {
+			return
+		}
 		commandContext, err := getCommandContext(i, commandName)
 		if err != nil {
 			onHandlingErrorRespond(logger, sess, i.Interaction)

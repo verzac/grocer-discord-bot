@@ -28,6 +28,7 @@ func GetGuildIDsToDeregisterSlashCommandsFrom() []string {
 var (
 	disabledSlashCommands = []string{
 		"grobulk",
+		"developer",
 	}
 )
 
