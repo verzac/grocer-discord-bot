@@ -14,6 +14,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
@@ -230,7 +231,7 @@ func (m *MessageHandlerContext) onError(err error) error {
 		}
 	}
 	m.LogError(err)
-	_, sErr := m.sess.ChannelMessageSend(m.commandContext.ChannelID, fmt.Sprintf(":helmet_with_cross: Oops, something broke! Give it a day or so and it'll be fixed by the team (or you can follow up this issue with us at our Discord server!). Error:\n```\n%s\n```", err.Error()))
+	_, sErr := m.sess.ChannelMessageSend(m.commandContext.ChannelID, utils.GenericErrorMessage(err))
 	if sErr != nil {
 		wrappedErr := errors.Wrap(err, sErr.Error())
 		m.LogError(wrappedErr)
