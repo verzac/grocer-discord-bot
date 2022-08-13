@@ -9,11 +9,11 @@ import (
 )
 
 type NativeSlashHandlingContext struct {
-	s                *discordgo.Session
-	i                *discordgo.InteractionCreate
-	apiKeyRepository repositories.ApiKeyRepository
-	logger           *zap.Logger
-	replyCount       int
+	s                   *discordgo.Session
+	i                   *discordgo.InteractionCreate
+	apiClientRepository repositories.ApiClientRepository
+	logger              *zap.Logger
+	replyCount          int
 }
 
 type replyOptions struct {
@@ -56,8 +56,8 @@ type NativeSlashHandler = func(c *NativeSlashHandlingContext)
 
 var (
 	nativeSlashHandlerMap = map[string]NativeSlashHandler{
-		"developer":            handleDeveloper,
-		"generate_new_api_key": handleDeveloperCreateNewApiKey,
+		"developer":               handleDeveloper,
+		"generate_new_api_client": handleDeveloperCreateNewApiClient,
 	}
 )
 
@@ -75,10 +75,10 @@ func Handle(p NativeSlashHandlingParams) bool {
 		return false
 	}
 	ctx := &NativeSlashHandlingContext{
-		s:                p.Session,
-		i:                p.InteractionCreate,
-		apiKeyRepository: &repositories.ApiKeyRepositoryImpl{DB: p.DB},
-		logger:           p.Logger.Named("native"),
+		s:                   p.Session,
+		i:                   p.InteractionCreate,
+		apiClientRepository: &repositories.ApiClientRepositoryImpl{DB: p.DB},
+		logger:              p.Logger.Named("native"),
 	}
 	handler(ctx)
 	return true

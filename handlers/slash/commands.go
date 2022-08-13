@@ -192,7 +192,7 @@ var (
 		},
 		{
 			Name:        "developer",
-			Description: "Create a new API key so that you can integrate directly with GroceryBot!",
+			Description: "Create a new API Client ID & Secret so that you can integrate directly with GroceryBot!",
 			Type:        discordgo.ChatApplicationCommand,
 		},
 	}

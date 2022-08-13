@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/verzac/grocer-discord-bot/auth"
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/models"
@@ -17,10 +18,10 @@ import (
 )
 
 var (
-	groceryEntryRepo            repositories.GroceryEntryRepository
-	guildRegistrationRepo       repositories.GuildRegistrationRepository
-	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
-	groceryListRepo             repositories.GroceryListRepository
+	groceryEntryRepo      repositories.GroceryEntryRepository
+	guildRegistrationRepo repositories.GuildRegistrationRepository
+	groceryListRepo       repositories.GroceryListRepository
+	apiClientRepo         repositories.ApiClientRepository
 )
 
 // RegisterAndStart starts the API handler goroutine. TO BE USED IN DEV ONLY FOR NOW
@@ -46,10 +47,12 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	groceryEntryRepo = &repositories.GroceryEntryRepositoryImpl{DB: db}
 	groceryListRepo = &repositories.GroceryListRepositoryImpl{DB: db}
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
-	registrationEntitlementRepo = &repositories.RegistrationEntitlementRepositoryImpl{DB: db}
-	e.GET("/grocery-lists/:guildID", func(c echo.Context) error {
+	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
+	e.Use(AuthMiddleware(apiClientRepo, logger))
+	e.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
-		guildID := c.Param("guildID")
+		authContext := c.(*AuthContext)
+		guildID := auth.GetGuildIDFromScope(authContext.Scope)
 		groceryEntries, err := groceryEntryRepo.FindByQuery(&models.GroceryEntry{GuildID: guildID})
 		if err != nil {
 			return c.String(500, err.Error())
@@ -58,15 +61,17 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		if err != nil {
 			return c.String(500, err.Error())
 		}
-		return c.JSON(200, &dto.GuildGroceryList{
+		out := &dto.GuildGroceryList{
 			GuildID:        guildID,
 			GroceryEntries: groceryEntries,
 			GroceryLists:   groceryLists,
-		})
+		}
+		return c.JSON(200, out)
 	})
-	e.GET("/registrations/:guildID", func(c echo.Context) error {
+	e.GET("/registrations", func(c echo.Context) error {
 		defer handlers.Recover(logger)
-		guildID := c.Param("guildID")
+		authContext := c.(*AuthContext)
+		guildID := auth.GetGuildIDFromScope(authContext.Scope)
 		registrations, err := guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
 		if err != nil {
 			return c.String(500, err.Error())

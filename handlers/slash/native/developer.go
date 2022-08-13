@@ -1,6 +1,7 @@
 package native
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -9,11 +10,11 @@ import (
 	"go.uber.org/zap"
 )
 
-const customIDGenerateNewApiKey = "generate_new_api_key"
+const customIDGenerateNewApiClient = "generate_new_api_client"
 
 var handleDeveloper NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 	if c.i.Member == nil {
-		c.reply("This command can only be used in a server (to generate your API keys).")
+		c.reply("This command can only be used in a server (to generate your API Client).")
 		return
 	}
 	// check for perms
@@ -22,35 +23,35 @@ var handleDeveloper NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 		c.reply("This command can only be used by someone with the Administrator permission in your server.")
 		return
 	}
-	// check for existing API key
+	// check for existing API client
 	guildID := c.i.GuildID
-	keys, err := c.apiKeyRepository.FindApiKeysByGuildID(guildID)
+	clients, err := c.apiClientRepository.FindApiClientsByGuildID(guildID)
 	if err != nil {
 		c.onError(err)
 		return
 	}
 	// if exist then reconfirm whether or not they'd like to purge the old one
-	if len(keys) >= 1 {
-		if len(keys) > 1 {
-			c.logger.Error("Non-fatal: Multiple API keys detected.", zap.String("ScopeGuildID", guildID))
+	if len(clients) >= 1 {
+		if len(clients) > 1 {
+			c.logger.Error("Non-fatal: Multiple API clients detected.", zap.String("ScopeGuildID", guildID))
 		}
-		// reconfirm - are they sure they want to replace the API key?
-		// API KEYS CANNOT BE SHOWN MORE THAN ONCE
+		// reconfirm - are they sure they want to replace the API client?
+		// API CREDENTIALS CANNOT BE SHOWN MORE THAN ONCE
 		if err := c.s.InteractionRespond(c.i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "You already have an API key for this server. Would you like to replace your existing one with a new one?",
+				Content: "You already have an API Client ID & Secret for this server. Would you like to replace your existing one with a new one?",
 				// Flags:   discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
 							discordgo.SelectMenu{
-								CustomID:    customIDGenerateNewApiKey,
-								Placeholder: "Create new API key?",
+								CustomID:    customIDGenerateNewApiClient,
+								Placeholder: "Create new API Client?",
 								Options: []discordgo.SelectMenuOption{
 									{
 										Label:       "Yes",
-										Description: "Keep in mind that your old API key will stop working!",
+										Description: "Keep in mind that your old Client ID & Client Secret will stop working!",
 										Value:       "yes",
 									},
 									{
@@ -68,48 +69,68 @@ var handleDeveloper NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 			return
 		}
 	} else {
-		// create new one - proxy to new api key creation handler
-		createNewAPIKey(c)
+		// create new one - proxy to new api client creation handler
+		createNewApiClient(c)
 		return
 	}
 }
 
-var handleDeveloperCreateNewApiKey NativeSlashHandler = func(c *NativeSlashHandlingContext) {
+var handleDeveloperCreateNewApiClient NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 	data := c.i.MessageComponentData()
 	values := data.Values
 	if len(values) != 1 {
-		c.onError(fmt.Errorf("create_new_api_key handler: len(values) != 1, values: %+v", values))
+		c.onError(fmt.Errorf("create_new_api_client handler: len(values) != 1, values: %+v", values))
 		return
 	}
 	if values[0] == "yes" {
-		createNewAPIKey(c)
+		createNewApiClient(c)
 		return
 	} else {
-		c.reply("Got it - no problem! No new API key has been created. Your old API key should still work!")
+		c.reply("Got it - no problem! No new API Client has been created. Your old API Client ID & Client Secret should still work!")
 		return
 	}
 }
 
-func createNewAPIKey(c *NativeSlashHandlingContext) {
+func createNewApiClient(c *NativeSlashHandlingContext) {
 	// create new one
-	newApiKeyStr, err := auth.GenerateApiKey()
+	clientSecret, err := auth.GenerateKey()
 	if err != nil {
 		c.onError(err)
 		return
 	}
-	hashedNewApiKeyStr, err := auth.HashApiKey(newApiKeyStr)
+	hashedNewClientSecret, err := auth.HashKey(clientSecret)
 	if err != nil {
 		c.onError(err)
 		return
 	}
-	newApiKey := &models.ApiKey{
-		ApiKeyHashed: hashedNewApiKeyStr,
+	clientID := c.i.GuildID
+	newApiClient := &models.ApiClient{
+		ClientID:     clientID,
+		ClientSecret: hashedNewClientSecret,
 		CreatedByID:  c.i.Member.User.ID,
-		Scope:        c.apiKeyRepository.GetScopeForGuild(c.i.GuildID),
+		Scope:        auth.GetScopeForGuild(c.i.GuildID),
 	}
-	if err := c.apiKeyRepository.Put(newApiKey); err != nil {
+	if err := c.apiClientRepository.DeleteAllByClientID(clientID); err != nil {
 		c.onError(err)
 		return
 	}
-	c.replyWithOption(fmt.Sprintf("Yay, we've generated a new API key for you! Here is your API key:\n`%s`", newApiKeyStr), replyOptions{IsPrivate: true})
+	if err := c.apiClientRepository.Put(newApiClient); err != nil {
+		c.onError(err)
+		return
+	}
+	c.replyWithOption(fmt.Sprintf(`
+Yay, we've generated a new API Client for you! Here's the deets:
+`+"```"+`
+Client ID: %s
+Client Secret: %s
+`+"```"+`
+
+You can use your API Client by combining the two keys above into a Basic auth header using the following format `+"`"+`client_id:client_secret`+"`"+` with Base-64 encoding.
+
+e.g.
+`+"```"+`
+Authorization: Basic %s
+`+"```"+`
+*Please store this somewhere safe!* We can't retrieve this at a later time - if you lose these you'd have to re-generate your API client by running `+"`"+`/developer`+"`"+` again.
+`, clientID, clientSecret, base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", clientID, clientSecret)))), replyOptions{IsPrivate: true})
 }

@@ -12,7 +12,7 @@ const tokenLen = 32
 
 var maxInt = big.NewInt(int64(len(validChars) - 1))
 
-func GenerateApiKey() (string, error) {
+func GenerateKey() (string, error) {
 	o := ""
 	for i := 0; i < tokenLen; i++ {
 		n, err := rand.Int(rand.Reader, maxInt)
@@ -24,7 +24,7 @@ func GenerateApiKey() (string, error) {
 	return o, nil
 }
 
-func HashApiKey(key string) (string, error) {
+func HashKey(key string) (string, error) {
 	hashedT, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
