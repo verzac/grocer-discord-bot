@@ -20,7 +20,7 @@ var handleDeveloper NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 	// check for perms
 	userPermissions := c.i.Member.Permissions
 	if userPermissions&discordgo.PermissionAdministrator != discordgo.PermissionAdministrator {
-		c.reply("This command can only be used by someone with the Administrator permission in your server.")
+		c.reply("This command can only be used by people with the Administrator permission in your server.")
 		return
 	}
 	// check for existing API client
@@ -41,7 +41,7 @@ var handleDeveloper NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "You already have an API Client ID & Secret for this server. Would you like to replace your existing one with a new one?",
-				// Flags:   discordgo.MessageFlagsEphemeral,
+				Flags:   discordgo.MessageFlagsEphemeral,
 				Components: []discordgo.MessageComponent{
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
@@ -118,7 +118,7 @@ func createNewApiClient(c *NativeSlashHandlingContext) {
 		c.onError(err)
 		return
 	}
-	c.replyWithOption(fmt.Sprintf(`
+	err = c.replyWithOption(fmt.Sprintf(`
 Yay, we've generated a new API Client for you! Here's the deets:
 `+"```"+`
 Client ID: %s
@@ -133,4 +133,16 @@ Authorization: Basic %s
 `+"```"+`
 *Please store this somewhere safe!* We can't retrieve this at a later time - if you lose these you'd have to re-generate your API client by running `+"`"+`/developer`+"`"+` again.
 `, clientID, clientSecret, base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", clientID, clientSecret)))), replyOptions{IsPrivate: true})
+	if err != nil {
+		c.onError(err)
+		return
+	}
+
+	followUpMsg := fmt.Sprintf(":wave: Heyo! Just letting yall know that %s has just created an API Client for this server. This means that their programs / applications would be able to access GroceryBot's data for this server. Thank you, and have a nice day!", c.i.Member.Mention())
+	if _, err := c.s.FollowupMessageCreate(c.i.Interaction, true, &discordgo.WebhookParams{
+		Content: followUpMsg,
+	}); err != nil {
+		c.onError(err)
+		return
+	}
 }
