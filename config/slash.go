@@ -27,8 +27,7 @@ func GetGuildIDsToDeregisterSlashCommandsFrom() []string {
 
 var (
 	disabledSlashCommands = []string{
-		"grobulk",   // wait until modal + select is fully rolled-out
-		"developer", // test w/ whitelist first
+		"grobulk", // wait until modal + select is fully rolled-out
 	}
 )
 
@@ -50,10 +49,7 @@ func GetIgnoredSlashCommands(grobotVersion string) map[string]interface{} {
 }
 
 var (
-	whitelistedSlashCommands = map[string]map[string]interface{}{
-		"301321320946466818": {"developer": struct{}{}},
-		"815482602278354944": {"developer": struct{}{}},
-	}
+	whitelistedSlashCommands = map[string]map[string]interface{}{}
 )
 
 func GetWhitelistedSlashCommands(grobotVersion string) map[string]map[string]interface{} {
