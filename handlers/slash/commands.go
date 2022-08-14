@@ -422,6 +422,11 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			createdCommandsMap[targetGuildID] = createdCommands
 		}
 	}
+	if len(commandsToRegisterForGuild) > 0 {
+		logger.Info("Registering guild-specific commands...", zap.Any("commandsToRegisterForGuild", commandsToRegisterForGuild))
+	} else {
+		logger.Debug("No guild-specific commands detected.")
+	}
 	for targetGuildID, commandsToRegister := range commandsToRegisterForGuild {
 		createdCommands, err := registerForGuild(sess, logger, targetGuildID, commandsToRegister)
 		if err != nil {

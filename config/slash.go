@@ -52,6 +52,7 @@ func GetIgnoredSlashCommands(grobotVersion string) map[string]interface{} {
 var (
 	whitelistedSlashCommands = map[string]map[string]interface{}{
 		"301321320946466818": {"developer": struct{}{}},
+		"815482602278354944": {"developer": struct{}{}},
 	}
 )
 
