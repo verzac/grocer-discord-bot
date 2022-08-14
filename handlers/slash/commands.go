@@ -372,6 +372,20 @@ func getCommandContext(i *discordgo.InteractionCreate, commandName string) (*han
 	}
 }
 
+func registerForGuild(sess *discordgo.Session, logger *zap.Logger, targetGuildID string, commands []*discordgo.ApplicationCommand) ([]*discordgo.ApplicationCommand, error) {
+	loopLog := logger.With(zap.String("TargetGuildID", targetGuildID)).Named("registration")
+	createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commands)
+	if err != nil {
+		if isSkippableError(err) {
+			// if 403, assume that they have no access to the guild - continue anyways
+			loopLog.Info(fmt.Sprintf("Skipping slash command registration for %s.", targetGuildID), zap.Any("Error", err))
+			return nil, nil
+		}
+		return nil, err
+	}
+	return createdCommands, nil
+}
+
 func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVersion string, cw *cloudwatch.CloudWatch) (cleanup func(useAllCommands bool) error, err error) {
 	createdCommandsMap := make(map[string][]*discordgo.ApplicationCommand, 0)
 	logger = logger.Named("registration")
@@ -383,24 +397,38 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 	} else {
 		logger.Debug("No slash commands to ignore.")
 	}
+	whitelistedSlashCommands := config.GetWhitelistedSlashCommands(grobotVersion)
 	commandsToRegister := make([]*discordgo.ApplicationCommand, 0, len(commands))
+	commandsToRegisterForGuild := map[string][]*discordgo.ApplicationCommand{}
 	for _, cmd := range commands {
 		if _, ok := ignoredSlashCommands[cmd.Name]; !ok {
 			commandsToRegister = append(commandsToRegister, cmd)
 		}
+		for guildID, commandSet := range whitelistedSlashCommands {
+			if _, ok := commandSet[cmd.Name]; ok {
+				// register the command for guild
+				if _, ok := commandsToRegisterForGuild[guildID]; !ok {
+					commandsToRegisterForGuild[guildID] = []*discordgo.ApplicationCommand{}
+				}
+				commandsToRegisterForGuild[guildID] = append(commandsToRegisterForGuild[guildID], cmd)
+			}
+		}
 	}
 	for _, targetGuildID := range targetGuildIDs {
-		loopLog := logger.With(zap.String("TargetGuildID", targetGuildID)).Named("registration")
-		createdCommands, err := sess.ApplicationCommandBulkOverwrite(sess.State.User.ID, targetGuildID, commandsToRegister)
+		createdCommands, err := registerForGuild(sess, logger, targetGuildID, commandsToRegister)
 		if err != nil {
-			if isSkippableError(err) {
-				// if 403, assume that they have no access to the guild - continue anyways
-				loopLog.Info(fmt.Sprintf("Skipping slash command registration for %s.", targetGuildID), zap.Any("Error", err))
-				continue
-			}
 			return nil, err
+		} else if createdCommands != nil {
+			createdCommandsMap[targetGuildID] = createdCommands
 		}
-		createdCommandsMap[targetGuildID] = createdCommands
+	}
+	for targetGuildID, commandsToRegister := range commandsToRegisterForGuild {
+		createdCommands, err := registerForGuild(sess, logger, targetGuildID, commandsToRegister)
+		if err != nil {
+			return nil, err
+		} else if createdCommands != nil {
+			createdCommandsMap[targetGuildID] = createdCommands
+		}
 	}
 	cleanupHandler := sess.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		defer handlers.Recover(logger)
