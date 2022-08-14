@@ -445,8 +445,8 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 				},
 			}); err != nil {
 				logger.Error("Cannot respond to DM interaction.", zap.Error(err))
-				return
 			}
+			return
 		}
 		if modalCreationCtx := NewModalCreationContext(sess, db, logger, i, grobotVersion); modalCreationCtx != nil {
 			modalCreationCtx.Handle()
