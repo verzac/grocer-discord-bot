@@ -273,7 +273,7 @@ func (m *MessageHandlerContext) sendDirectMessage(msg string, userID string) err
 
 func (m *MessageHandlerContext) sendMessage(msg string) error {
 	if !m.commandContext.IsMentioned {
-		msg += fmt.Sprintf("\n\nNotice: due to a Discord policy change, from 31 August 2022, you need to mention <@%s> if you use commands prefixed with `!gro`, otherwise I won't be able to read your commands! Alternatively, you can also use slash commands - just start typing `/gro`! :person_bowing:\n\nMore details: https://support-dev.discord.com/hc/en-us/articles/4404772028055-Message-Content-Privileged-Intent-FAQ", m.sess.State.User.ID)
+		msg += fmt.Sprintf("\n\n*Psst, since you didn't mention me in your command: due to a Discord policy change, from 31 August 2022, you need to mention <@%s> if you use commands prefixed with `!gro`, otherwise I won't be able to read your commands! Alternatively, you can also use slash commands - just start typing `/gro`! :person_bowing:\n\nMore details: https://support-dev.discord.com/hc/en-us/articles/4404772028055-Message-Content-Privileged-Intent-FAQ*", m.sess.State.User.ID)
 	}
 	_, sErr := m.sess.ChannelMessageSendComplex(m.commandContext.ChannelID, &discordgo.MessageSend{
 		Content: msg,
