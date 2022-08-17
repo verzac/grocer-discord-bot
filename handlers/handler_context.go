@@ -382,7 +382,7 @@ func (mh *MessageHandlerContext) GetCommand() string {
 }
 
 func GetCommandContext(body string, guildID string, authorID string, channelID string, selfID string, authorUsername string, authorUsernameDiscriminator string) (*CommandContext, error) {
-	mentionRegex, err := regexp.Compile(fmt.Sprintf("<@!%s>", selfID))
+	mentionRegex, err := regexp.Compile(fmt.Sprintf("<@%s>", selfID))
 	if err != nil {
 		return nil, err
 	}
