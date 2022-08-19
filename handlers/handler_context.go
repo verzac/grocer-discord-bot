@@ -52,6 +52,28 @@ const (
 	CmdGroReset  = "!groreset"
 )
 
+type CmdMetadata struct {
+	Handler func(mh *MessageHandlerContext) error
+}
+
+var messageCommandsMetadata = map[string]CmdMetadata{
+	CmdGroAdd: {
+		Handler: func(mh *MessageHandlerContext) error { return mh.OnAdd() },
+	},
+	CmdGroPatron: {
+		Handler: func(mh *MessageHandlerContext) error { return mh.OnPatron() },
+	},
+	CmdGroBulk: {
+		Handler: func(mh *MessageHandlerContext) error { return mh.OnBulk() },
+	},
+	CmdGroClear: {
+		Handler: func(mh *MessageHandlerContext) error { return mh.OnClear() },
+	},
+	CmdGroList: {
+		Handler: func(mh *MessageHandlerContext) error { return mh.OnList() },
+	},
+}
+
 // Defines the enums to determine where the command is invoked from
 const (
 	CommandSourceMessageContent = iota
@@ -381,6 +403,21 @@ func (mh *MessageHandlerContext) GetCommand() string {
 	return mh.commandContext.Command
 }
 
+// // guessCommand guesses the potential command from a mentioned message
+// func guessCommandFromMentionedMsg(body string) string {
+// 	firstLine := strings.Split(body, "\n")[0]
+// 	firstTerm := strings.Split(firstLine, " ")[0]
+// 	command := strings.Split(firstTerm, ":")[0]
+// 	if strings.HasPrefix(command, CmdPrefix) {
+// 		return command
+// 	}
+// 	potentialCommandWithGroAppended := "!gro"+command
+// 	if _, ok := messageCommandsMetadata[potentialCommandWithGroAppended]; ok {
+// 		return potentialCommandWithGroAppended
+// 	}
+// 	return "!gro"
+// }
+
 func GetCommandContext(body string, guildID string, authorID string, channelID string, selfID string, authorUsername string, authorUsernameDiscriminator string) (*CommandContext, error) {
 	mentionRegex, err := regexp.Compile(fmt.Sprintf("<@%s>", selfID))
 	if err != nil {
@@ -389,7 +426,10 @@ func GetCommandContext(body string, guildID string, authorID string, channelID s
 	isMentioned := mentionRegex.MatchString(body)
 	body = strings.Trim(mentionRegex.ReplaceAllString(body, ""), " \n")
 	if !strings.HasPrefix(body, CmdPrefix) {
-		return nil, ErrCmdNotProcessable
+		// mentioned messages can omit the !gro prefix, but otherwise you need the prefix
+		if !isMentioned {
+			return nil, ErrCmdNotProcessable
+		}
 	}
 	isProcessingSublistLabel := false
 	sublistLabel := ""
@@ -430,10 +470,21 @@ func GetCommandContext(body string, guildID string, authorID string, channelID s
 	} else {
 		argStrStartIndex = loopIndex + 1
 	}
+	argStr := strings.TrimLeft(body[argStrStartIndex:], "\n ")
+	if !strings.HasPrefix(command, CmdPrefix) {
+		candidateCommand := "!gro" + command
+		if _, ok := messageCommandsMetadata[candidateCommand]; ok {
+			command = candidateCommand
+		} else {
+			// oops, command is actually a part of the argStr!
+			argStr = command + " " + argStr
+			command = "!gro"
+		}
+	}
 	commandContext := &CommandContext{
 		Command:                     command,
 		GrocerySublist:              sublistLabel,
-		ArgStr:                      strings.TrimLeft(body[argStrStartIndex:], "\n "),
+		ArgStr:                      argStr,
 		GuildID:                     guildID,
 		AuthorID:                    authorID,
 		ChannelID:                   channelID,
@@ -480,32 +531,12 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 		zap.String("ArgStr", mh.commandContext.ArgStr),
 		zap.String("GrocerySublist", mh.commandContext.GrocerySublist),
 	)
-	switch mh.commandContext.Command {
-	case CmdGroAdd:
-		err = mh.OnAdd()
-	case CmdGroRemove:
-		err = mh.OnRemove()
-	case CmdGroEdit:
-		err = mh.OnEdit()
-	case CmdGroBulk:
-		err = mh.OnBulk()
-	case CmdGroList:
-		err = mh.OnList()
-	case CmdGroClear:
-		err = mh.OnClear()
-	case CmdGroHelp:
-		err = mh.OnHelp()
-	case CmdGroDeets:
-		err = mh.OnDetail()
-	case CmdGroHere:
-		err = mh.OnAttach()
-	case CmdGroReset:
-		err = mh.OnReset()
-	case CmdGroPatron:
-		err = mh.OnPatron()
-	default:
+	if metadata, ok := messageCommandsMetadata[mh.commandContext.Command]; ok {
+		err = metadata.Handler(mh)
+	} else {
 		err = ErrCmdNotProcessable
 	}
+
 	if err != nil && err != ErrCmdNotProcessable {
 		return mh.onError(err)
 	}
