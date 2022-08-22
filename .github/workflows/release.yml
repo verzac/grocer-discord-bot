@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: "1.16.9"
+          go-version: "1.18.4"
       - run: go version
       - run: make publish
         env:
