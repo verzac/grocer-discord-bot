@@ -1,0 +1,162 @@
+openapi: 3.0.0
+info:
+  title: GroceryBot API
+  description: "Interact with GroceryBot directly through its API at `https://api.grocerybot.net`."
+  termsOfService: https://grocerybot.net/privacy-policy/
+  # contact:
+  #   email: hello@swagger.io
+  # license:
+  #   name: Apache 2.0
+  #   url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 2.4.x
+externalDocs:
+  description: GroceryBot's Website
+  url: https://grocerybot.net
+servers:
+  - url: https://api.grocerybot.net/
+# tags:
+#   - name: Interacting with GroceryBot
+#     description: Everything related to do with CRUD-ing your groceries on GroceryBot.
+#   - name: store
+#     description: Access to Petstore orders
+#     externalDocs:
+#       description: Find out more about our store
+#       url: http://swagger.io
+# - name: auth
+#   description: Operations about user
+paths:
+  /grocery-lists:
+    get:
+      # tags:
+      #   - grocery
+      summary: GET Grocery Lists and Entries
+      description: "Get your server's grocery lists and entries. Note: you have to map the relationship between a grocery list and the groceries themselves."
+      # requestBody:
+      #   description: Update an existent pet in the store
+      #   content:
+      #     application/json:
+      #       schema:
+      #         $ref: "#/components/schemas/Pet"
+      #     application/xml:
+      #       schema:
+      #         $ref: "#/components/schemas/Pet"
+      #     application/x-www-form-urlencoded:
+      #       schema:
+      #         $ref: "#/components/schemas/Pet"
+      #   required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuildGroceryList"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+components:
+  schemas:
+    GuildGroceryList:
+      type: object
+      description: Represents a server's grocery list information, including groceries and entries. They are unordered, so you must map the groceries <-> grocery lists relationship yourself.
+      properties:
+        guild_id:
+          type: string
+          description: The server ID that this grocery list information represents.
+        grocery_entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroceryEntry"
+        grocery_lists:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroceryList"
+    GroceryEntry:
+      type: object
+      description: Represents a grocery entry (e.g. added by /gro).
+      properties:
+        id:
+          type: number
+          description: Primary key of the entry. Guaranteed to be unique.
+          readOnly: true
+        created_at:
+          type: string
+          description: A timestamp on when the entry was created.
+          readOnly: true
+        updated_at:
+          type: string
+          description: A timestamp on when the entry was updated.
+          readOnly: true
+        item_desc:
+          type: string
+          description: "Description of the entry. For example, `/gro chicken` would result in this field being `chicken`."
+          required: true
+        updated_by_id:
+          type: string
+          description: Discord ID of the user who updated this entry last.
+          readOnly: true
+          deprecated: true
+        grocery_list_id:
+          type: int
+          description: The foreign key pointing to a particular grocery list in your server. A null value means that this belongs to the server's default grocery list.
+          nullable: true
+    GroceryList:
+      type: object
+      description: Represents a grocery list (e.g. added by /grolist-new).
+      properties:
+        id:
+          type: number
+          description: Primary key of the list. Guaranteed to be unique.
+          readOnly: true
+          required: true
+        created_at:
+          type: string
+          description: A timestamp on when the list was created.
+          readOnly: true
+        updated_at:
+          type: string
+          description: A timestamp on when the list was updated.
+          readOnly: true
+        guild_id:
+          type: string
+          description: "The server ID to which the list belongs to."
+          required: true
+        list_label:
+          type: string
+          description: The unique label that is used to refer to this grocery list in commands. For example, `!gro:ebay blah` would be referring to a grocery list with `list_label` as "blah".
+          required: true
+        fancy_name:
+          type: string
+          description: The fancy name that is displayed to the users (alongside `list_label`) when displaying this grocery list in commands.
+          nullable: true
+
+  # requestBodies:
+  #   Pet:
+  #     description: Pet object that needs to be added to the store
+  #     content:
+  #       application/json:
+  #         schema:
+  #           $ref: "#/components/schemas/Pet"
+  #       application/xml:
+  #         schema:
+  #           $ref: "#/components/schemas/Pet"
+  #   UserArray:
+  #     description: List of user object
+  #     content:
+  #       application/json:
+  #         schema:
+  #           type: array
+  #           items:
+  #             $ref: "#/components/schemas/User"
+  responses:
+    UnauthorizedError:
+      description: API credentials are incorrect. These must be generated by running GroceryBot's /developer command in your Discord server.
+    ForbiddenError:
+      description: API credentials do not have enough permissions to perform that action. Most of these errors are left intentionally ambiguous in order to prevent abuse. Reach out to GroceryBot's Discord server if you would like to resolve a constant 403.
+  securitySchemes:
+    basicApiClient:
+      type: http
+      scheme: basic
+  security:
+    - basicApiClient: []
