@@ -14,6 +14,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/services/registration"
 	"github.com/verzac/grocer-discord-bot/utils"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -69,15 +70,9 @@ type MessageHandlerContext struct {
 	groceryListRepo             repositories.GroceryListRepository
 	guildRegistrationRepo       repositories.GuildRegistrationRepository
 	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
+	registrationService         registration.RegistrationService
 	replyCounter                int
-	registrationContext         *RegistrationContext // do not use directly - use GetRegistrationContext
-}
-
-type RegistrationContext struct {
-	MaxGroceryListsPerServer   int
-	MaxGroceryEntriesPerServer int
-	IsDefault                  bool
-	RegistrationsOwnersMention []string
+	registrationContext         *dto.RegistrationContext // do not use directly - use GetRegistrationContext
 }
 
 type CommandContext struct {
@@ -202,6 +197,7 @@ func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobot
 		groceryListRepo:             &repositories.GroceryListRepositoryImpl{DB: db},
 		guildRegistrationRepo:       &repositories.GuildRegistrationRepositoryImpl{DB: db},
 		registrationEntitlementRepo: &repositories.RegistrationEntitlementRepositoryImpl{DB: db},
+		registrationService:         registration.NewRegistrationService(db),
 	}
 }
 
@@ -306,37 +302,16 @@ func (m *MessageHandlerContext) onGetGroceryListError(err error) error {
 	}
 }
 
-func (m *MessageHandlerContext) GetRegistrationContext() *RegistrationContext {
+func (m *MessageHandlerContext) GetRegistrationContext() *dto.RegistrationContext {
 	if m.registrationContext != nil {
 		return m.registrationContext // return cached values
 	}
-	registrationContext := RegistrationContext{
-		MaxGroceryListsPerServer:   config.GetDefaultMaxGroceryListsPerServer(),
-		MaxGroceryEntriesPerServer: config.GetDefaultMaxGroceryEntriesPerServer(),
-		IsDefault:                  true,
-	}
-	registrationsOwnersMention := []string{}
-	guildID := m.commandContext.GuildID
-	registrations, err := m.guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
+	registrationContext, err := m.registrationService.GetRegistrationContext(m.commandContext.GuildID)
 	if err != nil {
 		m.GetLogger().Error("Failed to find registration.", zap.Error(err))
-		return &registrationContext
 	}
-	for _, r := range registrations {
-		if currentMaxLists := r.RegistrationEntitlement.RegistrationTier.MaxGroceryList; currentMaxLists != nil && *currentMaxLists > registrationContext.MaxGroceryListsPerServer {
-			registrationContext.MaxGroceryListsPerServer = *currentMaxLists
-		}
-		if currentMaxEntries := r.RegistrationEntitlement.RegistrationTier.MaxGroceryEntry; currentMaxEntries != nil && *currentMaxEntries > registrationContext.MaxGroceryEntriesPerServer {
-			registrationContext.MaxGroceryEntriesPerServer = *currentMaxEntries
-		}
-		if registrationUserID := r.RegistrationEntitlement.UserID; registrationUserID != nil {
-			registrationsOwnersMention = append(registrationsOwnersMention, fmt.Sprintf("<@%s>", *r.RegistrationEntitlement.UserID))
-		}
-		registrationContext.IsDefault = false
-	}
-	registrationContext.RegistrationsOwnersMention = registrationsOwnersMention
-	m.registrationContext = &registrationContext
-	return &registrationContext
+	m.registrationContext = registrationContext
+	return registrationContext
 }
 
 func (m *MessageHandlerContext) getMaxGroceryListPerServer() int {
