@@ -14,6 +14,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/services/grocery"
 	"github.com/verzac/grocer-discord-bot/services/registration"
 	"github.com/verzac/grocer-discord-bot/utils"
 	"go.uber.org/zap"
@@ -71,6 +72,7 @@ type MessageHandlerContext struct {
 	guildRegistrationRepo       repositories.GuildRegistrationRepository
 	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
 	registrationService         registration.RegistrationService
+	groceryService              grocery.GroceryService
 	replyCounter                int
 	registrationContext         *dto.RegistrationContext // do not use directly - use GetRegistrationContext
 }
@@ -155,16 +157,8 @@ func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList
 }
 
 func (m *MessageHandlerContext) ValidateGroceryEntryLimit(guildID string, newItemCount int) (limitOk bool, limit int, err error) {
-	limit = m.GetRegistrationContext().MaxGroceryEntriesPerServer
-	count, err := m.groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: guildID})
-	if err != nil {
-		return false, limit, err
-	}
-	if count+int64(newItemCount) > int64(limit) {
-		m.GetLogger().Error("max grocery list limit exceeded.", zap.Int("Limit", limit), zap.Int64("PreviousCount", count), zap.Int("NewItemCount", newItemCount))
-		return false, limit, nil
-	}
-	return true, limit, nil
+	registrationContext := m.GetRegistrationContext()
+	return m.groceryService.ValidateGroceryEntryLimit(registrationContext, guildID, newItemCount)
 }
 
 func (cc *CommandContext) FmtErrInvalidGroceryList() string {
