@@ -17,13 +17,16 @@ type GroceryService interface {
 
 type GroceryServiceImpl struct {
 	groceryEntryRepo repositories.GroceryEntryRepository
-	logger           *zap.Logger
+	// grohereRepo      repositories.GrohereRecordRepository
+	logger *zap.Logger
 }
 
 func Init(db *gorm.DB, logger *zap.Logger) {
 	if Service == nil {
 		Service = &GroceryServiceImpl{
-			logger: logger.Named("grocery"),
+			// grohereRepo:      &repositories.GrohereRecordRepositoryImpl{DB: db},
+			groceryEntryRepo: &repositories.GroceryEntryRepositoryImpl{DB: db},
+			logger:           logger.Named("grocery"),
 		}
 	}
 }

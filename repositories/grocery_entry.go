@@ -9,8 +9,6 @@ import (
 
 var _ GroceryEntryRepository = &GroceryEntryRepositoryImpl{}
 
-const groceryEntryLimit = 100
-
 const (
 	queryGroceryListIDIsNil = "grocery_list_id IS NULL"
 )
