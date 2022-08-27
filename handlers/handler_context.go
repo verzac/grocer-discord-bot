@@ -192,6 +192,7 @@ func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobot
 		guildRegistrationRepo:       &repositories.GuildRegistrationRepositoryImpl{DB: db},
 		registrationEntitlementRepo: &repositories.RegistrationEntitlementRepositoryImpl{DB: db},
 		registrationService:         registration.Service,
+		groceryService:              grocery.Service,
 	}
 }
 
