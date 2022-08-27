@@ -20,6 +20,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/handlers/api"
 	"github.com/verzac/grocer-discord-bot/handlers/slash"
 	"github.com/verzac/grocer-discord-bot/monitoring"
+	"github.com/verzac/grocer-discord-bot/services"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -112,6 +113,7 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Using %s\n", dsn))
 	db = dbUtils.Setup(dsn, logger.Named("db"), GroBotVersion)
+	services.InitServices(db, logger.Named("service"))
 	// API handler
 	go func() {
 		if err := api.RegisterAndStart(logger, db); err != nil {
