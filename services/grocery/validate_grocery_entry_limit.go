@@ -13,7 +13,13 @@ func (s *GroceryServiceImpl) ValidateGroceryEntryLimit(registrationContext *dto.
 		return false, limit, err
 	}
 	if count+int64(newItemCount) > int64(limit) {
-		s.logger.Warn("max grocery list limit exceeded.", zap.Int("Limit", limit), zap.Int64("PreviousCount", count), zap.Int("NewItemCount", newItemCount))
+		s.logger.Warn("max grocery list limit exceeded.",
+			zap.String("guildID", guildID),
+			zap.Any("registrationContext", registrationContext),
+			zap.Int("Limit", limit),
+			zap.Int64("PreviousCount", count),
+			zap.Int("NewItemCount", newItemCount),
+		)
 		return false, limit, nil
 	}
 	return true, limit, nil
