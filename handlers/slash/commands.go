@@ -264,6 +264,16 @@ var (
 				return "", nil
 			},
 		},
+		"grohere": {
+			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
+				for _, o := range options {
+					if o.Name == defaultAllListOption.Name {
+						return "all", nil
+					}
+				}
+				return "", nil
+			},
+		},
 		"gropatron": {
 			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
 				for _, o := range options {
