@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
-	"github.com/verzac/grocer-discord-bot/utils"
+	groceryutils "github.com/verzac/grocer-discord-bot/utils/grocery"
+
 	"go.uber.org/zap"
 )
 
@@ -121,31 +121,9 @@ func (m *MessageHandlerContext) displayList() error {
 
 func (m *MessageHandlerContext) getDisplayListText(groceryLists []models.GroceryList, groceries []models.GroceryEntry) string {
 	// group by their grocerylist
-	if len(groceryLists) == 0 && len(groceries) == 0 {
-		return getNoGroceryText("")
-	}
-	noListGroceries, groupedGroceries, listlessGroceries := utils.GroupByGroceryLists(groceryLists, groceries)
-	for _, g := range listlessGroceries {
-		m.LogError(
-			errors.New("unknown grocery list ID in grocery entry"),
-			zap.Uint("GroceryListID", *g.GroceryListID),
-		)
-	}
-	noListGroceriesTxt := getGroceryListText(noListGroceries, nil)
-	labeledGroceriesTxt := ""
-	for _, groceryList := range groceryLists {
-		g := groupedGroceries[groceryList.ID]
-		label := groceryList.ListLabel
-		fancyName := groceryList.FancyName
-		groceryListText := ""
-		if fancyName != nil {
-			groceryListText = fmt.Sprintf("**%s** (%s)", *fancyName, label)
-		} else {
-			groceryListText = fmt.Sprintf("**%s**", label)
-		}
-		labeledGroceriesTxt += fmt.Sprintf(":shopping_cart: %s\n%s\n", groceryListText, getGroceryListText(g, &groceryList))
-	}
-	return strings.Join([]string{noListGroceriesTxt, labeledGroceriesTxt}, "\n")
+	out, listlessGroceries := groceryutils.GetDisplayListText(groceryLists, groceries)
+	m.checkListlessGroceries(listlessGroceries)
+	return out
 }
 
 func (m *MessageHandlerContext) newList() error {
@@ -292,23 +270,4 @@ func (m *MessageHandlerContext) relabelList() error {
 	// since it's re-labeled, have commandContext be updated with the new label
 	m.commandContext.GrocerySublist = newLabel
 	return m.onEditUpdateGrohereWithGroceryList()
-}
-
-func getGroceryListText(groceries []models.GroceryEntry, groceryList *models.GroceryList) string {
-	if groceryList != nil && len(groceries) == 0 {
-		label := ""
-		if groceryList != nil {
-			label = ":" + groceryList.ListLabel
-		}
-		return getNoGroceryText(label)
-	}
-	msg := ""
-	for i, grocery := range groceries {
-		msg += fmt.Sprintf("%d: %s\n", i+1, grocery.ItemDesc)
-	}
-	return msg
-}
-
-func getNoGroceryText(label string) string {
-	return fmt.Sprintf("You have no groceries - add one through `!gro` (e.g. `!gro%s Toilet paper`)!\n", label)
 }

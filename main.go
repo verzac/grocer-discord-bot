@@ -113,7 +113,7 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Using %s\n", dsn))
 	db = dbUtils.Setup(dsn, logger.Named("db"), GroBotVersion)
-	services.InitServices(db, logger.Named("service"))
+	services.InitServices(db, logger.Named("service"), d)
 	// API handler
 	go func() {
 		if err := api.RegisterAndStart(logger, db); err != nil {

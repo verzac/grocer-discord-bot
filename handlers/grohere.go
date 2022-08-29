@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	groceryutils "github.com/verzac/grocer-discord-bot/utils/grocery"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -99,24 +100,10 @@ func (m *MessageHandlerContext) onAttachAll() error {
 }
 
 func (m *MessageHandlerContext) getGrohereText(groceryLists []models.GroceryList, groceries []models.GroceryEntry, isSingleList bool) string {
-	displayText := m.getDisplayListText(groceryLists, groceries)
-	var lastG *models.GroceryEntry
-	for _, g := range groceries {
-		if lastG == nil || lastG.UpdatedAt.Before(g.UpdatedAt) {
-			lastG = &g
-		}
-	}
-	beginningText := ":shopping_cart: **AUTO GROCERY LIST** :shopping_cart::\n"
-	if isSingleList && len(groceryLists) != 0 {
-		// the assumption here is that if isSingleList && groceryLists is populated, then they'd have their prefixes with the list label ready, so we don't need the original prefix
-		beginningText = ""
-	}
-	lastUpdatedByText := ""
-	if lastG != nil {
-		lastUpdatedByText = fmt.Sprintf("Last updated by <@%s>\n", *lastG.UpdatedByID)
-	}
-	groHereText := beginningText + displayText + lastUpdatedByText
-	return groHereText
+	out, listlessGroceries := groceryutils.GetGrohereText(groceryLists, groceries, isSingleList)
+	m.checkListlessGroceries(listlessGroceries)
+	return out
+
 }
 
 func (m *MessageHandlerContext) onEditUpdateGrohere() error {
