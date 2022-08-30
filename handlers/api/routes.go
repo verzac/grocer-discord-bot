@@ -96,7 +96,8 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		var groceryList *models.GroceryList
 		if groceryEntry.GroceryListID != nil {
 			groceryList, err := groceryListRepo.GetByQuery(&models.GroceryList{
-				ID: *groceryEntry.GroceryListID,
+				ID:      *groceryEntry.GroceryListID,
+				GuildID: guildID,
 			})
 			if err != nil {
 				return err
