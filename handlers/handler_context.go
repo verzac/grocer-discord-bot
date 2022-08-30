@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -156,9 +157,18 @@ func (m *MessageHandlerContext) GetGroceryListFromContext() (*models.GroceryList
 	return nil, nil
 }
 
+func (m *MessageHandlerContext) checkListlessGroceries(listlessGroceries []models.GroceryEntry) {
+	if len(listlessGroceries) > 0 {
+		m.LogError(
+			errors.New("unknown grocery list ID in grocery entry"),
+			zap.Any("listlessGroceries", listlessGroceries),
+		)
+	}
+}
+
 func (m *MessageHandlerContext) ValidateGroceryEntryLimit(guildID string, newItemCount int) (limitOk bool, limit int, err error) {
 	registrationContext := m.GetRegistrationContext()
-	return m.groceryService.ValidateGroceryEntryLimit(registrationContext, guildID, newItemCount)
+	return m.groceryService.ValidateGroceryEntryLimit(context.Background(), registrationContext, guildID, newItemCount)
 }
 
 func (cc *CommandContext) FmtErrInvalidGroceryList() string {

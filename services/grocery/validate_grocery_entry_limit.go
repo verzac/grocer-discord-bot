@@ -1,14 +1,16 @@
 package grocery
 
 import (
+	"context"
+
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/models"
 	"go.uber.org/zap"
 )
 
-func (s *GroceryServiceImpl) ValidateGroceryEntryLimit(registrationContext *dto.RegistrationContext, guildID string, newItemCount int) (limitOk bool, limit int, err error) {
+func (s *GroceryServiceImpl) ValidateGroceryEntryLimit(ctx context.Context, registrationContext *dto.RegistrationContext, guildID string, newItemCount int) (limitOk bool, limit int, err error) {
 	limit = registrationContext.MaxGroceryEntriesPerServer
-	count, err := s.groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: guildID})
+	count, err := s.groceryEntryRepo.WithContext(ctx).GetCount(&models.GroceryEntry{GuildID: guildID})
 	if err != nil {
 		return false, limit, err
 	}

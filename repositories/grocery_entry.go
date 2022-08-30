@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/verzac/grocer-discord-bot/models"
@@ -25,6 +26,7 @@ type GroceryEntryQueryOpts struct {
 }
 
 type GroceryEntryRepository interface {
+	WithContext(ctx context.Context) GroceryEntryRepository
 	GetByItemIndex(q *models.GroceryEntry, itemIndex int) (*models.GroceryEntry, error)
 	FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error)
 	FindByQueryWithConfig(q *models.GroceryEntry, config GroceryEntryQueryOpts) ([]models.GroceryEntry, error)
@@ -36,6 +38,12 @@ type GroceryEntryRepository interface {
 
 type GroceryEntryRepositoryImpl struct {
 	DB *gorm.DB
+}
+
+func (r *GroceryEntryRepositoryImpl) WithContext(ctx context.Context) GroceryEntryRepository {
+	return &GroceryEntryRepositoryImpl{
+		DB: r.DB.WithContext(ctx),
+	}
 }
 
 func (r *GroceryEntryRepositoryImpl) GetByItemIndex(q *models.GroceryEntry, itemIndex int) (*models.GroceryEntry, error) {
