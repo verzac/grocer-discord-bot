@@ -1,21 +1,19 @@
 package handlers
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"fmt"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
-	"github.com/verzac/grocer-discord-bot/repositories"
-	groceryutils "github.com/verzac/grocer-discord-bot/utils/grocery"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 var (
-	errCannotEditMsg                     = errors.New("Cannot edit attached message/channel: deleting !grohere entry")
 	errCannotEditMsgWhenRemovingGrolist  = errors.New("Failed to edit message when grocery list was removed.")
 	errCannotEditMsgWhenReplacingGrohere = errors.New("Failed to edit !grohere message upon replacement.")
 )
@@ -99,53 +97,9 @@ func (m *MessageHandlerContext) onAttachAll() error {
 	return m.onEditUpdateGrohere()
 }
 
-func (m *MessageHandlerContext) getGrohereText(groceryLists []models.GroceryList, groceries []models.GroceryEntry, isSingleList bool) string {
-	out, listlessGroceries := groceryutils.GetGrohereText(groceryLists, groceries, isSingleList)
-	m.checkListlessGroceries(listlessGroceries)
-	return out
-
-}
-
 func (m *MessageHandlerContext) onEditUpdateGrohere() error {
-	gConfig := models.GuildConfig{}
-	if r := m.db.Where(&models.GuildConfig{GuildID: m.commandContext.GuildID}).Take(&gConfig); r.Error != nil {
-		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			// ignore
-			return nil
-		} else {
-			return m.onError(r.Error)
-		}
-	}
-	if gConfig.GrohereChannelID == nil || gConfig.GrohereMessageID == nil {
-		return nil
-	}
-	guildID := m.commandContext.GuildID
-	groceryLists, err := m.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: guildID})
-	if err != nil {
+	if err := m.groceryService.UpdateGuildGrohere(context.Background(), m.commandContext.GuildID); err != nil {
 		return m.onError(err)
-	}
-	groceries, err := m.groceryEntryRepo.FindByQuery(&models.GroceryEntry{GuildID: guildID})
-	if err != nil {
-		return m.onError(err)
-	}
-	grohereText := m.getGrohereText(groceryLists, groceries, false)
-	_, err = m.sess.ChannelMessageEdit(*gConfig.GrohereChannelID, *gConfig.GrohereMessageID, grohereText)
-	if err != nil {
-		if discordErr, ok := err.(*discordgo.RESTError); ok {
-			m.LogError(errors.Wrap(discordErr, "Cannot edit attached message/channel: deleting !grohere entry"))
-			// clear grohere entry as it refers to an unknown channel
-			gConfig.GrohereChannelID = nil
-			gConfig.GrohereMessageID = nil
-			if r := m.db.Save(&gConfig); r.Error != nil {
-				m.LogError(r.Error)
-			}
-			err := m.sendMessage("_Psst, I can't seem to edit the !grohere message I attached. If this was not intended, please use !grohere again!_")
-			if err != nil {
-				m.LogError(err)
-			}
-		} else {
-			return m.onError(err)
-		}
 	}
 	return nil
 }
@@ -154,61 +108,10 @@ func (m *MessageHandlerContext) onEditUpdateGrohere() error {
 func (m *MessageHandlerContext) onEditUpdateGrohereWithGroceryList() error {
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {
-		return m.onGetGroceryListError(err)
-	}
-	groceryListID := groceryList.GetID()
-	q := m.db.Where(&models.GrohereRecord{GuildID: m.commandContext.GuildID, GroceryListID: groceryListID})
-	if groceryListID == nil {
-		q = q.Where("grocery_list_id IS NULL")
-	}
-	record := models.GrohereRecord{}
-	if r := q.Take(&record); r.Error != nil {
-		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			// there is no record that needs to be updated, move onto the next part
-			return m.onEditUpdateGrohere()
-		}
-		return m.onError(r.Error)
-	}
-	// marshal text
-	guildID := m.commandContext.GuildID
-	groceryLists := make([]models.GroceryList, 0, 1)
-	if groceryList != nil {
-		groceryLists = append(groceryLists, *groceryList)
-	}
-	groceries, err := m.groceryEntryRepo.FindByQueryWithConfig(&models.GroceryEntry{
-		GuildID:       guildID,
-		GroceryListID: groceryListID,
-	}, repositories.GroceryEntryQueryOpts{
-		IsStrongNilForGroceryListID: true,
-	})
-	if err != nil {
 		return m.onError(err)
 	}
-	grohereText := m.getGrohereText(groceryLists, groceries, true)
-	// if (groceryList == nil && count > 0) || (groceryList != nil && count > 1) {
-	// 	grohereText += fmt.Sprintf("\nand %d other grocery lists (use `!grohere all` to get a self-updating list for all groceries, or use `!grolist all` to display them).", count)
-	// }
-	// send the message
-	grohereChannelID := record.GrohereChannelID
-	grohereMsgID := record.GrohereMessageID
-	_, err = m.sess.ChannelMessageEdit(grohereChannelID, grohereMsgID, grohereText)
-	if err != nil {
-		if discordErr, ok := err.(*discordgo.RESTError); ok {
-			m.LogError(
-				errCannotEditMsg,
-				zap.Any("DiscordErr", discordErr),
-			)
-			// clear grohere entry as it refers to an unknown channel
-			if r := m.db.Delete(&record); r.Error != nil {
-				m.LogError(r.Error)
-			}
-			err := m.sendMessage(fmt.Sprintf("_Psst, I can't seem to edit the !grohere message I attached for %s. If this was not intended, please use !grohere%s again!_", groceryList.GetName(), groceryList.GetLabelSuffix()))
-			if err != nil {
-				m.LogError(err)
-			}
-		} else {
-			return m.onError(err)
-		}
+	if err := m.groceryService.OnGroceryListEdit(context.Background(), groceryList, m.commandContext.GuildID); err != nil {
+		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()
 }
