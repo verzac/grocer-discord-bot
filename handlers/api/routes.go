@@ -94,7 +94,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 			return echo.NewHTTPError(400, "ID must be empty.")
 		}
 		var groceryList *models.GroceryList
-		if groceryEntry.GroceryListID != nil {
+		if groceryEntry.GroceryListID != nil && *groceryEntry.GroceryListID != 0 {
 			groceryList, err := groceryListRepo.GetByQuery(&models.GroceryList{
 				ID:      *groceryEntry.GroceryListID,
 				GuildID: guildID,
