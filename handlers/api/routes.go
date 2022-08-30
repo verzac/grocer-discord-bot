@@ -88,8 +88,10 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		if err := c.Validate(&groceryEntry); err != nil {
 			return echo.NewHTTPError(400, err.Error())
 		}
-		if groceryEntry.ID != 0 || !groceryEntry.CreatedAt.IsZero() || !groceryEntry.UpdatedAt.IsZero() {
-			return echo.NewHTTPError(400, "ID, created_at, and updated_at must be empty.")
+		groceryEntry.CreatedAt = time.Time{}
+		groceryEntry.UpdatedAt = time.Time{}
+		if groceryEntry.ID != 0 {
+			return echo.NewHTTPError(400, "ID must be empty.")
 		}
 		var groceryList *models.GroceryList
 		if groceryEntry.GroceryListID != nil {

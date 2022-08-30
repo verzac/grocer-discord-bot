@@ -8,7 +8,7 @@ info:
   # license:
   #   name: Apache 2.0
   #   url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: 2.4.x
+  version: 2.5.x
 externalDocs:
   description: GroceryBot's Website
   url: https://grocerybot.net
@@ -55,6 +55,27 @@ paths:
           $ref: "#/components/responses/UnauthorizedError"
         "403":
           $ref: "#/components/responses/ForbiddenError"
+  /groceries:
+    post:
+      # tags:
+      #   - grocery
+      summary: POST Grocery Entry
+      description: "Create a new grocery entry for your server. To attach it to a grocery list, obtain your server's grocery lists from GET /grocery-lists and put it into `grocery_list_id`."
+      requestBody:
+        description: Creates a new grocery entry.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroceryEntry"
+      responses:
+        "201":
+          description: A new grocery entry has been created.
+        "400":
+          description: Validation fails. You must ensure that `id` is empty.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
 components:
   schemas:
     GuildGroceryList:
@@ -79,15 +100,12 @@ components:
         id:
           type: number
           description: Primary key of the entry. Guaranteed to be unique.
-          readOnly: true
         created_at:
           type: string
-          description: A timestamp on when the entry was created.
-          readOnly: true
+          description: A timestamp on when the entry was created. Automatically generated - you cannot assign this manually.
         updated_at:
           type: string
-          description: A timestamp on when the entry was updated.
-          readOnly: true
+          description: A timestamp on when the entry was updated. Automatically generated - you cannot assign this manually.
         item_desc:
           type: string
           description: "Description of the entry. For example, `/gro chicken` would result in this field being `chicken`."
@@ -95,7 +113,6 @@ components:
         updated_by_id:
           type: string
           description: Discord ID of the user who updated this entry last.
-          readOnly: true
           deprecated: true
         grocery_list_id:
           type: int
