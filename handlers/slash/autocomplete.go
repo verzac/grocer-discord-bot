@@ -9,13 +9,14 @@ import (
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/utils"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 var (
-	ErrAutocompleteCommandNotRecognised = errors.New("Not sure which command this auto-complete event is for...")
-	ErrAutocompleteMissingOption        = errors.New("Missing option.")
+	ErrAutocompleteCommandNotRecognised = errors.New("not sure which command this auto-complete event is for")
+	ErrAutocompleteMissingOption        = errors.New("missing option")
 )
 
 type AutocompleteHandler struct {
@@ -82,7 +83,7 @@ func (a *AutocompleteHandler) Handle() error {
 		if !ok {
 			return ErrAutocompleteMissingOption
 		}
-		if entry.Focused == true {
+		if entry.Focused {
 			choices := a.GetGroceryEntryChoices(entry.StringValue())
 			return a.sess.InteractionRespond(a.interaction.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
@@ -96,7 +97,7 @@ func (a *AutocompleteHandler) Handle() error {
 		if !ok {
 			return ErrAutocompleteMissingOption
 		}
-		if entryIndex.Focused == true {
+		if entryIndex.Focused {
 			choices := a.GetGroceryEntryChoices(entryIndex.StringValue())
 			return a.sess.InteractionRespond(a.interaction.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
@@ -121,7 +122,7 @@ func (a *AutocompleteHandler) GetGroceryListChoices(queryString string) []*disco
 	for _, gl := range groceryLists {
 		if strings.Contains(strings.ToLower(gl.ListLabel), strings.ToLower(queryString)) {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  gl.GetTitle(),
+				Name:  truncate(gl.GetTitle()),
 				Value: gl.ListLabel,
 			})
 		}
@@ -146,10 +147,14 @@ func (a *AutocompleteHandler) GetGroceryEntryChoices(queryString string) []*disc
 			IsStrongNilForGroceryListID: true,
 		},
 	)
+	if err != nil {
+		a.logger.Error("Failed to GetGroceryEntryChoices", zap.Error(err))
+		return choices
+	}
 	for idx, g := range groceries {
 		if strings.Contains(strings.ToLower(g.ItemDesc), strings.ToLower(queryString)) {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  g.ItemDesc,
+				Name:  truncate(g.ItemDesc),
 				Value: strconv.Itoa(idx + 1),
 			})
 		}
@@ -158,4 +163,9 @@ func (a *AutocompleteHandler) GetGroceryEntryChoices(queryString string) []*disc
 		}
 	}
 	return choices
+}
+
+// truncate keeps the autocomplete label under 100 chars, which is the limit imposed by Discord
+func truncate(str string) string {
+	return utils.TruncateStringWithTargetLength(str, 90)
 }
