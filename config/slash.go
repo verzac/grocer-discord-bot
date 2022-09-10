@@ -26,9 +26,7 @@ func GetGuildIDsToDeregisterSlashCommandsFrom() []string {
 }
 
 var (
-	disabledSlashCommands = []string{
-		"grobulk", // wait until modal + select is fully rolled-out
-	}
+	disabledSlashCommands = []string{}
 )
 
 func GetIgnoredSlashCommands(grobotVersion string) map[string]interface{} {

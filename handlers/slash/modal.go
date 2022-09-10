@@ -5,7 +5,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
-	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -31,31 +30,31 @@ var (
 var (
 	modalCommandHandlers = map[string]func(c *ModalCreationContext) (*discordgo.InteractionResponseData, error){
 		"grobulk": func(c *ModalCreationContext) (*discordgo.InteractionResponseData, error) {
-			lists, err := c.groceryListRepository.FindByQuery(&models.GroceryList{
-				GuildID: c.guildID,
-			})
-			if err != nil {
-				return nil, err
-			}
-			groceryListSelectOptions := []discordgo.SelectMenuOption{}
-			groceryListSelectOptions = append(groceryListSelectOptions, discordgo.SelectMenuOption{
-				Label:   "Default List",
-				Value:   defaultGroceryListValue,
-				Default: true,
-			})
-			for _, l := range lists {
-				groceryListSelectOptions = append(groceryListSelectOptions, discordgo.SelectMenuOption{
-					Label: l.GetName(),
-					Value: l.ListLabel,
-				})
-			}
+			// lists, err := c.groceryListRepository.FindByQuery(&models.GroceryList{
+			// 	GuildID: c.guildID,
+			// })
+			// if err != nil {
+			// 	return nil, err
+			// }
+			// groceryListSelectOptions := []discordgo.SelectMenuOption{}
+			// groceryListSelectOptions = append(groceryListSelectOptions, discordgo.SelectMenuOption{
+			// 	Label:   "Default List",
+			// 	Value:   defaultGroceryListValue,
+			// 	Default: true,
+			// })
+			// for _, l := range lists {
+			// 	groceryListSelectOptions = append(groceryListSelectOptions, discordgo.SelectMenuOption{
+			// 		Label: l.GetName(),
+			// 		Value: l.ListLabel,
+			// 	})
+			// }
 			components := []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.TextInput{
 							CustomID:    "bulk_input",
 							Label:       "Input multiple groceries",
-							Placeholder: "Paste your grocery entries here (each entries are separated by newlines)!",
+							Placeholder: "Paste your grocery entries here - each entries are separated by newlines.\n\nFor example: \nTea\nBeef",
 							Required:    true,
 							MaxLength:   1024,
 							Style:       discordgo.TextInputParagraph,
@@ -63,20 +62,20 @@ var (
 					},
 				},
 			}
-			if len(groceryListSelectOptions) > 0 {
-				minValues := 0
-				components = append(components, discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.SelectMenu{
-							CustomID:    "bulk_list_label",
-							Placeholder: "Which grocery list do you want to put it into?",
-							MinValues:   &minValues,
-							MaxValues:   1,
-							Options:     groceryListSelectOptions,
-						},
-					},
-				})
-			}
+			// if len(groceryListSelectOptions) > 0 {
+			// 	minValues := 0
+			// 	components = append(components, discordgo.ActionsRow{
+			// 		Components: []discordgo.MessageComponent{
+			// 			discordgo.SelectMenu{
+			// 				CustomID:    "bulk_list_label",
+			// 				Placeholder: "Which grocery list do you want to put it into?",
+			// 				MinValues:   &minValues,
+			// 				MaxValues:   1,
+			// 				Options:     groceryListSelectOptions,
+			// 			},
+			// 		},
+			// 	})
+			// }
 			data := &discordgo.InteractionResponseData{
 				CustomID:   "grobulk",
 				Title:      "!grobulk - add multiple groceries",
