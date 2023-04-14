@@ -145,7 +145,7 @@ components:
           required: true
         list_label:
           type: string
-          description: The unique label that is used to refer to this grocery list in commands. For example, `!gro:ebay blah` would be referring to a grocery list with `list_label` as "blah".
+          description: The unique label that is used to refer to this grocery list in commands. For example, `/gro:ebay blah` would be referring to a grocery list with `list_label` as "blah".
           required: true
         fancy_name:
           type: string

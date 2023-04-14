@@ -78,7 +78,7 @@ var (
 			// }
 			data := &discordgo.InteractionResponseData{
 				CustomID:   "grobulk",
-				Title:      "!grobulk - add multiple groceries",
+				Title:      "/grobulk - add multiple groceries",
 				Components: components,
 			}
 			return data, nil

@@ -11,7 +11,7 @@ func (m *MessageHandlerContext) OnEdit() error {
 	argStr := m.commandContext.ArgStr
 	argTokens := strings.SplitN(argStr, " ", 2)
 	if len(argTokens) != 2 {
-		return m.reply("Oops, I can't seem to understand you. Perhaps try typing **!groedit 1 Whatever you want the name of this entry to be**?")
+		return m.reply("Oops, I can't seem to understand you. Perhaps try typing **/groedit 1 Whatever you want the name of this entry to be**?")
 	}
 	itemIndex, err := toItemIndex(argTokens[0])
 	if err != nil {

@@ -18,8 +18,8 @@ func (m *MessageHandlerContext) OnPatron() error {
 	default:
 		return m.reply(`
 Hmm... Not sure what you were looking for. Here are my available commands:
-` + "`!gropatron register`" + ` - registers your account's Patreon benefit for this server.
-` + "`!gropatron deregister`" + ` - deregisters your account's Patreon benefit for this server, and allows you to register other servers (if you've hit your limit).
+` + "`/gropatron register`" + ` - registers your account's Patreon benefit for this server.
+` + "`/gropatron deregister`" + ` - deregisters your account's Patreon benefit for this server, and allows you to register other servers (if you've hit your limit).
 		`)
 	}
 }
