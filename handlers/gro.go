@@ -11,7 +11,7 @@ func (m *MessageHandlerContext) OnAdd() error {
 	guildID := m.commandContext.GuildID
 	argStr := m.commandContext.ArgStr
 	if argStr == "" {
-		return m.reply("Sorry, I need to know what you want to add to your grocery list :sweat_smile: (e.g. `!gro Chicken wings`)")
+		return m.reply("Sorry, I need to know what you want to add to your grocery list :sweat_smile: (e.g. `/gro Chicken wings`)")
 	}
 	groceryList, err := m.GetGroceryListFromContext()
 	if err != nil {

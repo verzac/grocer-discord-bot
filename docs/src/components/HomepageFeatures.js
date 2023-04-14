@@ -9,7 +9,7 @@ const FeatureList = [
     description: (
       <>
         GroceryBot was designed for people who value their time. With these 2
-        commands: <code>!gro</code> and <code>!grolist</code>, you can
+        commands: <code>/gro</code> and <code>/grolist</code>, you can
         immediately start building your grocery list.
       </>
     ),
@@ -20,8 +20,8 @@ const FeatureList = [
     description: (
       <>
         You can create multiple grocery lists on GroceryBot (
-        <code>!grolist new</code>) AND have a list that automatically updates as
-        you add/remove entries (<code>!grohere</code>).
+        <code>/grolist new</code>) AND have a list that automatically updates as
+        you add/remove entries (<code>/grohere</code>).
       </>
     ),
   },

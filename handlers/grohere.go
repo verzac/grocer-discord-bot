@@ -15,7 +15,7 @@ import (
 
 var (
 	errCannotEditMsgWhenRemovingGrolist  = errors.New("Failed to edit message when grocery list was removed.")
-	errCannotEditMsgWhenReplacingGrohere = errors.New("Failed to edit !grohere message upon replacement.")
+	errCannotEditMsgWhenReplacingGrohere = errors.New("Failed to edit /grohere message upon replacement.")
 )
 
 func (m *MessageHandlerContext) OnAttach() error {
@@ -47,7 +47,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 	}
 	for _, record := range grohereRecords {
 		// there's usually only one, but you never know
-		_, err := m.sess.ChannelMessageEdit(record.GrohereChannelID, record.GrohereMessageID, fmt.Sprintf(":shopping_cart: %s\n*This !grohere message has been replaced in another message.*", groceryList.GetName()))
+		_, err := m.sess.ChannelMessageEdit(record.GrohereChannelID, record.GrohereMessageID, fmt.Sprintf(":shopping_cart: %s\n*This /grohere message has been replaced in another message.*", groceryList.GetName()))
 		if err != nil {
 			m.LogError(errCannotEditMsgWhenReplacingGrohere, zap.Any("DiscordErr", err))
 		}
@@ -59,7 +59,7 @@ func (m *MessageHandlerContext) onAttachList() error {
 	}
 	attachMsg, err := m.sess.ChannelMessageSend(m.commandContext.ChannelID, "Placeholder")
 	if err != nil || attachMsg == nil {
-		m.GetLogger().Error("Unable to attach a message to the channel for !grohere.", zap.Error(err))
+		m.GetLogger().Error("Unable to attach a message to the channel for /grohere.", zap.Error(err))
 		return m.sendDirectMessage("Oops, I can't seem to attach the grocery list through `grohere`. Have you added the \"Send Message\" permission for me in your server / channel?", m.commandContext.AuthorID)
 	}
 	grohereRecord := models.GrohereRecord{
@@ -125,7 +125,7 @@ func (m *MessageHandlerContext) onListRemoveGrohereRecord(groceryList *models.Gr
 		}
 		return m.onError(r.Error)
 	}
-	_, err := m.sess.ChannelMessageEdit(record.GrohereChannelID, record.GrohereMessageID, fmt.Sprintf(":shopping_cart: %s\n *:wave: This grocery list has been deleted. Type `!grohere:<your-new-grocery-list>` to get a self-updating message for your grocery list!*", groceryList.GetName()))
+	_, err := m.sess.ChannelMessageEdit(record.GrohereChannelID, record.GrohereMessageID, fmt.Sprintf(":shopping_cart: %s\n *:wave: This grocery list has been deleted. Type `/grohere:<your-new-grocery-list>` to get a self-updating message for your grocery list!*", groceryList.GetName()))
 	if err != nil {
 		m.LogError(errCannotEditMsgWhenRemovingGrolist, zap.String("DiscordErr", err.Error()))
 	}

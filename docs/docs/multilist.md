@@ -15,8 +15,8 @@ ALL of GroceryBot's commands support multiple grocery lists.
 **Making a new grocery list**
 
 ```
-!grolist new <your-new-list-label> <optional - a pretty name for your list>
-!grolist new amazon My Amazon Shopping List
+/grolist new <your-new-list-label> <optional - a pretty name for your list>
+/grolist new amazon My Amazon Shopping List
 ```
 
 **Using that new grocery list**
@@ -24,21 +24,21 @@ ALL of GroceryBot's commands support multiple grocery lists.
 ```
 <command>:<your-new-list-label>
 
-!gro:amazon A brand new PS5
-!gro:sunday-market Chicken fillet
-!grolist:sunday-market
-!groremove:sunday-market Chicken fillet
-!grohere:sunday-market
+/gro:amazon A brand new PS5
+/gro:sunday-market Chicken fillet
+/grolist:sunday-market
+/groremove:sunday-market Chicken fillet
+/grohere:sunday-market
 
 ...and a bunch of other commands following the same format above
 ```
 
 ## Making a new grocery list
 
-In order to make a new grocery list, use `!grolist new <your-new-list-label> <optional - a pretty name for your list>`:
+In order to make a new grocery list, use `/grolist new <your-new-list-label> <optional - a pretty name for your list>`:
 
 ```
-!grolist new amazon My Amazon Shopping List
+/grolist new amazon My Amazon Shopping List
 ```
 
 ![create a new grocery list](./assets/grolist-new.jpg)
@@ -52,9 +52,9 @@ To access your grocery list, you can use the following format: `<command>:<your-
 For example:
 
 ```
-!gro:amazon PS5
-!grolist:amazon
-!grohere:amazon
+/gro:amazon PS5
+/grolist:amazon
+/grohere:amazon
 ```
 
 Slash command counterpart:
@@ -72,8 +72,8 @@ Oops, did you name your grocery list wrong? That's okay!
 To edit your grocery list's name/label, use the following commands:
 
 ```
-!grolist:amazon edit-label ebay
-!grolist:amazon edit-name Kyle's Amazon Shopping List
+/grolist:amazon edit-label ebay
+/grolist:amazon edit-name Kyle's Amazon Shopping List
 ```
 
 ![editing your grocery lists' name and label](./assets/grolist-edit.jpg)

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrCannotUpdateGrohere = errors.New("cannot edit attached message/channel: deleting !grohere entry")
+	ErrCannotUpdateGrohere = errors.New("cannot edit attached message/channel: deleting /grohere entry")
 )
 
 func (s *GroceryServiceImpl) OnGroceryListEdit(ctx context.Context, groceryList *models.GroceryList, guildID string) error {
@@ -45,7 +45,7 @@ func (s *GroceryServiceImpl) OnGroceryListEdit(ctx context.Context, groceryList 
 		s.logger.Error("Detected groceries without matching grocery list IDs.", zap.Any("listlessGroceries", listlessGroceries))
 	}
 	// if (groceryList == nil && count > 0) || (groceryList != nil && count > 1) {
-	// 	grohereText += fmt.Sprintf("\nand %d other grocery lists (use `!grohere all` to get a self-updating list for all groceries, or use `!grolist all` to display them).", count)
+	// 	grohereText += fmt.Sprintf("\nand %d other grocery lists (use `/grohere all` to get a self-updating list for all groceries, or use `/grolist all` to display them).", count)
 	// }
 	// send the message
 	record := grohereRecords[0]
@@ -55,7 +55,7 @@ func (s *GroceryServiceImpl) OnGroceryListEdit(ctx context.Context, groceryList 
 	if err != nil {
 		if discordErr, ok := err.(*discordgo.RESTError); ok {
 			s.logger.Error(
-				"Cannot edit attached message/channel: deleting !grohere entry",
+				"Cannot edit attached message/channel: deleting /grohere entry",
 				zap.Any("DiscordErr", discordErr),
 			)
 			// clear grohere entry as it refers to an unknown channel
@@ -91,7 +91,7 @@ func (s *GroceryServiceImpl) UpdateGuildGrohere(ctx context.Context, guildID str
 	_, err = s.sess.ChannelMessageEdit(*gConfig.GrohereChannelID, *gConfig.GrohereMessageID, grohereText)
 	if err != nil {
 		if discordErr, ok := err.(*discordgo.RESTError); ok {
-			s.logger.Error("Cannot edit attached message/channel: deleting !grohere entry", zap.Any("discordErr", discordErr))
+			s.logger.Error("Cannot edit attached message/channel: deleting /grohere entry", zap.Any("discordErr", discordErr))
 			// clear grohere entry as it refers to an unknown channel
 			gConfig.GrohereChannelID = nil
 			gConfig.GrohereMessageID = nil

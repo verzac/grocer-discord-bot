@@ -13,7 +13,7 @@ import (
 
 const (
 	msgCannotSaveNewGroceryList = "Whoops, can't seem to save your new grocery list. Please try again later!"
-	msgCmdNotFound              = ":thinking: Hmm... Not sure what you're looking for. Here are my available commands:\n`!grolist`\n`!grolist new <new list's label> <new list's fancy name - optional>`\n`!grolist:<label> delete`\n`!grolist:<label> edit-name <new fancy name>`\n`!grolist:<label> edit-label <new label>`"
+	msgCmdNotFound              = ":thinking: Hmm... Not sure what you're looking for. Here are my available commands:\n`/grolist`\n`/grolist-new <new list's label> <new list's fancy name - optional>`\n`/grolist:<label> delete`\n`/grolist:<label> edit-name <new fancy name>`\n`/grolist:<label> edit-label <new label>`"
 	msgPrefixDefault            = "Here's your grocery list:"
 )
 
@@ -107,7 +107,7 @@ func (m *MessageHandlerContext) displayList() error {
 		// not fatal - simply a helper to improve adoption rate
 		m.LogError(err)
 	} else if groceryListCount > 0 {
-		msgSuffix = fmt.Sprintf("\nand %d other grocery lists (use `!grolist all`).", groceryListCount)
+		msgSuffix = fmt.Sprintf("\nand %d other grocery lists (use `/grolist all`).", groceryListCount)
 	}
 	textComponents := make([]string, 0, 3)
 	for _, textComponent := range []string{msgPrefix, textBody, msgSuffix} {
@@ -132,7 +132,7 @@ func (m *MessageHandlerContext) newList() error {
 	}
 	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 3)
 	if len(splitArgs) < 2 {
-		return m.reply("Sorry, I need to know what you'd like to label your new grocery list as. For example, you can type `!grolist new amazon` to make a grocery list with the label `amazon`.")
+		return m.reply("Sorry, I need to know what you'd like to label your new grocery list as. For example, you can type `/grolist-new amazon` to make a grocery list with the label `amazon`.")
 	}
 	label := splitArgs[1]
 	var fancyName string
@@ -151,7 +151,7 @@ func (m *MessageHandlerContext) newList() error {
 			zap.Int("maxGroceryListPerServer", maxGroceryListPerServer),
 		)
 		return m.reply(fmt.Sprintf(
-			":shopping_bags: Whoops, you already have the maximum of %d grocery lists for this server. Please delete one through `!grolist delete <list label>` to make room for new ones. Alternatively, you can use `!grolist edit-label` and `!grolist edit-name` to edit your grocery list (see `!grohelp` for more details).\n\nPS: You can get higher limits by supporting me on Patreon through `!grohelp` or `/grohelp`!",
+			":shopping_bags: Whoops, you already have the maximum of %d grocery lists for this server. Please delete one through `/grolist-delete <list label>` to make room for new ones. Alternatively, you can use `/grolist edit-label` and `/grolist edit-name` to edit your grocery list (see `/grohelp` for more details).\n\nPS: You can get higher limits by supporting me on Patreon through `/grohelp` or `/grohelp`!",
 			existingCountInGuild+1,
 		))
 	}
@@ -165,7 +165,7 @@ func (m *MessageHandlerContext) newList() error {
 			return m.reply(msgCannotSaveNewGroceryList)
 		}
 	}
-	if err := m.reply(fmt.Sprintf("Yay! Your new grocery list **%s** has been successfully created. Use it in a command like so to add entries to your grocery list: `!gro:%s Chicken`", newGroceryList.GetName(), newGroceryList.ListLabel)); err != nil {
+	if err := m.reply(fmt.Sprintf("Yay! Your new grocery list **%s** has been successfully created. Use it in a command like so to add entries to your grocery list: `/gro:%s Chicken`", newGroceryList.GetName(), newGroceryList.ListLabel)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()
@@ -192,7 +192,7 @@ func (m *MessageHandlerContext) deleteList() error {
 		return m.onError(rErr)
 	}
 	if count > 0 {
-		return m.reply(fmt.Sprintf("Oops, you still have %d groceries in **%s**. Pro-tip: use `!groclear:%s` to clear your groceries!", count, groceryList.GetName(), groceryList.ListLabel))
+		return m.reply(fmt.Sprintf("Oops, you still have %d groceries in **%s**. Pro-tip: use `/groclear:%s` to clear your groceries!", count, groceryList.GetName(), groceryList.ListLabel))
 	}
 	if err := m.onListRemoveGrohereRecord(groceryList); err != nil {
 		return m.onError(err)
@@ -205,7 +205,7 @@ func (m *MessageHandlerContext) deleteList() error {
 			return m.onError(err)
 		}
 	}
-	if err := m.reply(fmt.Sprintf("Successfully deleted **%s**! Feel free to make new ones with `!grolist new`!", label)); err != nil {
+	if err := m.reply(fmt.Sprintf("Successfully deleted **%s**! Feel free to make new ones with `/grolist-new`!", label)); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohere()
@@ -218,7 +218,7 @@ func (m *MessageHandlerContext) editList() error {
 	}
 	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 2)
 	if len(splitArgs) < 2 {
-		return m.reply("Sorry, I need to know what you'd like to rename your grocery as. For example: `!grolist:amazon edit-name My Amazon Shopping List` to change a grocery list with the label `amazon` to have the name \"My Amazon Shopping List\". Changing the labels themselves are done through edit-label like so: `!grolist edit-label amazon ebay`.")
+		return m.reply("Sorry, I need to know what you'd like to rename your grocery as. For example: `/grolist:amazon edit-name My Amazon Shopping List` to change a grocery list with the label `amazon` to have the name \"My Amazon Shopping List\". Changing the labels themselves are done through edit-label like so: `/grolist edit-label amazon ebay`.")
 	}
 	newFancyName := splitArgs[1]
 	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
@@ -226,7 +226,7 @@ func (m *MessageHandlerContext) editList() error {
 		return m.onError(err)
 	}
 	if groceryList == nil {
-		return m.reply(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label **%s**. You can make the grocery list by typing `!grolist new %s %s`.", label, label, newFancyName))
+		return m.reply(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label **%s**. You can make the grocery list by typing `/grolist-new %s %s`.", label, label, newFancyName))
 	}
 	groceryList.FancyName = &newFancyName
 	if err := m.groceryListRepo.Save(groceryList); err != nil {
@@ -245,7 +245,7 @@ func (m *MessageHandlerContext) relabelList() error {
 	}
 	splitArgs := strings.SplitN(m.commandContext.ArgStr, " ", 2)
 	if len(splitArgs) < 2 {
-		return m.reply("Sorry, I need to know what you'd like to relabel your grocery list as. For example: `!grolist:amazon edit-label ebay` to change your `ebay` list's label to `amazon instead` (all items will be moved to the new list).")
+		return m.reply("Sorry, I need to know what you'd like to relabel your grocery list as. For example: `/grolist:amazon edit-label ebay` to change your `ebay` list's label to `amazon instead` (all items will be moved to the new list).")
 	}
 	newLabel := splitArgs[1]
 	groceryList, err := m.groceryListRepo.GetByQuery(&models.GroceryList{ListLabel: label})
@@ -253,14 +253,14 @@ func (m *MessageHandlerContext) relabelList() error {
 		return m.onError(err)
 	}
 	if groceryList == nil {
-		return m.reply(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label **%s**. You can make the grocery list by typing `!grolist new %s My Shopping List`.", label, newLabel))
+		return m.reply(fmt.Sprintf("Whoops, can't seem to find a grocery list with the label **%s**. You can make the grocery list by typing `/grolist-new %s My Shopping List`.", label, newLabel))
 	}
 	groceryList.ListLabel = newLabel
 	if err := m.groceryListRepo.Save(groceryList); err != nil {
 		return m.onError(err)
 	}
 	if err := m.reply(fmt.Sprintf(
-		"Successfully edited grocery list with the label **%s** to have the following label: **%s**. Please ensure that you use commands with the new label! For example: `!gro:%s Chicken strips`",
+		"Successfully edited grocery list with the label **%s** to have the following label: **%s**. Please ensure that you use commands with the new label! For example: `/gro:%s Chicken strips`",
 		label,
 		groceryList.ListLabel,
 		groceryList.ListLabel,

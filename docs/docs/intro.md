@@ -10,7 +10,7 @@ Get a grocery list going for your Discord server! No more switching apps just to
 
 ## Slash Commands Are Now Out!
 
-**From April 2022, message commands (e.g. `!gro`) will be fully replaced by its slash commands counter-part (e.g. `/gro`). All commands have been fully migrated and tested, except `!grobulk`.**
+**From April 2022, message commands (e.g. `!gro`) will be fully replaced by its slash commands counter-part (e.g. `/gro`). All commands have been fully migrated and tested, except `/grobulk`.**
 
 If you want to use the old format (which will be supported indefinitely), please mention `@GroceryBot` in your commands; otherwise, GroceryBot won't receive your commands! For example:
 
@@ -31,28 +31,28 @@ _Note: GroceryBot requires the "Send Message" permission to function (i.e. commu
 
 <img style={{ width: 400 }} src={require('./assets/add-to-server.jpg').default} alt="add grocery bot" />
 
-## !gro - Adding your first grocery entry 📝
+## /gro - Adding your first grocery entry 📝
 
 <!-- Picture this: you're currently in a Discord convo with your housemates. You're deciding on what to eat, and suddenly, an eureka hits you: a pasta dish would be amazing! You have to buy the ingredients first though. There are now 2 scenarios: you pull out your phone, fiddle around with a grocery list app, switch between that app and Discord multiple times as you telegraph what your housemates want on your pasta to your app; or...
 
 ...you just use GroceryBot and tell your housemates to add their desired ingredients themselves. Oh, and don't forget the snacks! -->
 
-Once you add GroceryBot, you can immediately start adding grocery entries to your list through `!gro <item name>`:
+Once you add GroceryBot, you can immediately start adding grocery entries to your list through `/gro <item name>`:
 
 ```
-!gro Chicken thighs
+/gro Chicken thighs
 ```
 
 ![gro example](./assets/gro.jpg)
 
-## !grolist - Displaying/viewing your grocery list 👓
+## /grolist - Displaying/viewing your grocery list 👓
 
 Alright, so everyone's added their preferred pasta topping and some sides as well - great!
 
 To bring up your grocery list:
 
 ```
-!grolist
+/grolist
 ```
 
 ```
@@ -65,25 +65,25 @@ Here's what you have for your grocery list:
 
 ![gro list example](./assets/grolist.jpg)
 
-## !grohere - Attaching a self-updating grocery list to a channel 📲
+## /grohere - Attaching a self-updating grocery list to a channel 📲
 
 You can also use the following command to "attach" a self-updating message for your grocery list:
 
 ```
-!grohere
+/grohere
 ```
 
 ![gro here example](./assets/grohere.gif)
 
-As you update your grocery list, GroceryBot will update this message, so you don't have to keep typing `!grolist` all the time!
+As you update your grocery list, GroceryBot will update this message, so you don't have to keep typing `/grolist` all the time!
 
 _Protip: attach it to the channel, or have a dedicated channel just for that message - it'll make your life so much easier as you only need to switch channels to view your latest grocery list._
 
-## !groremove - Removing grocery entries 🧹
+## /groremove - Removing grocery entries 🧹
 
 Okay, okay - Kyle probably didn't need you to buy Doritos as well; you're just a lone shopper, after all! You can't buy everything for the house yourself.
 
-Removing grocery entries is easy as well through `!groremove <item name>` or `!groremove <item index>`:
+Removing grocery entries is easy as well through `/groremove <item name>` or `/groremove <item index>`:
 
 ```
 Here's what you have for your grocery list:
@@ -95,13 +95,13 @@ Here's what you have for your grocery list:
 
 ![gro remove example](./assets/groremove.jpg)
 
-`!groremove 2` or `!groremove doritos` will remove "Doritos" from your grocery list.
+`/groremove 2` or `/groremove doritos` will remove "Doritos" from your grocery list.
 
-## !groedit - Changing things ✏️
+## /groedit - Changing things ✏️
 
 Ah crap, you didn't mean to say "Chicken thighs"; you meant to say "Chicken breast".
 
-To edit your grocery list, use `!groedit <item index> <new name>`:
+To edit your grocery list, use `/groedit <item index> <new name>`:
 
 ```
 Here's what you have for your grocery list:
@@ -111,7 +111,7 @@ Here's what you have for your grocery list:
 ```
 
 ```
-!groedit 1 Chicken breast
+/groedit 1 Chicken breast
 ```
 
 ```
@@ -120,14 +120,14 @@ Updated item #1 on your grocery list to Chicken breast
 
 ![gro edit example](./assets/groedit.jpg)
 
-## !grobulk - Adding multiple items 📝 📝 📝
+## /grobulk - Adding multiple items 📝 📝 📝
 
 Have a grocery list in mind? Let's add all of them to GroceryBot!
 
-To add multiple items, use `!grobulk` with each item being on a new line:
+To add multiple items, use `/grobulk` with each item being on a new line:
 
 ```
-!grobulk
+/grobulk
 Cheese
 Fettucine
 Bolognese sauce
@@ -135,24 +135,24 @@ Bolognese sauce
 
 ![gro bulk example](./assets/grobulk.jpg)
 
-## !groclear - Clearing your grocery list 🧹
+## /groclear - Clearing your grocery list 🧹
 
 Great - you're done with your groceries!
 
-To clear your current grocery list, use `!groclear`:
+To clear your current grocery list, use `/groclear`:
 
 ```
-!groclear
+/groclear
 ```
 
 ![gro clear example](./assets/groclear.jpg)
 
-## !grohelp - Get help! 👨🏻‍⚕️
+## /grohelp - Get help! 👨🏻‍⚕️
 
-Can't remember all of these? Don't worry, just use `!grohelp` to get this in a nice, concise format:
+Can't remember all of these? Don't worry, just use `/grohelp` to get this in a nice, concise format:
 
 ```
-!grohelp
+/grohelp
 ```
 
 ## ...and, that's it! ✅
