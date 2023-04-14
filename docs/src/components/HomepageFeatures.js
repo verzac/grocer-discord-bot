@@ -20,7 +20,7 @@ const FeatureList = [
     description: (
       <>
         You can create multiple grocery lists on GroceryBot (
-        <code>/grolist new</code>) AND have a list that automatically updates as
+        <code>/grolist-new</code>) AND have a list that automatically updates as
         you add/remove entries (<code>/grohere</code>).
       </>
     ),

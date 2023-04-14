@@ -10,7 +10,7 @@ Get a grocery list going for your Discord server! No more switching apps just to
 
 ## Slash Commands Are Now Out!
 
-**From April 2022, message commands (e.g. `!gro`) will be fully replaced by its slash commands counter-part (e.g. `/gro`). All commands have been fully migrated and tested, except `/grobulk`.**
+**From April 2022, message commands (e.g. `!gro`) will be fully replaced by its slash commands counter-part (e.g. `/gro`). All commands have been fully migrated and tested, except `!grobulk`.**
 
 If you want to use the old format (which will be supported indefinitely), please mention `@GroceryBot` in your commands; otherwise, GroceryBot won't receive your commands! For example:
 
@@ -124,14 +124,7 @@ Updated item #1 on your grocery list to Chicken breast
 
 Have a grocery list in mind? Let's add all of them to GroceryBot!
 
-To add multiple items, use `/grobulk` with each item being on a new line:
-
-```
-/grobulk
-Cheese
-Fettucine
-Bolognese sauce
-```
+To add multiple items, use `/grobulk`. You'll get a prompt to enter each item on a spearate line:
 
 ![gro bulk example](./assets/grobulk.jpg)
 

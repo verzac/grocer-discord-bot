@@ -30,7 +30,7 @@ type slashCommandHandlerMetadata struct {
 	customArgStrMarshaller argStrMarshaller
 	// determines which option to extract the argStr from
 	mainInputOptionKey string
-	// maybe you want /grolist-new to execute /grolist new instead?
+	// maybe you want /grolist-new to execute !grolist new instead?
 	commandMappingOverride string
 }
 
@@ -226,7 +226,7 @@ var (
 			},
 		},
 		"grolist-new": {
-			commandMappingOverride: "/grolist",
+			commandMappingOverride: "!grolist",
 			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
 				label := ""
 				prettyName := ""
@@ -249,7 +249,7 @@ var (
 			},
 		},
 		"grolist-delete": {
-			commandMappingOverride: "/grolist",
+			commandMappingOverride: "!grolist",
 			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
 				return "delete", nil
 			},

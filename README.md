@@ -30,14 +30,7 @@ GroceryBot allows you to maintain a grocery list for your server/guild/household
 
 **/groreset**: When you want to clear all of your data from this bot.
 
-```
-/grobulk
-eggs
-Soap 1pc
-Liquid soap 500 ml
-```
-
-These 3 new items will be added to your existing grocery list!
+**/grobulk**: Add multiple items to your grocery list at once
 
 # Issues & Problems with GroceryBot?
 

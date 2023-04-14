@@ -15,8 +15,8 @@ ALL of GroceryBot's commands support multiple grocery lists.
 **Making a new grocery list**
 
 ```
-/grolist new <your-new-list-label> <optional - a pretty name for your list>
-/grolist new amazon My Amazon Shopping List
+/grolist-new <your-new-list-label> <optional - a pretty name for your list>
+/grolist-new amazon My Amazon Shopping List
 ```
 
 **Using that new grocery list**
@@ -35,10 +35,10 @@ ALL of GroceryBot's commands support multiple grocery lists.
 
 ## Making a new grocery list
 
-In order to make a new grocery list, use `/grolist new <your-new-list-label> <optional - a pretty name for your list>`:
+In order to make a new grocery list, use `/grolist-new <your-new-list-label> <optional - a pretty name for your list>`:
 
 ```
-/grolist new amazon My Amazon Shopping List
+/grolist-new amazon My Amazon Shopping List
 ```
 
 ![create a new grocery list](./assets/grolist-new.jpg)
@@ -47,7 +47,7 @@ In order to make a new grocery list, use `/grolist new <your-new-list-label> <op
 
 Alrighty, so you've made a new grocery list - sweet!
 
-To access your grocery list, you can use the following format: `<command>:<your-new-list-label>`
+To access your grocery list, you can use the "list-label" option: `<command>:<your-new-list-label>`
 
 For example:
 
@@ -60,7 +60,7 @@ For example:
 Slash command counterpart:
 
 ```
-/grolist new label:amazon pretty-name PS5
+/grolist-new label:amazon pretty-name PS5
 ```
 
 ![using grocery bot commands on other grocery lists](./assets/multilist-sample.jpg)
