@@ -74,6 +74,8 @@ type MessageHandlerContext struct {
 	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
 	registrationService         registration.RegistrationService
 	groceryService              grocery.GroceryService
+	guildConfigRepo             repositories.GuildConfigRepository
+	cachedConfig                *models.GuildConfig
 	replyCounter                int
 	registrationContext         *dto.RegistrationContext // do not use directly - use GetRegistrationContext
 }
@@ -103,6 +105,19 @@ func (m *MessageHandlerContext) checkReplyCounter() {
 	}
 }
 
+func (c *MessageHandlerContext) getConfig() (*models.GuildConfig, error) {
+	if c.cachedConfig != nil {
+		return c.cachedConfig, nil
+	}
+	guildID := c.commandContext.GuildID
+	config, err := c.guildConfigRepo.Get(guildID)
+	if err != nil {
+		return nil, err
+	}
+	c.cachedConfig = config
+	return config, nil
+}
+
 func (m *MessageHandlerContext) reply(msg string) error {
 	m.checkReplyCounter()
 	switch m.commandContext.CommandSourceType {
@@ -111,10 +126,19 @@ func (m *MessageHandlerContext) reply(msg string) error {
 		return m.sendMessage(msg)
 	case CommandSourceSlashCommand:
 		m.replyCounter += 1
+		flags := discordgo.MessageFlags(0)
+		config, err := m.getConfig()
+		if err != nil {
+			m.logger.Error("Failed to load guild config. Non-critical error, skipping.", zap.Error(err))
+		}
+		if config != nil && config.UseEphemeral {
+			flags |= discordgo.MessageFlagsEphemeral
+		}
 		return m.sess.InteractionRespond(m.commandContext.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: msg,
+				Flags:   flags,
 			},
 		})
 	default:
@@ -203,6 +227,7 @@ func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobot
 		registrationEntitlementRepo: &repositories.RegistrationEntitlementRepositoryImpl{DB: db},
 		registrationService:         registration.Service,
 		groceryService:              grocery.Service,
+		guildConfigRepo:             &repositories.GuildConfigRepositoryImpl{DB: db},
 	}
 }
 

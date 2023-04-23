@@ -195,6 +195,25 @@ var (
 			Description: "Create a new API Client ID & Secret so that you can integrate directly with GroceryBot!",
 			Type:        discordgo.ChatApplicationCommand,
 		},
+		{
+			Name:        "config",
+			Description: "Customize GroceryBot for your server.",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "set",
+					Description: "Configure GroceryBot for your server.",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Name:        "use_ephemeral",
+							Description: "Enable ephemeral message replies from GroceryBot, which are only visible to you and will disappear.",
+							Required:    true,
+						},
+					},
+				},
+			},
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {

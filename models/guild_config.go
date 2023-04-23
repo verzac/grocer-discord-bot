@@ -8,5 +8,6 @@ type GuildConfig struct {
 	GrohereMessageID *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	UseEphemeral     bool
 	// LastSeenAt       *time.Time
 }
