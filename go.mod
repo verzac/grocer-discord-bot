@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/andanhm/go-prettytime v1.1.0
 	github.com/aws/aws-sdk-go v1.40.32
-	github.com/bwmarrin/discordgo v0.25.1-0.20220714214021-0feaae8f1b39
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/go-playground/validator/v10 v10.10.0
 	github.com/golang-migrate/migrate/v4 v4.15.0
 	github.com/joho/godotenv v1.3.0
