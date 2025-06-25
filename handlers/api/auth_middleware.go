@@ -40,6 +40,10 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 	})
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if c.Request().URL.Path == "/metrics" {
+				// skip auth for metrics endpoint
+				return next(c)
+			}
 			authHeader := c.Request().Header.Get("Authorization")
 			if authHeader == "" || !strings.HasPrefix(authHeader, "Basic ") {
 				return echo.NewHTTPError(401, "Missing authentication.")

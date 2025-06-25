@@ -12,6 +12,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/models"
+	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"github.com/verzac/grocer-discord-bot/services/grocery"
 	"github.com/verzac/grocer-discord-bot/services/registration"
@@ -48,11 +49,15 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	}))
 	e.Use(middleware.Recover())
 	e.Validator = utils.NewCustomValidator()
+
 	groceryEntryRepo = &repositories.GroceryEntryRepositoryImpl{DB: db}
 	groceryListRepo = &repositories.GroceryListRepositoryImpl{DB: db}
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
+
 	e.Use(AuthMiddleware(apiClientRepo, logger))
+
+	e.GET("/metrics", groprometheus.PrometheusHandler())
 	e.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)

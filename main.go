@@ -20,6 +20,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/handlers/api"
 	"github.com/verzac/grocer-discord-bot/handlers/slash"
 	"github.com/verzac/grocer-discord-bot/monitoring"
+	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"github.com/verzac/grocer-discord-bot/services"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -114,6 +115,10 @@ func main() {
 	logger.Info(fmt.Sprintf("Using %s\n", dsn))
 	db = dbUtils.Setup(dsn, logger.Named("db"), GroBotVersion)
 	services.InitServices(db, logger.Named("service"), d)
+
+	// Initialize Prometheus metrics
+	groprometheus.InitMetrics()
+
 	// API handler
 	go func() {
 		if err := api.RegisterAndStart(logger, db); err != nil {
@@ -122,6 +127,8 @@ func main() {
 	}()
 	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
+
+	// Track Discord server count
 	d.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		logger := logger.Named("activity")
 		buildTimestampStr, err := strconv.ParseInt(BuildTimestamp, 10, 64)
@@ -159,7 +166,30 @@ func main() {
 		}); err != nil {
 			logger.Error(err.Error())
 		}
+
+		// Update server count metric on ready
+		serverCount := handlers.UpdateServerCountMetric(s)
+		logger.Info("Updated Discord servers count", zap.Int("serverCount", serverCount))
 	})
+
+	// Track when bot joins a server
+	d.AddHandler(func(s *discordgo.Session, g *discordgo.GuildCreate) {
+		serverCount := handlers.UpdateServerCountMetric(s)
+		logger.Info("Bot joined Discord server",
+			zap.String("guildID", g.ID),
+			zap.String("guildName", g.Name),
+			zap.Int("totalServers", serverCount))
+	})
+
+	// Track when bot leaves a server
+	d.AddHandler(func(s *discordgo.Session, g *discordgo.GuildDelete) {
+		serverCount := handlers.UpdateServerCountMetric(s)
+		logger.Info("Bot left Discord server",
+			zap.String("guildID", g.ID),
+			zap.String("guildName", g.Name),
+			zap.Int("totalServers", serverCount))
+	})
+
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 	if err := d.Open(); err != nil {
 		panic(err)
