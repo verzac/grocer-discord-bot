@@ -6,6 +6,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/verzac/grocer-discord-bot/models"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -13,7 +14,8 @@ var metricsCache = cache.New(5*time.Minute, 10*time.Minute)
 
 // OnDemandCollector implements prometheus.Collector for metrics that need database queries
 type OnDemandCollector struct {
-	db *gorm.DB
+	db     *gorm.DB
+	logger *zap.Logger
 
 	// Metrics
 	monthlyActiveUsersGauge  *prometheus.Desc
@@ -25,9 +27,10 @@ type OnDemandCollector struct {
 }
 
 // NewOnDemandCollector creates a new collector for on-demand metrics
-func NewOnDemandCollector(database *gorm.DB) *OnDemandCollector {
+func NewOnDemandCollector(database *gorm.DB, logger *zap.Logger) *OnDemandCollector {
 	return &OnDemandCollector{
-		db: database,
+		db:     database,
+		logger: logger,
 		monthlyActiveUsersGauge: prometheus.NewDesc(
 			"grocer_bot_monthly_active_users",
 			"Number of unique users who have interacted with the bot in the last 30 days",
@@ -74,6 +77,7 @@ func (c *OnDemandCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements prometheus.Collector
 func (c *OnDemandCollector) Collect(ch chan<- prometheus.Metric) {
 	if c.db == nil {
+		c.logger.Warn("No database connection found for on-demand metrics")
 		return
 	}
 
@@ -130,6 +134,9 @@ func (c *OnDemandCollector) getActiveUserCount(since time.Time) int64 {
 		Count(&count).Error
 
 	if err != nil {
+		c.logger.Error("Failed to get active user count",
+			zap.Time("since", since),
+			zap.Error(err))
 		// Return 0 on error, but in production you might want to log this
 		return 0
 	}
@@ -151,6 +158,7 @@ func (c *OnDemandCollector) collectTotalGroceryEntries(ch chan<- prometheus.Metr
 		Count(&count).Error
 
 	if err != nil {
+		c.logger.Error("Failed to get total grocery entries count", zap.Error(err))
 		return
 	}
 
@@ -175,6 +183,9 @@ func (c *OnDemandCollector) collectActiveGuilds(ch chan<- prometheus.Metric) {
 		Count(&count).Error
 
 	if err != nil {
+		c.logger.Error("Failed to get active guilds count",
+			zap.Time("since", thirtyDaysAgo),
+			zap.Error(err))
 		return
 	}
 
@@ -195,6 +206,7 @@ func (c *OnDemandCollector) collectGroceryListStats(ch chan<- prometheus.Metric)
 			Count(&listCount).Error
 
 		if err != nil {
+			c.logger.Error("Failed to get total grocery lists count", zap.Error(err))
 			return
 		}
 

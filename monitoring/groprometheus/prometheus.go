@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -38,11 +39,6 @@ var (
 // SetDB sets the database connection for on-demand metrics
 func SetDB(database *gorm.DB) {
 	db = database
-
-	// If metrics are already initialized, register the collector
-	if hasInit.Load() && db != nil {
-		registry.MustRegister(NewOnDemandCollector(db))
-	}
 }
 
 // PrometheusHandler returns the Prometheus metrics endpoint
@@ -65,7 +61,8 @@ func IncrementCommandInvocation(commandName string) {
 }
 
 // InitMetrics initializes and registers all metrics
-func InitMetrics() {
+func InitMetrics(logger *zap.Logger) {
+	logger = logger.Named("prometheus")
 	if hasInit.Load() {
 		return
 	}
@@ -77,6 +74,8 @@ func InitMetrics() {
 
 	// Register the on-demand collector if we have a database connection
 	if db != nil {
-		registry.MustRegister(NewOnDemandCollector(db))
+		registry.MustRegister(NewOnDemandCollector(db, logger))
+	} else {
+		logger.Warn("No database connection found for on-demand metrics")
 	}
 }
