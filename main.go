@@ -116,6 +116,9 @@ func main() {
 	db = dbUtils.Setup(dsn, logger.Named("db"), GroBotVersion)
 	services.InitServices(db, logger.Named("service"), d)
 
+	// Set database connection for Prometheus metrics
+	groprometheus.SetDB(db)
+
 	// Initialize Prometheus metrics
 	groprometheus.InitMetrics()
 
