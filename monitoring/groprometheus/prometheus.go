@@ -6,12 +6,17 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 var (
 	// Custom registry
 	registry = prometheus.NewRegistry()
 	hasInit  = atomic.Bool{}
+
+	// Database connection for on-demand metrics
+	db *gorm.DB
 
 	// Simple metric to count Discord servers
 	discordServersGauge = prometheus.NewGauge(
@@ -30,6 +35,11 @@ var (
 		[]string{"command_name"},
 	)
 )
+
+// SetDB sets the database connection for on-demand metrics
+func SetDB(database *gorm.DB) {
+	db = database
+}
 
 // PrometheusHandler returns the Prometheus metrics endpoint
 func PrometheusHandler() echo.HandlerFunc {
@@ -51,7 +61,8 @@ func IncrementCommandInvocation(commandName string) {
 }
 
 // InitMetrics initializes and registers all metrics
-func InitMetrics() {
+func InitMetrics(logger *zap.Logger) {
+	logger = logger.Named("prometheus")
 	if hasInit.Load() {
 		return
 	}
@@ -60,4 +71,11 @@ func InitMetrics() {
 	// Register the metrics with our custom registry
 	registry.MustRegister(discordServersGauge)
 	registry.MustRegister(commandInvocationCounter)
+
+	// Register the on-demand collector if we have a database connection
+	if db != nil {
+		registry.MustRegister(NewOnDemandCollector(db, logger))
+	} else {
+		logger.Warn("No database connection found for on-demand metrics")
+	}
 }

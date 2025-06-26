@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -91,7 +90,7 @@ func main() {
 	}
 	token := os.Getenv("GROCER_BOT_TOKEN")
 	if token == "" {
-		panic(errors.New("Cannot get bot token"))
+		panic("Cannot get bot token")
 	}
 	dsn := os.Getenv("GROCER_BOT_DSN")
 	if dsn == "" {
@@ -117,7 +116,8 @@ func main() {
 	services.InitServices(db, logger.Named("service"), d)
 
 	// Initialize Prometheus metrics
-	groprometheus.InitMetrics()
+	groprometheus.SetDB(db)
+	groprometheus.InitMetrics(logger)
 
 	// API handler
 	go func() {
@@ -218,7 +218,7 @@ func main() {
 		zap.Bool("CloudWatchEnabled", monitoring.CloudWatchEnabled()),
 		zap.Bool("IsMonitoringEnabled", monitoring.IsMonitoringEnabled()))
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 	logger.Info("Shutting down GroceryBot...")
 	d.Close()
