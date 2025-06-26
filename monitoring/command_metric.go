@@ -39,7 +39,7 @@ func (cm *CommandMetric) Done() {
 	}
 	groprometheus.IncrementCommandInvocation(command)
 
-	completedIn := float64(time.Now().Sub(cm.startTime).Milliseconds())
+	completedIn := float64(time.Since(cm.startTime).Milliseconds())
 	if CloudWatchEnabled() && cm.cw != nil {
 		if _, err := cm.cw.PutMetricData(&cloudwatch.PutMetricDataInput{
 			MetricData: []*cloudwatch.MetricDatum{
