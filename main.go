@@ -221,7 +221,7 @@ func main() {
 		zap.Bool("CloudWatchEnabled", monitoring.CloudWatchEnabled()),
 		zap.Bool("IsMonitoringEnabled", monitoring.IsMonitoringEnabled()))
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 	logger.Info("Shutting down GroceryBot...")
 	d.Close()
