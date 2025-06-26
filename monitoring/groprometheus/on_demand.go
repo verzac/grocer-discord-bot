@@ -5,6 +5,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/verzac/grocer-discord-bot/models"
 	"gorm.io/gorm"
 )
 
@@ -21,7 +22,6 @@ type OnDemandCollector struct {
 	totalGroceryEntriesGauge *prometheus.Desc
 	activeGuildsGauge        *prometheus.Desc
 	totalGroceryListsGauge   *prometheus.Desc
-	avgItemsPerListGauge     *prometheus.Desc
 }
 
 // NewOnDemandCollector creates a new collector for on-demand metrics
@@ -58,11 +58,6 @@ func NewOnDemandCollector(database *gorm.DB) *OnDemandCollector {
 			"Total number of grocery lists in the database",
 			nil, nil,
 		),
-		avgItemsPerListGauge: prometheus.NewDesc(
-			"grocer_bot_avg_items_per_list",
-			"Average number of items per grocery list",
-			nil, nil,
-		),
 	}
 }
 
@@ -74,7 +69,6 @@ func (c *OnDemandCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.totalGroceryEntriesGauge
 	ch <- c.activeGuildsGauge
 	ch <- c.totalGroceryListsGauge
-	ch <- c.avgItemsPerListGauge
 }
 
 // Collect implements prometheus.Collector
@@ -130,11 +124,8 @@ func (c *OnDemandCollector) getActiveUserCount(since time.Time) int64 {
 	var count int64
 
 	// Count unique users who have created or updated grocery entries since the given time
-	err := c.db.Model(&struct {
-		UpdatedByID string
-	}{}).
+	err := c.db.Model(&models.GroceryEntry{}).
 		Select("COUNT(DISTINCT updated_by_id)").
-		Joins("JOIN grocery_entries ON grocery_entries.updated_by_id = updated_by_id").
 		Where("grocery_entries.updated_at >= ? AND grocery_entries.updated_by_id IS NOT NULL", since).
 		Count(&count).Error
 
@@ -155,11 +146,8 @@ func (c *OnDemandCollector) collectTotalGroceryEntries(ch chan<- prometheus.Metr
 	}
 
 	var count int64
-	err := c.db.Model(&struct {
-		ID uint
-	}{}).
+	err := c.db.Model(&models.GroceryEntry{}).
 		Select("COUNT(*)").
-		Joins("JOIN grocery_entries ON grocery_entries.id = id").
 		Count(&count).Error
 
 	if err != nil {
@@ -181,11 +169,8 @@ func (c *OnDemandCollector) collectActiveGuilds(ch chan<- prometheus.Metric) {
 	var count int64
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
 
-	err := c.db.Model(&struct {
-		GuildID string
-	}{}).
+	err := c.db.Model(&models.GroceryEntry{}).
 		Select("COUNT(DISTINCT guild_id)").
-		Joins("JOIN grocery_entries ON grocery_entries.guild_id = guild_id").
 		Where("grocery_entries.updated_at >= ?", thirtyDaysAgo).
 		Count(&count).Error
 
@@ -205,11 +190,8 @@ func (c *OnDemandCollector) collectGroceryListStats(ch chan<- prometheus.Metric)
 	if cached, found := metricsCache.Get(listCountKey); found {
 		ch <- prometheus.MustNewConstMetric(c.totalGroceryListsGauge, prometheus.GaugeValue, cached.(float64))
 	} else {
-		err := c.db.Model(&struct {
-			ID uint
-		}{}).
+		err := c.db.Model(&models.GroceryList{}).
 			Select("COUNT(*)").
-			Joins("JOIN grocery_lists ON grocery_lists.id = id").
 			Count(&listCount).Error
 
 		if err != nil {
@@ -218,26 +200,5 @@ func (c *OnDemandCollector) collectGroceryListStats(ch chan<- prometheus.Metric)
 
 		metricsCache.Set(listCountKey, float64(listCount), cache.DefaultExpiration)
 		ch <- prometheus.MustNewConstMetric(c.totalGroceryListsGauge, prometheus.GaugeValue, float64(listCount))
-	}
-
-	// Calculate average items per list
-	avgItemsKey := "avg_items_per_list"
-	if cached, found := metricsCache.Get(avgItemsKey); found {
-		ch <- prometheus.MustNewConstMetric(c.avgItemsPerListGauge, prometheus.GaugeValue, cached.(float64))
-	} else {
-		var avgItems float64
-		err := c.db.Model(&struct {
-			GroceryListID *uint
-		}{}).
-			Select("COALESCE(AVG(item_count), 0)").
-			Joins("JOIN (SELECT grocery_list_id, COUNT(*) as item_count FROM grocery_entries WHERE grocery_list_id IS NOT NULL GROUP BY grocery_list_id) as counts ON counts.grocery_list_id = grocery_list_id").
-			Scan(&avgItems).Error
-
-		if err != nil {
-			return
-		}
-
-		metricsCache.Set(avgItemsKey, avgItems, cache.DefaultExpiration)
-		ch <- prometheus.MustNewConstMetric(c.avgItemsPerListGauge, prometheus.GaugeValue, avgItems)
 	}
 }
