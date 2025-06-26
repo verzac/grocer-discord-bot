@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -91,7 +90,7 @@ func main() {
 	}
 	token := os.Getenv("GROCER_BOT_TOKEN")
 	if token == "" {
-		panic(errors.New("Cannot get bot token"))
+		panic("Cannot get bot token")
 	}
 	dsn := os.Getenv("GROCER_BOT_DSN")
 	if dsn == "" {
