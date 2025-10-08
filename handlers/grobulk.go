@@ -39,8 +39,11 @@ func (m *MessageHandlerContext) OnBulk() error {
 		return m.onError(err)
 	}
 
-	useGrobulkAppend := guildConfig.UseGrobulkAppend
-	if guildConfig.UseGrobulkAppend {
+	useGrobulkAppend := false
+	if guildConfig != nil {
+		useGrobulkAppend = guildConfig.UseGrobulkAppend
+	}
+	if useGrobulkAppend {
 		if insertedItemsCount > 0 {
 			limitOk, groceryEntryLimit, err := m.ValidateGroceryEntryLimit(m.commandContext.GuildID, insertedItemsCount)
 			if err != nil {
