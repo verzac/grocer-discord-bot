@@ -31,6 +31,7 @@ type GroceryEntryRepository interface {
 	FindByQuery(q *models.GroceryEntry) ([]models.GroceryEntry, error)
 	FindByQueryWithConfig(q *models.GroceryEntry, config GroceryEntryQueryOpts) ([]models.GroceryEntry, error)
 	AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
+	ReplaceItemsInGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError
 	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
 	Put(g *models.GroceryEntry) error
 	GetCount(query *models.GroceryEntry) (count int64, err error)
@@ -81,6 +82,11 @@ func (r *GroceryEntryRepositoryImpl) FindByQuery(q *models.GroceryEntry) ([]mode
 }
 
 func (r *GroceryEntryRepositoryImpl) AddToGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError {
+	return r.addToGroceryListWithDB(groceryList, groceryEntries, guildID, r.DB)
+}
+
+// internal - only use this for transactions
+func (r *GroceryEntryRepositoryImpl) addToGroceryListWithDB(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string, db *gorm.DB) *RepositoryError {
 	// validate
 	if groceryList != nil && groceryList.GuildID != guildID {
 		return ErrGroceryListGuildIDMismatch
@@ -100,14 +106,7 @@ func (r *GroceryEntryRepositoryImpl) AddToGroceryList(groceryList *models.Grocer
 			groceryEntries[i].GroceryListID = &groceryList.ID
 		}
 	}
-	if err := r.Create(groceryEntries); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *GroceryEntryRepositoryImpl) Create(groceryEntries []models.GroceryEntry) *RepositoryError {
-	if res := r.DB.Omit("GroceryList").Create(&groceryEntries); res.Error != nil {
+	if res := db.Omit("GroceryList").Create(&groceryEntries); res.Error != nil {
 		return &RepositoryError{
 			ErrCode: ErrInternal,
 			Message: res.Error.Error(),
@@ -116,16 +115,62 @@ func (r *GroceryEntryRepositoryImpl) Create(groceryEntries []models.GroceryEntry
 	return nil
 }
 
+func (r *GroceryEntryRepositoryImpl) ReplaceItemsInGroceryList(groceryList *models.GroceryList, groceryEntries []models.GroceryEntry, guildID string) *RepositoryError {
+	// first init a transaction
+	tx := r.DB.Begin()
+	if tx.Error != nil {
+		return &RepositoryError{
+			ErrCode: ErrInternal,
+			Message: tx.Error.Error(),
+		}
+	}
+	defer tx.Rollback()
+
+	// validate
+	if groceryList != nil && groceryList.GuildID != guildID {
+		return ErrGroceryListGuildIDMismatch
+	}
+
+	// delete the items in the grocery list
+	_, err := r.clearGroceryListWithDB(groceryList, guildID, tx)
+	if err != nil {
+		return err
+	}
+	if len(groceryEntries) == 0 {
+		// idk why one would go through this flow instead of using !groclear but technically this is still correct
+		return nil
+	}
+
+	// add the items back in based on what the user has provided
+	if err := r.addToGroceryListWithDB(groceryList, groceryEntries, guildID, tx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return &RepositoryError{
+			ErrCode: ErrInternal,
+			Message: err.Error(),
+		}
+	}
+
+	return nil
+}
+
 func (r *GroceryEntryRepositoryImpl) ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError) {
+	return r.clearGroceryListWithDB(groceryList, guildID, r.DB)
+}
+
+// should only be used internally for transactions
+func (r *GroceryEntryRepositoryImpl) clearGroceryListWithDB(groceryList *models.GroceryList, guildID string, db *gorm.DB) (rowsAffected int64, err *RepositoryError) {
 	// validate
 	if groceryList != nil && groceryList.GuildID != guildID {
 		return 0, ErrGroceryListGuildIDMismatch
 	}
 	var res *gorm.DB
 	if groceryList != nil {
-		res = r.DB.Delete(models.GroceryEntry{}, "guild_id = ? AND grocery_list_id = ?", guildID, groceryList.ID)
+		res = db.Delete(models.GroceryEntry{}, "guild_id = ? AND grocery_list_id = ?", guildID, groceryList.ID)
 	} else {
-		res = r.DB.Delete(models.GroceryEntry{}, "guild_id = ? AND grocery_list_id IS NULL", guildID)
+		res = db.Delete(models.GroceryEntry{}, "guild_id = ? AND grocery_list_id IS NULL", guildID)
 	}
 	if res.Error != nil {
 		return 0, &RepositoryError{
@@ -134,6 +179,7 @@ func (r *GroceryEntryRepositoryImpl) ClearGroceryList(groceryList *models.Grocer
 		}
 	}
 	return res.RowsAffected, nil
+
 }
 
 func (r *GroceryEntryRepositoryImpl) Put(g *models.GroceryEntry) error {

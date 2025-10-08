@@ -17,6 +17,8 @@ func (m *MessageHandlerContext) OnBulk() error {
 		strings.Trim(argStr, "\n \t"),
 		"\n",
 	)
+
+	// gather the items to insert
 	toInsert := make([]models.GroceryEntry, 0, len(items))
 	for _, item := range items {
 		aID := m.commandContext.AuthorID
@@ -29,25 +31,55 @@ func (m *MessageHandlerContext) OnBulk() error {
 			})
 		}
 	}
+
+	// validate the limit
 	insertedItemsCount := len(toInsert)
-	if len(toInsert) > 0 {
-		limitOk, groceryEntryLimit, err := m.ValidateGroceryEntryLimit(m.commandContext.GuildID, len(toInsert))
-		if err != nil {
-			return m.onError(err)
+	guildConfig, err := m.getConfig()
+	if err != nil {
+		return m.onError(err)
+	}
+
+	useGrobulkAppend := guildConfig.UseGrobulkAppend
+	if guildConfig.UseGrobulkAppend {
+		if insertedItemsCount > 0 {
+			limitOk, groceryEntryLimit, err := m.ValidateGroceryEntryLimit(m.commandContext.GuildID, insertedItemsCount)
+			if err != nil {
+				return m.onError(err)
+			}
+			if !limitOk {
+				return m.reply(msgOverLimit(groceryEntryLimit))
+			}
+			rErr := m.groceryEntryRepo.AddToGroceryList(groceryList, toInsert, m.commandContext.GuildID)
+			if rErr != nil {
+				return m.onError(rErr)
+			}
 		}
-		if !limitOk {
-			return m.reply(msgOverLimit(groceryEntryLimit))
-		}
-		rErr := m.groceryEntryRepo.AddToGroceryList(groceryList, toInsert, m.commandContext.GuildID)
-		if rErr != nil {
-			return m.onError(rErr)
+	} else {
+		if insertedItemsCount > 0 {
+			limitOk, groceryEntryLimit, err := m.ValidateGroceryEntryLimitUsingTotalCount(m.commandContext.GuildID, insertedItemsCount)
+			if err != nil {
+				return m.onError(err)
+			}
+			if !limitOk {
+				return m.reply(msgOverLimit(groceryEntryLimit))
+			}
+			rErr := m.groceryEntryRepo.ReplaceItemsInGroceryList(groceryList, toInsert, m.commandContext.GuildID)
+			if rErr != nil {
+				return m.onError(rErr)
+			}
 		}
 	}
+
+	// final output
 	listLabel := "your list"
 	if groceryList != nil {
 		listLabel = groceryList.GetName()
 	}
-	if err := m.reply(fmt.Sprintf("Added %d items into %s!", insertedItemsCount, listLabel)); err != nil {
+	message := fmt.Sprintf("Added %d items into %s!", insertedItemsCount, listLabel)
+	if !useGrobulkAppend {
+		message = fmt.Sprintf("I've updated %s - it now has %d items!", listLabel, insertedItemsCount)
+	}
+	if err := m.reply(message); err != nil {
 		return m.onError(err)
 	}
 	return m.onEditUpdateGrohereWithGroceryList()

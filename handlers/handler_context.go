@@ -195,6 +195,11 @@ func (m *MessageHandlerContext) ValidateGroceryEntryLimit(guildID string, newIte
 	return m.groceryService.ValidateGroceryEntryLimit(context.Background(), registrationContext, guildID, newItemCount)
 }
 
+func (m *MessageHandlerContext) ValidateGroceryEntryLimitUsingTotalCount(guildID string, totalItemCount int) (limitOk bool, limit int, err error) {
+	registrationContext := m.GetRegistrationContext()
+	return m.groceryService.ValidateGroceryEntryLimitUsingTotalCount(context.Background(), registrationContext, guildID, totalItemCount)
+}
+
 func (cc *CommandContext) FmtErrInvalidGroceryList() string {
 	return fmt.Sprintf("Whoops, I can't seem to find the grocery list labeled as *%s*.", cc.GrocerySublist)
 }
