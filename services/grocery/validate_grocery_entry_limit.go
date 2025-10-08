@@ -14,13 +14,17 @@ func (s *GroceryServiceImpl) ValidateGroceryEntryLimit(ctx context.Context, regi
 	if err != nil {
 		return false, limit, err
 	}
-	if count+int64(newItemCount) > int64(limit) {
+	return s.ValidateGroceryEntryLimitUsingTotalCount(ctx, registrationContext, guildID, int(count)+newItemCount)
+}
+
+func (s *GroceryServiceImpl) ValidateGroceryEntryLimitUsingTotalCount(ctx context.Context, registrationContext *dto.RegistrationContext, guildID string, totalItemCount int) (limitOk bool, limit int, err error) {
+	limit = registrationContext.MaxGroceryEntriesPerServer
+	if totalItemCount > limit {
 		s.logger.Warn("max grocery list limit exceeded.",
 			zap.String("guildID", guildID),
 			zap.Any("registrationContext", registrationContext),
 			zap.Int("Limit", limit),
-			zap.Int64("PreviousCount", count),
-			zap.Int("NewItemCount", newItemCount),
+			zap.Int("NewItemCount", totalItemCount),
 		)
 		return false, limit, nil
 	}

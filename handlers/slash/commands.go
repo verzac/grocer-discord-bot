@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/handlers/slash/modal"
 	"github.com/verzac/grocer-discord-bot/handlers/slash/native"
 	"github.com/verzac/grocer-discord-bot/monitoring"
 	"go.uber.org/zap"
@@ -406,7 +407,7 @@ func getMessageCommandContext(i *discordgo.InteractionCreate, commandName string
 func getCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
 	switch i.Type {
 	case discordgo.InteractionModalSubmit:
-		return getCommandContextFromModalSubmission(i, commandName)
+		return modal.GetCommandContextFromModalSubmission(i, commandName)
 	default:
 		return getMessageCommandContext(i, commandName)
 	}
@@ -488,7 +489,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 			return
 		}
-		if modalCreationCtx := NewModalCreationContext(sess, db, logger, i, grobotVersion); modalCreationCtx != nil {
+		if modalCreationCtx := modal.NewModalCreationContext(sess, db, logger, i, grobotVersion); modalCreationCtx != nil {
 			modalCreationCtx.Handle()
 			return
 		}

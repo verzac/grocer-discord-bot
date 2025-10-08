@@ -8,10 +8,7 @@ import (
 
 func GetGroceryListText(groceries []models.GroceryEntry, groceryList *models.GroceryList) string {
 	if groceryList != nil && len(groceries) == 0 {
-		label := ""
-		if groceryList != nil {
-			label = ":" + groceryList.ListLabel
-		}
+		label := ":" + groceryList.ListLabel
 		return getNoGroceryText(label)
 	}
 	msg := ""
