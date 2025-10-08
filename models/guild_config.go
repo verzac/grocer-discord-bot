@@ -9,5 +9,6 @@ type GuildConfig struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	UseEphemeral     bool
+	UseGrobulkAppend bool // legacy opt-in flag for backwards compatibility - most guilds should have this be disabled
 	// LastSeenAt       *time.Time
 }

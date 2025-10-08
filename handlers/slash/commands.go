@@ -207,10 +207,21 @@ var (
 						{
 							Type:        discordgo.ApplicationCommandOptionBoolean,
 							Name:        "use_ephemeral",
-							Description: "Enable ephemeral message replies from GroceryBot, which are only visible to you and will disappear.",
-							Required:    true,
+							Description: native.ContentUseEphemeralDescription,
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Name:        "use_grobulk_replace",
+							Description: native.ContentUseGrobulkReplaceDescription,
+							Required:    false,
 						},
 					},
+				},
+				{
+					Name:        "get",
+					Description: "Get the current configuration for your server.",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 			},
 		},
