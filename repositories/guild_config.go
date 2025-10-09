@@ -12,10 +12,28 @@ var _ GuildConfigRepository = &GuildConfigRepositoryImpl{}
 type GuildConfigRepository interface {
 	Get(guildID string) (*models.GuildConfig, error)
 	Put(g *models.GuildConfig) error
+	WithTX(db *gorm.DB) GuildConfigRepository
+	Commit() error
+	Rollback() error
 }
 
 type GuildConfigRepositoryImpl struct {
 	DB *gorm.DB
+}
+
+func (r *GuildConfigRepositoryImpl) WithTX(dbTx *gorm.DB) GuildConfigRepository {
+	if dbTx == nil {
+		dbTx = r.DB.Begin()
+	}
+	return &GuildConfigRepositoryImpl{DB: dbTx}
+}
+
+func (r *GuildConfigRepositoryImpl) Commit() error {
+	return r.DB.Commit().Error
+}
+
+func (r *GuildConfigRepositoryImpl) Rollback() error {
+	return r.DB.Rollback().Error
 }
 
 func (r *GuildConfigRepositoryImpl) Get(guildID string) (guildConfig *models.GuildConfig, err error) {

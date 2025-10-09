@@ -21,6 +21,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/monitoring"
 	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"github.com/verzac/grocer-discord-bot/services"
+	"github.com/verzac/grocer-discord-bot/services/guildconfig"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -128,7 +129,6 @@ func main() {
 	logger.Info("Setting up discordgo...")
 	d.AddHandler(onMessage)
 
-	// Track Discord server count
 	d.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		logger := logger.Named("activity")
 		buildTimestampStr, err := strconv.ParseInt(BuildTimestamp, 10, 64)
@@ -170,6 +170,8 @@ func main() {
 		// Update server count metric on ready
 		serverCount := handlers.UpdateServerCountMetric(s)
 		logger.Info("Updated Discord servers count", zap.Int("serverCount", serverCount))
+
+		guildconfig.Service.InitialiseGuildConfig(s)
 	})
 
 	// Track when bot joins a server
