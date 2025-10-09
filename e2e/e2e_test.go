@@ -39,9 +39,12 @@ func TestRemoveAndClear(t *testing.T) {
 	setup(tss)
 	defer tss.recoverFromPanic()
 	assert := require.New(t)
-	tss.SendAndAwaitReply("!gro Satay")
-	tss.SendAndAwaitReply("!gro Nasi padang")
-	tss.SendAndAwaitReply("!gro Tomato")
+	tss.SendAndAwaitReply("!grobulk Satay\nNasi padang\nTomato")
+	// note that we can just do a grobulk here because we assume that the bot is going to set the grobulk append flag to true for existing guilds
+	// do feel free to replace the above with the below if one day we change this init behaviour
+	// tss.SendAndAwaitReply("!gro Satay")
+	// tss.SendAndAwaitReply("!gro Nasi padang")
+	// tss.SendAndAwaitReply("!gro Tomato")
 	// test multiple deletes
 	assert.Contains(tss.SendAndAwaitReply("!groremove 1 2").Content, "Deleted *Chicken*, and *very delicious milkshake* off your grocery list")
 	listContentAfterRemove := tss.SendAndAwaitReply("!grolist").Content

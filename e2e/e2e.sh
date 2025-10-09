@@ -1,5 +1,6 @@
 set -x
 rm main
+rm db/gorm.db
 set -e
 go build -o main
 ./main &
