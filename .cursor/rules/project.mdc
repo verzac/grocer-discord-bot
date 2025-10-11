@@ -1,11 +1,13 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
+
 This project (GroceryBot, also known as GroBot) is a Discord bot that tracks a user's grocery lists in a given Discord server.
 
 Stack:
+
 - Golang
 - discordgo
 - gorm
@@ -13,3 +15,5 @@ Stack:
 - echo v4
 
 It also has a /docs subfolder which is a web app (Docusaurus) that is independent to the rest of the repo.
+
+You can find the db migrations on `/db/changelog`.

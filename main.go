@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -38,7 +39,9 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 	mLogger := logger.Named("msg.handler")
-	mh, err := handlers.NewMessageHandler(s, m, db, GroBotVersion, mLogger)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	mh, err := handlers.NewMessageHandler(ctx, s, m, db, GroBotVersion, mLogger)
 	if err == handlers.ErrCmdNotProcessable {
 		return
 	}
