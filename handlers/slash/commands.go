@@ -1,10 +1,12 @@
 package slash
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/bwmarrin/discordgo"
@@ -524,7 +526,9 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			onHandlingErrorRespond(logger, sess, i.Interaction)
 			return
 		}
-		handler := handlers.NewHandler(sess, commandContext, db, grobotVersion, logger)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		handler := handlers.NewHandler(ctx, sess, commandContext, db, grobotVersion, logger)
 		if err := handler.Handle(); err != nil {
 			logger.Error("Unable to handle.", zap.Any("Error", err))
 			if err := sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

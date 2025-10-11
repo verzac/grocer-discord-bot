@@ -15,6 +15,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/services/announcement"
 	"github.com/verzac/grocer-discord-bot/services/grocery"
 	"github.com/verzac/grocer-discord-bot/services/registration"
 	"github.com/verzac/grocer-discord-bot/utils"
@@ -62,6 +63,7 @@ const (
 )
 
 type MessageHandlerContext struct {
+	ctx  context.Context
 	sess *discordgo.Session
 	// msg              *discordgo.MessageCreate
 	db                          *gorm.DB
@@ -75,6 +77,7 @@ type MessageHandlerContext struct {
 	registrationService         registration.RegistrationService
 	groceryService              grocery.GroceryService
 	guildConfigRepo             repositories.GuildConfigRepository
+	announcementService         announcement.AnnouncementService
 	cachedConfig                *models.GuildConfig
 	replyCounter                int
 	registrationContext         *dto.RegistrationContext // do not use directly - use GetRegistrationContext
@@ -120,10 +123,19 @@ func (c *MessageHandlerContext) getConfig() (*models.GuildConfig, error) {
 
 func (m *MessageHandlerContext) reply(msg string) error {
 	m.checkReplyCounter()
+	ctx := m.ctx
+
+	augmentedMsg, err := m.announcementService.AugmentMessageWithAnnouncement(ctx, m.commandContext.GuildID, msg)
+	if err != nil {
+		m.logger.Error("Failed to augment message with announcement", zap.Error(err))
+		// Use original message on error (non-critical failure)
+		augmentedMsg = msg
+	}
+
 	switch m.commandContext.CommandSourceType {
 	case CommandSourceMessageContent:
 		m.replyCounter += 1
-		return m.sendMessage(msg)
+		return m.sendMessage(augmentedMsg)
 	case CommandSourceSlashCommand:
 		m.replyCounter += 1
 		flags := discordgo.MessageFlags(0)
@@ -137,7 +149,7 @@ func (m *MessageHandlerContext) reply(msg string) error {
 		return m.sess.InteractionRespond(m.commandContext.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: msg,
+				Content: augmentedMsg,
 				Flags:   flags,
 			},
 		})
@@ -208,7 +220,7 @@ func (m *MessageHandlerContext) GetLogger() *zap.Logger {
 	return m.logger
 }
 
-func NewMessageHandler(sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
+func NewMessageHandler(ctx context.Context, sess *discordgo.Session, msg *discordgo.MessageCreate, db *gorm.DB, grobotVersion string, logger *zap.Logger) (*MessageHandlerContext, error) {
 	cc, err := GetCommandContext(msg.Content, msg.GuildID, msg.Author.ID, msg.ChannelID, sess.State.User.ID, msg.Author.Username, msg.Author.Discriminator)
 	if err != nil {
 		return nil, err
@@ -216,10 +228,10 @@ func NewMessageHandler(sess *discordgo.Session, msg *discordgo.MessageCreate, db
 	newLogger := logger.With(zap.String("Command", cc.Command),
 		zap.String("GuildID", cc.GuildID),
 	)
-	return NewHandler(sess, cc, db, grobotVersion, newLogger), nil
+	return NewHandler(ctx, sess, cc, db, grobotVersion, newLogger), nil
 }
 
-func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobotVersion string, logger *zap.Logger) *MessageHandlerContext {
+func NewHandler(ctx context.Context, sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobotVersion string, logger *zap.Logger) *MessageHandlerContext {
 	return &MessageHandlerContext{
 		sess:                        sess,
 		db:                          db,
@@ -233,6 +245,8 @@ func NewHandler(sess *discordgo.Session, cc *CommandContext, db *gorm.DB, grobot
 		registrationService:         registration.Service,
 		groceryService:              grocery.Service,
 		guildConfigRepo:             &repositories.GuildConfigRepositoryImpl{DB: db},
+		announcementService:         announcement.Service,
+		ctx:                         ctx,
 	}
 }
 
