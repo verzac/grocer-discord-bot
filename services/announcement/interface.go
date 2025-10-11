@@ -8,11 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	CurrentAnnouncementVersion = 1
-	AnnouncementMessage        = "This is an announcement message. (announcement version: 1)"
-)
-
 var (
 	Service AnnouncementService
 )

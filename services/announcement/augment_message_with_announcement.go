@@ -4,7 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/verzac/grocer-discord-bot/models"
 	"go.uber.org/zap"
+)
+
+const (
+	CurrentAnnouncementVersion = 1
+	AnnouncementMessage        = "Psst... You can now use the `/grobulk` command to **edit your existing grocery lists in one go** - no more running `/groremove` and `/groclear` once you're done. Try it out now using `/config set use_grobulk_replace=True`!"
 )
 
 func (s *AnnouncementServiceImpl) AugmentMessageWithAnnouncement(ctx context.Context, guildID string, message string) (string, error) {
@@ -14,13 +20,17 @@ func (s *AnnouncementServiceImpl) AugmentMessageWithAnnouncement(ctx context.Con
 		return message, nil // Return original message on error (non-critical failure)
 	}
 
-	// If guild config is nil, guild not initialized yet, return original message
 	if guildConfig == nil {
-		return message, nil
+		guildConfig = &models.GuildConfig{
+			GuildID:                 guildID,
+			LastAnnouncementVersion: 0,
+		}
 	}
 
+	lastAnnouncementVersion := guildConfig.LastAnnouncementVersion
+
 	// Check if we need to show announcement
-	if guildConfig.LastAnnouncementVersion < CurrentAnnouncementVersion {
+	if lastAnnouncementVersion < CurrentAnnouncementVersion {
 		// Append announcement to message
 		augmentedMessage := fmt.Sprintf("%s\n\n%s", message, AnnouncementMessage)
 
@@ -33,10 +43,6 @@ func (s *AnnouncementServiceImpl) AugmentMessageWithAnnouncement(ctx context.Con
 				zap.Int("announcementVersion", CurrentAnnouncementVersion))
 			// Still return augmented message even if save fails
 		}
-
-		s.logger.Info("Announcement shown to guild",
-			zap.String("guildID", guildID),
-			zap.Int("announcementVersion", CurrentAnnouncementVersion))
 
 		return augmentedMessage, nil
 	}
