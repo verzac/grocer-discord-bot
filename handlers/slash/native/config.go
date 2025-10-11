@@ -61,13 +61,14 @@ var handleConfig NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 
 }
 
-func getConfig(c *NativeSlashHandlingContext, config *models.GuildConfig) {
-	enabledStr := func(enabled bool) string {
-		if enabled {
-			return "✅ ON"
-		}
-		return "❌ OFF"
+func enabledStr(enabled bool) string {
+	if enabled {
+		return "✅ ON"
 	}
+	return "❌ OFF"
+}
+
+func getConfig(c *NativeSlashHandlingContext, config *models.GuildConfig) {
 	message := fmt.Sprintf(`
 # 🔨 Configuration
 - **Use ephemeral**: %s - %s
@@ -81,14 +82,22 @@ func getConfig(c *NativeSlashHandlingContext, config *models.GuildConfig) {
 
 func setConfig(c *NativeSlashHandlingContext, existingConfig *models.GuildConfig, optionNameToOptionsMapping map[string]*discordgo.ApplicationCommandInteractionDataOption) {
 	newConfig := *existingConfig // copy
+	var updatedSettings []string
+	var addToUpdatedSettings = func(label string, newValue bool) {
+		updatedSettings = append(updatedSettings, fmt.Sprintf("- **%s**: %s", label, enabledStr(newValue)))
+	}
 
 	// set all options
 	if useEphemeral, ok := optionNameToOptionsMapping["use_ephemeral"]; ok && useEphemeral != nil {
-		newConfig.UseEphemeral = useEphemeral.BoolValue()
+		newValue := useEphemeral.BoolValue()
+		newConfig.UseEphemeral = newValue
+		addToUpdatedSettings("Use ephemeral", newValue)
 	}
 
 	if useGrobulkReplace, ok := optionNameToOptionsMapping["use_grobulk_replace"]; ok && useGrobulkReplace != nil {
-		newConfig.UseGrobulkAppend = !useGrobulkReplace.BoolValue()
+		newValue := !useGrobulkReplace.BoolValue()
+		newConfig.UseGrobulkAppend = newValue
+		addToUpdatedSettings("Use grobulk replace", !newValue) // note that the user sees the reverse
 	}
 
 	// save
@@ -97,5 +106,11 @@ func setConfig(c *NativeSlashHandlingContext, existingConfig *models.GuildConfig
 		return
 	}
 
-	c.reply("Configuration updated.")
+	// reply with specific changes
+	if len(updatedSettings) == 0 {
+		c.reply("No configuration changes were made.\n\nDid you paste the command from somewhere? Discord doesn't allow me to read pasted commands :(")
+	} else {
+		message := fmt.Sprintf("✅ Configuration updated:\n\n%s", strings.Join(updatedSettings, "\n"))
+		c.reply(message)
+	}
 }
