@@ -17,3 +17,5 @@ Stack:
 It also has a /docs subfolder which is a web app (Docusaurus) that is independent to the rest of the repo.
 
 You can find the db migrations on `/db/changelog`.
+
+All new repository methods should accept context (even if it's not directly using it) - leave the old repository methods be for backward-compatibility.

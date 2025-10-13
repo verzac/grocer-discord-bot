@@ -35,6 +35,7 @@ type GroceryEntryRepository interface {
 	ClearGroceryList(groceryList *models.GroceryList, guildID string) (rowsAffected int64, err *RepositoryError)
 	Put(g *models.GroceryEntry) error
 	GetCount(query *models.GroceryEntry) (count int64, err error)
+	Delete(ctx context.Context, entry *models.GroceryEntry) error
 }
 
 type GroceryEntryRepositoryImpl struct {
@@ -194,4 +195,12 @@ func (r *GroceryEntryRepositoryImpl) GetCount(query *models.GroceryEntry) (count
 		return 0, r.Error
 	}
 	return count, nil
+}
+
+func (r *GroceryEntryRepositoryImpl) Delete(ctx context.Context, entry *models.GroceryEntry) error {
+	res := r.DB.WithContext(ctx).Delete(entry)
+	if res.Error != nil {
+		return res.Error
+	}
+	return nil
 }
