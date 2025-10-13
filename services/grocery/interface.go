@@ -2,6 +2,7 @@ package grocery
 
 import (
 	"context"
+	"sync"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/dto"
@@ -20,6 +21,7 @@ type GroceryService interface {
 	ValidateGroceryEntryLimitUsingTotalCount(ctx context.Context, registrationContext *dto.RegistrationContext, guildID string, totalItemCount int) (limitOk bool, limit int, err error)
 	OnGroceryListEdit(ctx context.Context, groceryList *models.GroceryList, guildID string) error
 	UpdateGuildGrohere(ctx context.Context, guildID string) error
+	ProcessListlessGroceries(ctx context.Context, groceries []models.GroceryEntry) error
 }
 
 type GroceryServiceImpl struct {
@@ -29,17 +31,21 @@ type GroceryServiceImpl struct {
 	logger           *zap.Logger
 	groceryListRepo  repositories.GroceryListRepository
 	sess             *discordgo.Session
+
+	listlessGroceriesChannel chan models.GroceryEntry
+	workerMutex              sync.Mutex
 }
 
 func Init(db *gorm.DB, logger *zap.Logger, sess *discordgo.Session) {
 	if Service == nil {
 		Service = &GroceryServiceImpl{
-			grohereRepo:      &repositories.GrohereRecordRepositoryImpl{DB: db},
-			groceryEntryRepo: &repositories.GroceryEntryRepositoryImpl{DB: db},
-			guildConfigRepo:  &repositories.GuildConfigRepositoryImpl{DB: db},
-			groceryListRepo:  &repositories.GroceryListRepositoryImpl{DB: db},
-			logger:           logger.Named("grocery"),
-			sess:             sess,
+			grohereRepo:              &repositories.GrohereRecordRepositoryImpl{DB: db},
+			groceryEntryRepo:         &repositories.GroceryEntryRepositoryImpl{DB: db},
+			guildConfigRepo:          &repositories.GuildConfigRepositoryImpl{DB: db},
+			groceryListRepo:          &repositories.GroceryListRepositoryImpl{DB: db},
+			logger:                   logger.Named("grocery"),
+			sess:                     sess,
+			listlessGroceriesChannel: make(chan models.GroceryEntry, 1000),
 		}
 	}
 }

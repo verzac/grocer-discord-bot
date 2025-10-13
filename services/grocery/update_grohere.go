@@ -42,7 +42,9 @@ func (s *GroceryServiceImpl) OnGroceryListEdit(ctx context.Context, groceryList 
 	}
 	grohereText, listlessGroceries := groceryutils.GetGrohereText(groceryLists, groceries, true)
 	if len(listlessGroceries) > 0 {
-		s.logger.Error("Detected groceries without matching grocery list IDs.", zap.Any("listlessGroceries", listlessGroceries))
+		if err := s.ProcessListlessGroceries(ctx, listlessGroceries); err != nil {
+			s.logger.Error("Failed to process listless groceries", zap.Error(err))
+		}
 	}
 	// if (groceryList == nil && count > 0) || (groceryList != nil && count > 1) {
 	// 	grohereText += fmt.Sprintf("\nand %d other grocery lists (use `!grohere all` to get a self-updating list for all groceries, or use `!grolist all` to display them).", count)
@@ -86,7 +88,9 @@ func (s *GroceryServiceImpl) UpdateGuildGrohere(ctx context.Context, guildID str
 	}
 	grohereText, listlessGroceries := groceryutils.GetGrohereText(groceryLists, groceries, false)
 	if len(listlessGroceries) > 0 {
-		s.logger.Error("listlessGroceries detected.", zap.Any("listlessGroceries", listlessGroceries))
+		if err := s.ProcessListlessGroceries(ctx, listlessGroceries); err != nil {
+			s.logger.Error("Failed to process listless groceries", zap.Error(err))
+		}
 	}
 	_, err = s.sess.ChannelMessageEdit(*gConfig.GrohereChannelID, *gConfig.GrohereMessageID, grohereText)
 	if err != nil {
