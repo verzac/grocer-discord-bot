@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,6 +77,56 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 			GroceryLists:   groceryLists,
 		}
 		return c.JSON(200, out)
+	})
+	e.DELETE("/groceries/:id", func(c echo.Context) error {
+		defer handlers.Recover(logger)
+		authContext := c.(*AuthContext)
+		ctx := c.Request().Context()
+		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+
+		// Parse ID from path parameter
+		idStr := c.Param("id")
+		id, err := strconv.ParseUint(idStr, 10, 64)
+		if err != nil {
+			return echo.NewHTTPError(400, "Invalid ID format.")
+		}
+
+		// Look up the grocery entry by ID and GuildID
+		entries, err := groceryEntryRepo.FindByQuery(&models.GroceryEntry{
+			ID:      uint(id),
+			GuildID: guildID,
+		})
+		if err != nil {
+			return err
+		}
+		if len(entries) == 0 {
+			return echo.NewHTTPError(404, "Grocery entry not found.")
+		}
+		entry := entries[0]
+
+		// Resolve grocery list if the entry has one
+		var groceryList *models.GroceryList
+		if entry.GroceryListID != nil && *entry.GroceryListID != 0 {
+			groceryList, err = groceryListRepo.GetByQuery(&models.GroceryList{
+				ID:      *entry.GroceryListID,
+				GuildID: guildID,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		// Delete the entry
+		if err := groceryEntryRepo.WithContext(ctx).Delete(ctx, &entry); err != nil {
+			return err
+		}
+
+		// Call post-deletion hook
+		if err := grocery.Service.OnGroceryListEdit(ctx, groceryList, guildID); err != nil {
+			logger.Error("Failed to run OnGroceryListEdit", zap.Error(err))
+		}
+
+		return c.NoContent(204)
 	})
 	// create new grocery
 	e.POST("/groceries", func(c echo.Context) error {
