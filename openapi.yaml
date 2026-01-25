@@ -76,6 +76,31 @@ paths:
           $ref: "#/components/responses/UnauthorizedError"
         "403":
           $ref: "#/components/responses/ForbiddenError"
+  /groceries/{id}:
+    delete:
+      # tags:
+      #   - grocery
+      summary: DELETE Grocery Entry
+      description: "Delete a grocery entry by its ID. You can obtain the ID from the GET /grocery-lists endpoint."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The ID of the grocery entry to delete.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: The grocery entry has been successfully deleted.
+        "400":
+          description: Invalid ID format.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          description: Grocery entry not found.
 components:
   schemas:
     GuildGroceryList:
