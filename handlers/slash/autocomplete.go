@@ -78,20 +78,6 @@ func (a *AutocompleteHandler) Handle() error {
 		})
 	}
 	switch "!" + a.commandData.Name {
-	case handlers.CmdGroRemove:
-		entry, ok := a.nameToOptionsMap["entry"]
-		if !ok {
-			return ErrAutocompleteMissingOption
-		}
-		if entry.Focused {
-			choices := a.GetGroceryEntryChoices(entry.StringValue())
-			return a.sess.InteractionRespond(a.interaction.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-				Data: &discordgo.InteractionResponseData{
-					Choices: choices,
-				},
-			})
-		}
 	case handlers.CmdGroEdit:
 		entryIndex, ok := a.nameToOptionsMap["entry-index"]
 		if !ok {

@@ -79,13 +79,6 @@ var (
 			Description: "Remove a grocery entry.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:         discordgo.ApplicationCommandOptionString,
-					Name:         "entry",
-					Description:  "The grocery entry (or entry #) to be removed. Remove multiple items by inputting multiple #.",
-					Required:     true,
-					Autocomplete: true,
-				},
 				defaultListLabelOption,
 			},
 		},
@@ -231,9 +224,6 @@ var (
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
-			mainInputOptionKey: "entry",
-		},
-		"groremove": {
 			mainInputOptionKey: "entry",
 		},
 		"groedit": {
@@ -491,6 +481,9 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 			return
 		}
+		if cid, ok := modalSubmitCustomID(i); ok && cid == "groremove" {
+			return
+		}
 		if modalCreationCtx := modal.NewModalCreationContext(sess, db, logger, i, grobotVersion); modalCreationCtx != nil {
 			modalCreationCtx.Handle()
 			return
@@ -541,6 +534,9 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 		}
 	})
+	cleanupRawGroremoveHandler := sess.AddHandler(func(s *discordgo.Session, e *discordgo.Event) {
+		handleGroremoveRawInteractionCreate(s, e, db, logger, grobotVersion, cw)
+	})
 	return func(useAllCommands bool) error {
 		for guildID, cmds := range createdCommandsMap {
 			for _, cmd := range cmds {
@@ -552,6 +548,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 		}
 		cleanupHandler()
+		cleanupRawGroremoveHandler()
 		return nil
 	}, nil
 }

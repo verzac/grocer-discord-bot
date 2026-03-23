@@ -16,7 +16,8 @@ var (
 
 var (
 	modalCommandHandlers = map[string]func(c *ModalCreationContext) (*discordgo.InteractionResponseData, error){
-		"grobulk": handleGrobulkCommand,
+		"grobulk":   handleGrobulkCommand,
+		"groremove": handleGroremoveCommand,
 	}
 	commandContextGetters = map[string]func(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error){
 		"grobulk": getGrobulkCommandContext,
