@@ -79,13 +79,6 @@ var (
 			Description: "Remove a grocery entry.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:         discordgo.ApplicationCommandOptionString,
-					Name:         "entry",
-					Description:  "The grocery entry (or entry #) to be removed. Remove multiple items by inputting multiple #.",
-					Required:     true,
-					Autocomplete: true,
-				},
 				defaultListLabelOption,
 			},
 		},
@@ -231,9 +224,6 @@ var (
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
-			mainInputOptionKey: "entry",
-		},
-		"groremove": {
 			mainInputOptionKey: "entry",
 		},
 		"groedit": {
@@ -480,6 +470,13 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 	}
 	cleanupHandler := sess.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		defer handlers.Recover(logger)
+
+		// 1. check if it's a modal submission first
+		// 2. check if it's an autocomplete event
+		// 3. check if it's a normal slash command
+		// 4. if none of the above, return an error
+
+		// check if it's a DM interaction
 		if i.Member == nil {
 			if err := sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -491,15 +488,20 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 			return
 		}
+
+		// check if it's a modal submission first - we have our own handler context (not combined with the main slash command & message handler context)
 		if modalCreationCtx := modal.NewModalCreationContext(sess, db, logger, i, grobotVersion); modalCreationCtx != nil {
 			modalCreationCtx.Handle()
 			return
 		}
+
 		commandName := getCommandName(i)
 		logger := logger.Named("handler").With(
 			zap.String("GuildID", i.GuildID),
 			zap.String("SlashCommandName", commandName),
 		)
+
+		// check if it's a auto-complete event
 		if i.Type == discordgo.InteractionApplicationCommandAutocomplete {
 			err := NewAutoCompleteHandler(sess, db, logger, i).Handle()
 			if err != nil {
@@ -507,11 +509,14 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 			return
 		}
-		// proxy to message handler
+
+		// great - so it's a slash command; proxy to message handler
 		command := "!" + commandName
 		cm := monitoring.NewCommandMetric(cw, command, logger)
 		defer cm.Done()
 		logger.Debug("Received slash command.")
+
+		// acknowledge the slash command
 		if isHandled := native.Handle(native.NativeSlashHandlingParams{
 			Session:           s,
 			InteractionCreate: i,
@@ -521,6 +526,8 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		}); isHandled {
 			return
 		}
+
+		// parse the command context - this is the main handler context that will be used to handle the command
 		commandContext, err := getCommandContext(i, commandName)
 		if err != nil {
 			onHandlingErrorRespond(logger, sess, i.Interaction)
@@ -541,6 +548,8 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 		}
 	})
+
+	// cleanup handler
 	return func(useAllCommands bool) error {
 		for guildID, cmds := range createdCommandsMap {
 			for _, cmd := range cmds {
