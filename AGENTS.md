@@ -28,6 +28,13 @@ A Discord bot that maintains grocery lists per-guild, using Go, discordgo, GORM,
 - Require env vars: `GROCER_BOT_TOKEN`, `E2E_BOT_TOKEN`, `E2E_CHANNEL_ID`, `E2E_GROCER_BOT_ID`, `E2E_GUILD_ID`.
 - Run with `make e2e` (bot must be running) or `make full_e2e` (builds, starts bot, runs tests, cleans up).
 
+### Non-obvious caveats
+
+- **Prometheus metrics are cached for 5 minutes** (`monitoring/groprometheus/on_demand.go`). If you insert/delete DB data directly (e.g. via `sqlite3`), you must restart the bot or wait for cache expiry to see updated metric values on `/metrics`.
+- **No `.env.example` exists.** You must create `.env` manually with at least `GROCER_BOT_TOKEN=<token>`.
+- **The bot ignores its own messages** (`main.go:38`). You cannot test command handling by sending messages as the bot via the Discord API; commands must come from a different user/bot.
+- The `db/` directory must exist before the bot starts. The SQLite file `db/gorm.db` is auto-created, but the parent directory is not.
+
 ### PATH note
 
 `air` installs to `$(go env GOPATH)/bin` (typically `/home/ubuntu/go/bin`). This directory must be on PATH for `make air` to work. Add it in your shell if not already present:
