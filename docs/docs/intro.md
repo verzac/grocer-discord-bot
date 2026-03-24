@@ -152,15 +152,15 @@ To edit your grocery list, use:
 
 ![gro edit example](./assets/groedit.jpg)
 
-## /grobulk - Add multiple items (modal input) 📝 📝 📝
+## /grobulk - Add multiple items 📝 📝 📝
 
-Run `/grobulk` to open a modal, then put each item on a new line:
+Run `/grobulk`, then put each item on a new line:
 
 ```
 /grobulk
 ```
 
-Modal content example:
+Input example:
 
 ```
 Cheese

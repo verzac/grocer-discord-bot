@@ -48,7 +48,7 @@ For list management in the legacy format:
 
 ## `/grobulk` vs `!grobulk`
 
-- `/grobulk` opens a modal form.
+- `/grobulk` lets you submit multiple entries in one command interaction.
 - `!grobulk` accepts free-text message input with one item per line.
 
 Example for `!grobulk`:
