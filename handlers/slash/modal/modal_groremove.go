@@ -25,6 +25,7 @@ func getGroremoveCommandContext(i *discordgo.InteractionCreate, commandName stri
 }
 
 func handleGroremoveCommand(c *ModalCreationContext) (*discordgo.InteractionResponseData, error) {
+	required := true
 	components := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -32,7 +33,7 @@ func handleGroremoveCommand(c *ModalCreationContext) (*discordgo.InteractionResp
 					CustomID:    "groremove_input",
 					Label:       "Items to remove",
 					Placeholder: "e.g. 1 2 or chicken katsu",
-					Required:    true,
+					Required:    &required,
 					MaxLength:   4000,
 					Style:       discordgo.TextInputParagraph,
 				},
