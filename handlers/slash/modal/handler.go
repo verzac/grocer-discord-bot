@@ -5,6 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -12,6 +13,7 @@ import (
 
 var (
 	ErrCannotFindMatchingCommandContextGetter = errors.New("cannot find matching command context getter")
+	ErrAlreadyHandled                         = errors.New("interaction already handled")
 )
 
 var (
@@ -40,6 +42,7 @@ type ModalCreationContext struct {
 	session                *discordgo.Session
 	logger                 *zap.Logger
 	interaction            *discordgo.InteractionCreate
+	cachedConfig           *models.GuildConfig
 	commandName            string
 	guildID                string
 	authorID               string
@@ -54,6 +57,9 @@ func (c *ModalCreationContext) Handle() {
 		if handler, ok := modalCommandHandlers[c.commandName]; ok {
 			data, err := handler(c)
 			if err != nil {
+				if errors.Is(err, ErrAlreadyHandled) {
+					return
+				}
 				c.logger.Error("Unable to handle command.", zap.Error(err))
 				return
 			}
@@ -68,6 +74,41 @@ func (c *ModalCreationContext) Handle() {
 			return
 		}
 	}
+}
+
+func (c *ModalCreationContext) getConfig() (*models.GuildConfig, error) {
+	if c.cachedConfig != nil {
+		return c.cachedConfig, nil
+	}
+	guildID := c.guildID
+	config, err := c.guildConfigRepository.Get(guildID)
+	if err != nil {
+		return nil, err
+	}
+	c.cachedConfig = config
+	return config, nil
+}
+
+func (c *ModalCreationContext) RespondWithMessageInsteadOfModal(msg string) error {
+	flags := discordgo.MessageFlags(0)
+	config, err := c.getConfig()
+	if err != nil {
+		c.logger.Error("Failed to load guild config. Non-critical error, skipping.", zap.Error(err))
+	}
+	if config != nil && config.UseEphemeral {
+		flags |= discordgo.MessageFlagsEphemeral
+	}
+
+	if err := c.session.InteractionRespond(c.interaction.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: msg,
+			Flags:   flags,
+		},
+	}); err != nil {
+		return err
+	}
+	return ErrAlreadyHandled
 }
 
 func NewModalCreationContext(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, i *discordgo.InteractionCreate, grobotVersion string) (c *ModalCreationContext) {
