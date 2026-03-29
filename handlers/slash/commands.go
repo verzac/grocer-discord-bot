@@ -12,9 +12,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/handlers/slash/defaults"
 	"github.com/verzac/grocer-discord-bot/handlers/slash/modal"
 	"github.com/verzac/grocer-discord-bot/handlers/slash/native"
 	"github.com/verzac/grocer-discord-bot/monitoring"
+	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
@@ -38,19 +40,6 @@ type slashCommandHandlerMetadata struct {
 }
 
 var (
-	defaultListLabelOption = &discordgo.ApplicationCommandOption{
-		Type:         discordgo.ApplicationCommandOptionString,
-		Name:         "list-label",
-		Description:  "Label for your custom grocery list.",
-		Required:     false,
-		Autocomplete: true,
-	}
-	defaultAllListOption = &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionString,
-		Name:        "all",
-		Description: "Display all of your grocery lists instead of the one denoted in list-label.",
-		Required:    false,
-	}
 	commands = []*discordgo.ApplicationCommand{
 		{
 			Name:        "gro",
@@ -63,7 +52,7 @@ var (
 					Description: "Your new grocery entry.",
 					Required:    true,
 				},
-				defaultListLabelOption,
+				defaults.DefaultListLabelOption,
 			},
 		},
 		{
@@ -71,7 +60,7 @@ var (
 			Description: "Clear your grocery list.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
-				defaultListLabelOption,
+				defaults.DefaultListLabelOption,
 			},
 		},
 		{
@@ -79,7 +68,14 @@ var (
 			Description: "Remove a grocery entry.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
-				defaultListLabelOption,
+				{
+					Type:         discordgo.ApplicationCommandOptionString,
+					Name:         "entry",
+					Description:  "Item name or numbers to pre-select in the modal (optional).",
+					Required:     false,
+					Autocomplete: true,
+				},
+				defaults.DefaultListLabelOption,
 			},
 		},
 		{
@@ -100,7 +96,7 @@ var (
 					Description: "The name to edit the entry # to.",
 					Required:    true,
 				},
-				defaultListLabelOption,
+				defaults.DefaultListLabelOption,
 			},
 		},
 		{
@@ -113,8 +109,8 @@ var (
 			Description: "View your current grocery list.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
-				defaultAllListOption,
-				defaultListLabelOption,
+				defaults.DefaultAllListOption,
+				defaults.DefaultListLabelOption,
 			},
 		},
 		{
@@ -142,10 +138,10 @@ var (
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Type:         defaultListLabelOption.Type,
-					Name:         defaultListLabelOption.Name,
-					Description:  defaultListLabelOption.Description,
-					Autocomplete: defaultListLabelOption.Autocomplete,
+					Type:         defaults.DefaultListLabelOption.Type,
+					Name:         defaults.DefaultListLabelOption.Name,
+					Description:  defaults.DefaultListLabelOption.Description,
+					Autocomplete: defaults.DefaultListLabelOption.Autocomplete,
 					Required:     true,
 				},
 			},
@@ -165,8 +161,8 @@ var (
 			Description: "Attach a self-updating list for your grocery list to the current channel.",
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
-				defaultAllListOption,
-				defaultListLabelOption,
+				defaults.DefaultAllListOption,
+				defaults.DefaultListLabelOption,
 			},
 		},
 		{
@@ -280,7 +276,7 @@ var (
 		"grolist": {
 			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
 				for _, o := range options {
-					if o.Name == defaultAllListOption.Name {
+					if o.Name == defaults.DefaultAllListOption.Name {
 						return "all", nil
 					}
 				}
@@ -290,7 +286,7 @@ var (
 		"grohere": {
 			customArgStrMarshaller: func(options []*discordgo.ApplicationCommandInteractionDataOption, commandMetadata *slashCommandHandlerMetadata) (argStr string, err error) {
 				for _, o := range options {
-					if o.Name == defaultAllListOption.Name {
+					if o.Name == defaults.DefaultAllListOption.Name {
 						return "all", nil
 					}
 				}
@@ -320,15 +316,6 @@ var defaultSlashCommandArgStrMarshaller argStrMarshaller = func(options []*disco
 		}
 	}
 	return "", ErrMissingSlashCommandOption
-}
-
-func getListLabelFromOptions(options []*discordgo.ApplicationCommandInteractionDataOption) (listLabel string) {
-	for _, option := range options {
-		if option.Name == defaultListLabelOption.Name {
-			return option.StringValue()
-		}
-	}
-	return ""
 }
 
 func onHandlingErrorRespond(logger *zap.Logger, sess *discordgo.Session, interaction *discordgo.Interaction) {
@@ -364,7 +351,7 @@ func getCommandName(i *discordgo.InteractionCreate) string {
 func getMessageCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
 	command := "!" + commandName
 	commandData := i.ApplicationCommandData()
-	listLabel := getListLabelFromOptions(commandData.Options)
+	listLabel := defaults.ListLabelFromSlashOptions(commandData.Options)
 	argStrMarshaller := defaultSlashCommandArgStrMarshaller
 	commandMetadata, ok := commandsMetadata[commandData.Name]
 	argStr := ""
@@ -396,10 +383,10 @@ func getMessageCommandContext(i *discordgo.InteractionCreate, commandName string
 	return commandContext, nil
 }
 
-func getCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
+func getCommandContext(i *discordgo.InteractionCreate, commandName string, db *gorm.DB) (*handlers.CommandContext, error) {
 	switch i.Type {
 	case discordgo.InteractionModalSubmit:
-		return modal.GetCommandContextFromModalSubmission(i, commandName)
+		return modal.GetCommandContextFromModalSubmission(i, commandName, &repositories.GroceryListRepositoryImpl{DB: db})
 	default:
 		return getMessageCommandContext(i, commandName)
 	}
@@ -528,7 +515,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		}
 
 		// parse the command context - this is the main handler context that will be used to handle the command
-		commandContext, err := getCommandContext(i, commandName)
+		commandContext, err := getCommandContext(i, commandName, db)
 		if err != nil {
 			onHandlingErrorRespond(logger, sess, i.Interaction)
 			return

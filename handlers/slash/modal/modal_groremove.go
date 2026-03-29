@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/handlers/slash/defaults"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 )
@@ -55,12 +56,28 @@ func collectSelectedIndexes(components []discordgo.MessageComponent) []string {
 	return selectedIndexes
 }
 
-func getGroremoveCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
+func getGroremoveCommandContext(i *discordgo.InteractionCreate, commandName string, groceryListRepo repositories.GroceryListRepository) (*handlers.CommandContext, error) {
 	data := i.ModalSubmitData()
 	selectedIndexes := collectSelectedIndexes(data.Components)
+	grocerySublist := ""
+	if strings.HasPrefix(commandName, "groremove:") {
+		idStr := strings.TrimPrefix(commandName, "groremove:")
+		listID, err := strconv.ParseUint(idStr, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+		gl, err := groceryListRepo.GetByQuery(&models.GroceryList{ID: uint(listID), GuildID: i.GuildID})
+		if err != nil {
+			return nil, err
+		}
+		if gl == nil {
+			return nil, fmt.Errorf("grocery list not found for modal custom_id")
+		}
+		grocerySublist = gl.ListLabel
+	}
 	return &handlers.CommandContext{
 		Command:                     handlers.CmdGroRemove,
-		GrocerySublist:              "",
+		GrocerySublist:              grocerySublist,
 		ArgStr:                      strings.Join(selectedIndexes, " "),
 		GuildID:                     i.GuildID,
 		AuthorID:                    i.Member.User.ID,
@@ -73,18 +90,38 @@ func getGroremoveCommandContext(i *discordgo.InteractionCreate, commandName stri
 }
 
 func handleGroremoveCommand(c *ModalCreationContext) (*discordgo.InteractionResponseData, error) {
-	groceries, err := c.groceryEntryRepository.FindByQueryWithConfig(
-		&models.GroceryEntry{GuildID: c.guildID},
-		repositories.GroceryEntryQueryOpts{IsStrongNilForGroceryListID: true},
-	)
+	commandData := c.interaction.ApplicationCommandData()
+	listLabel := defaults.ListLabelFromSlashOptions(commandData.Options)
+
+	query := &models.GroceryEntry{GuildID: c.guildID}
+	queryOpts := repositories.GroceryEntryQueryOpts{}
+	modalCustomID := "groremove"
+	var groceryList *models.GroceryList
+
+	if listLabel != "" {
+		gl, err := c.groceryListRepository.GetByQuery(&models.GroceryList{GuildID: c.guildID, ListLabel: listLabel})
+		if err != nil {
+			return nil, err
+		}
+		if gl == nil {
+			return nil, c.RespondWithMessageInsteadOfModal(fmt.Sprintf("Whoops, I can't seem to find the grocery list labeled as *%s*.", listLabel))
+		}
+		groceryList = gl
+		query.GroceryListID = &gl.ID
+		modalCustomID = fmt.Sprintf("groremove:%d", gl.ID)
+	} else {
+		queryOpts.IsStrongNilForGroceryListID = true
+	}
+
+	groceries, err := c.groceryEntryRepository.FindByQueryWithConfig(query, queryOpts)
 	if err != nil {
 		return nil, err
 	}
 	if len(groceries) == 0 {
-		return nil, c.RespondWithMessageInsteadOfModal("Whoops, you don't have any items in your grocery list!")
+		return nil, c.RespondWithMessageInsteadOfModal(fmt.Sprintf("Whoops, you do not have any items in %s.", groceryList.GetName()))
 	}
 	return &discordgo.InteractionResponseData{
-		CustomID:   "groremove",
+		CustomID:   modalCustomID,
 		Title:      "Remove Groceries",
 		Components: buildGroremoveModalComponents(groceries),
 	}, nil

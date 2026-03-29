@@ -2,6 +2,7 @@ package modal
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
@@ -21,18 +22,25 @@ var (
 		"grobulk":   handleGrobulkCommand,
 		"groremove": handleGroremoveCommand,
 	}
-	commandContextGetters = map[string]func(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error){
+	commandContextGetters = map[string]func(i *discordgo.InteractionCreate, commandName string, groceryListRepo repositories.GroceryListRepository) (*handlers.CommandContext, error){
 		"grobulk":   getGrobulkCommandContext,
 		"groremove": getGroremoveCommandContext,
 	}
 )
 
-func GetCommandContextFromModalSubmission(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
-	if getter, ok := commandContextGetters[commandName]; ok {
-		return getter(i, commandName)
-	} else {
-		return nil, ErrCannotFindMatchingCommandContextGetter
+func modalSubmitGetterKey(customID string) string {
+	if customID == "groremove" || strings.HasPrefix(customID, "groremove:") {
+		return "groremove"
 	}
+	return customID
+}
+
+func GetCommandContextFromModalSubmission(i *discordgo.InteractionCreate, commandName string, groceryListRepo repositories.GroceryListRepository) (*handlers.CommandContext, error) {
+	key := modalSubmitGetterKey(commandName)
+	if getter, ok := commandContextGetters[key]; ok {
+		return getter(i, commandName, groceryListRepo)
+	}
+	return nil, ErrCannotFindMatchingCommandContextGetter
 }
 
 type ModalCreationContext struct {

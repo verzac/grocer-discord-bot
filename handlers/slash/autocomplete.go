@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	"github.com/verzac/grocer-discord-bot/handlers/slash/defaults"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"github.com/verzac/grocer-discord-bot/utils"
@@ -54,7 +55,7 @@ func NewAutoCompleteHandler(sess *discordgo.Session, db *gorm.DB, logger *zap.Lo
 
 func (a *AutocompleteHandler) GetGroceryList() (*models.GroceryList, error) {
 	sublistLabel := ""
-	if listOption, ok := a.nameToOptionsMap[defaultListLabelOption.Name]; ok {
+	if listOption, ok := a.nameToOptionsMap[defaults.DefaultListLabelOption.Name]; ok {
 		sublistLabel = listOption.StringValue()
 	}
 	if sublistLabel == "" {
@@ -69,7 +70,7 @@ func (a *AutocompleteHandler) GetGroceryList() (*models.GroceryList, error) {
 func (a *AutocompleteHandler) Handle() error {
 	defer handlers.Recover(a.logger)
 	a.logger.Debug("Handling autocomplete.")
-	if listOption, ok := a.nameToOptionsMap[defaultListLabelOption.Name]; ok && listOption.Focused {
+	if listOption, ok := a.nameToOptionsMap[defaults.DefaultListLabelOption.Name]; ok && listOption.Focused {
 		return a.sess.InteractionRespond(a.interaction.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 			Data: &discordgo.InteractionResponseData{

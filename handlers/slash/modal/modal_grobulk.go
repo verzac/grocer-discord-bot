@@ -17,7 +17,7 @@ func getGrobulkInputFromEntries(groceryEntries []models.GroceryEntry) string {
 	return msg
 }
 
-func getGrobulkCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
+func getGrobulkCommandContext(i *discordgo.InteractionCreate, commandName string, _ repositories.GroceryListRepository) (*handlers.CommandContext, error) {
 	data := i.ModalSubmitData()
 	argStr := data.Components[0].(*discordgo.ActionsRow).
 		Components[0].(*discordgo.TextInput).
