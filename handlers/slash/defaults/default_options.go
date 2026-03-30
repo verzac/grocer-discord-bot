@@ -1,6 +1,12 @@
 package defaults
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"strings"
+
+	"github.com/bwmarrin/discordgo"
+)
+
+const DefaultEntryOptionName = "entry"
 
 var (
 	DefaultListLabelOption = &discordgo.ApplicationCommandOption{
@@ -23,6 +29,16 @@ func ListLabelFromSlashOptions(options []*discordgo.ApplicationCommandInteractio
 	for _, option := range options {
 		if option.Name == DefaultListLabelOption.Name {
 			return option.StringValue()
+		}
+	}
+	return ""
+}
+
+// EntryFromSlashOptions returns the trimmed string value of the entry option, or "" if absent.
+func EntryFromSlashOptions(options []*discordgo.ApplicationCommandInteractionDataOption) string {
+	for _, option := range options {
+		if option.Name == DefaultEntryOptionName {
+			return strings.TrimSpace(option.StringValue())
 		}
 	}
 	return ""

@@ -19,7 +19,7 @@ func makeGroceries(names ...string) []models.GroceryEntry {
 
 func TestBuildGroremoveModalComponents_SingleChunk(t *testing.T) {
 	groceries := makeGroceries("Apples", "Bread", "Milk")
-	components := buildGroremoveModalComponents(groceries)
+	components := buildGroremoveModalComponents(groceries, nil)
 
 	if len(components) != 1 {
 		t.Fatalf("expected 1 label, got %d", len(components))
@@ -40,7 +40,7 @@ func TestBuildGroremoveModalComponents_MultipleChunks(t *testing.T) {
 		names[i] = "Item"
 	}
 	groceries := makeGroceries(names...)
-	components := buildGroremoveModalComponents(groceries)
+	components := buildGroremoveModalComponents(groceries, nil)
 
 	// 25 items → 3 groups: [1-10], [11-20], [21-25]
 	if len(components) != 3 {
@@ -66,7 +66,7 @@ func TestBuildGroremoveModalComponents_MultipleChunks(t *testing.T) {
 
 func TestBuildGroremoveModalComponents_ExactlyOneChunk(t *testing.T) {
 	groceries := makeGroceries(make([]string, checkboxGroupMaxOptions)...)
-	components := buildGroremoveModalComponents(groceries)
+	components := buildGroremoveModalComponents(groceries, nil)
 
 	if len(components) != 1 {
 		t.Fatalf("expected exactly 1 label for %d items, got %d", checkboxGroupMaxOptions, len(components))
@@ -110,10 +110,46 @@ func TestCollectSelectedIndexes_MultipleGroups(t *testing.T) {
 }
 
 func TestCollectSelectedIndexes_NoneSelected(t *testing.T) {
-	components := buildGroremoveModalComponents(makeGroceries("Apples", "Bread"))
+	components := buildGroremoveModalComponents(makeGroceries("Apples", "Bread"), nil)
 	// Simulate submission with nothing checked (Values stays nil)
 	result := collectSelectedIndexes(components)
 	if len(result) != 0 {
 		t.Errorf("expected empty result, got %v", result)
+	}
+}
+
+func TestBuildGroremoveModalComponents_PreselectedSetsDefault(t *testing.T) {
+	groceries := makeGroceries("Apples", "Bread", "Milk")
+	components := buildGroremoveModalComponents(groceries, []string{"2"})
+	if len(components) != 1 {
+		t.Fatalf("expected 1 label, got %d", len(components))
+	}
+	label := components[0].(discordgo.Label)
+	group := label.Component.(discordgo.CheckboxGroup)
+	if !group.Options[1].Default {
+		t.Errorf("expected option 2 to have Default true, got %+v", group.Options[1])
+	}
+	if group.Options[0].Default || group.Options[2].Default {
+		t.Errorf("expected only index 2 defaulted, got %+v", group.Options)
+	}
+}
+
+func TestBuildGroremoveModalComponents_PreselectedAcrossChunks(t *testing.T) {
+	names := make([]string, 15)
+	for i := range names {
+		names[i] = "Item"
+	}
+	groceries := makeGroceries(names...)
+	components := buildGroremoveModalComponents(groceries, []string{"1", "11"})
+	if len(components) != 2 {
+		t.Fatalf("expected 2 labels, got %d", len(components))
+	}
+	first := components[0].(discordgo.Label).Component.(discordgo.CheckboxGroup)
+	if !first.Options[0].Default {
+		t.Error("expected first item defaulted in first chunk")
+	}
+	second := components[1].(discordgo.Label).Component.(discordgo.CheckboxGroup)
+	if !second.Options[0].Default || second.Options[0].Value != "11" {
+		t.Errorf("expected item 11 defaulted in second chunk, got %+v", second.Options[0])
 	}
 }

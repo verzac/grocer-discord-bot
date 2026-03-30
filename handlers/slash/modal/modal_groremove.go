@@ -14,7 +14,13 @@ import (
 
 const checkboxGroupMaxOptions = 10
 
-func buildGroremoveModalComponents(groceries []models.GroceryEntry) []discordgo.MessageComponent {
+const groremoveEntryFYIText = "FYI: You do not need to type in the items you'd like to remove manually; you can just select the checkboxes next time."
+
+func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected []string) []discordgo.MessageComponent {
+	preselectedSet := make(map[string]struct{}, len(preselected))
+	for _, v := range preselected {
+		preselectedSet[v] = struct{}{}
+	}
 	var components []discordgo.MessageComponent
 	for chunkStart := 0; chunkStart < len(groceries); chunkStart += checkboxGroupMaxOptions {
 		chunkEnd := min(chunkStart+checkboxGroupMaxOptions, len(groceries))
@@ -23,10 +29,15 @@ func buildGroremoveModalComponents(groceries []models.GroceryEntry) []discordgo.
 		for j, g := range chunk {
 			absIdx := chunkStart + j
 			// absIdx+1 is the 1-based index that OnRemove() expects
-			options = append(options, discordgo.RadioGroupOption{
+			value := strconv.Itoa(absIdx + 1)
+			opt := discordgo.RadioGroupOption{
 				Label: fmt.Sprintf("%d. %s", absIdx+1, g.ItemDesc),
-				Value: strconv.Itoa(absIdx + 1),
-			})
+				Value: value,
+			}
+			if _, ok := preselectedSet[value]; ok {
+				opt.Default = true
+			}
+			options = append(options, opt)
 		}
 		groupNum := chunkStart / checkboxGroupMaxOptions
 		components = append(components, discordgo.Label{
@@ -120,9 +131,24 @@ func handleGroremoveCommand(c *ModalCreationContext) (*discordgo.InteractionResp
 	if len(groceries) == 0 {
 		return nil, c.RespondWithMessageInsteadOfModal(fmt.Sprintf("Whoops, you do not have any items in %s.", groceryList.GetName()))
 	}
+
+	entry := defaults.EntryFromSlashOptions(commandData.Options)
+	var preselected []string
+	if entry != "" {
+		preselected, err = handlers.PreselectedGroremoveOptionValues(entry, groceries, groceryList)
+		if err != nil {
+			return nil, c.RespondWithMessageInsteadOfModal(fmt.Sprintf(":exploding_head: Oops, something went wrong: %s", err.Error()))
+		}
+	}
+
+	components := buildGroremoveModalComponents(groceries, preselected)
+	if entry != "" {
+		components = append([]discordgo.MessageComponent{discordgo.TextDisplay{Content: groremoveEntryFYIText}}, components...)
+	}
+
 	return &discordgo.InteractionResponseData{
 		CustomID:   modalCustomID,
 		Title:      "Remove Groceries",
-		Components: buildGroremoveModalComponents(groceries),
+		Components: components,
 	}, nil
 }
