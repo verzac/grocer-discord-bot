@@ -14,7 +14,7 @@ full_e2e:
 
 .PHONY: e2e
 e2e:
-	go test ./e2e/... -v -count=1
+	go test -tags=integration ./e2e/... -v -count=1
 
 docker_login:
 	aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(registry_uri)

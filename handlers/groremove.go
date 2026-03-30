@@ -115,3 +115,51 @@ func getItemIndexes(args []string) ([]int, error) {
 	}
 	return itemIndexes, nil
 }
+
+// PreselectedGroremoveOptionValues returns checkbox option value strings ("1", "2", …) for entry text,
+// using the same rules as OnRemove (numeric indexes vs substring name match).
+// equivalent to parsing it into !groremove 1, even when the user passes in !groremove Item 1
+func PreselectedGroremoveOptionValues(entry string, groceries []models.GroceryEntry, groceryList *models.GroceryList) ([]string, error) {
+	argStr := strings.TrimSpace(entry)
+	if argStr == "" {
+		return nil, nil
+	}
+	args := strings.Split(argStr, " ")
+	var getItemsToRemoveFunc getItemsToRemoveFuncType
+	// is this a number? if so, assume it's a list of indexes
+	if _, err := strconv.Atoi(args[0]); err == nil {
+		getItemsToRemoveFunc = getItemsToRemoveWithIndex
+	} else {
+		getItemsToRemoveFunc = getItemsToRemoveWithName
+	}
+	toDelete, err := getItemsToRemoveFunc(args, groceries, groceryList)
+	if err != nil {
+		return nil, err
+	}
+
+	// deduplicate the values based on the user's input
+	// convert them to the 1-based index that OnRemove() expects
+	// motivation for not returning IDs and instead returning indexes - it's so that it makes
+	seen := make(map[string]struct{})
+	values := make([]string, 0, len(toDelete))
+	for _, del := range toDelete {
+		idx := 0
+		for i, g := range groceries {
+			if g.ID == del.ID {
+				idx = i + 1
+				break
+			}
+		}
+		if idx == 0 {
+			// not found in the grocery list, skip
+			continue
+		}
+		s := strconv.Itoa(idx)
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		values = append(values, s)
+	}
+	return values, nil
+}

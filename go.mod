@@ -10,6 +10,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.15.0
 	github.com/joho/godotenv v1.3.0
 	github.com/labstack/echo/v4 v4.6.3
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.22.0
 	github.com/stretchr/testify v1.10.0
@@ -18,6 +19,8 @@ require (
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.14
 )
+
+replace github.com/bwmarrin/discordgo => github.com/verzac/discordgo-new-components v0.29.1-0.20260330022609-874d4bcdeb68
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -41,7 +44,6 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect

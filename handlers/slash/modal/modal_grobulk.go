@@ -17,7 +17,7 @@ func getGrobulkInputFromEntries(groceryEntries []models.GroceryEntry) string {
 	return msg
 }
 
-func getGrobulkCommandContext(i *discordgo.InteractionCreate, commandName string) (*handlers.CommandContext, error) {
+func getGrobulkCommandContext(i *discordgo.InteractionCreate, commandName string, _ repositories.GroceryListRepository) (*handlers.CommandContext, error) {
 	data := i.ModalSubmitData()
 	argStr := data.Components[0].(*discordgo.ActionsRow).
 		Components[0].(*discordgo.TextInput).
@@ -67,6 +67,7 @@ func handleGrobulkCommand(c *ModalCreationContext) (*discordgo.InteractionRespon
 		// do nothing here since we will be adding to the existing grocery list, so no prefilled value needed
 	}
 
+	required := true
 	components := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
@@ -74,7 +75,7 @@ func handleGrobulkCommand(c *ModalCreationContext) (*discordgo.InteractionRespon
 					CustomID:    "bulk_edit",
 					Label:       "Input multiple groceries",
 					Placeholder: "Paste your grocery entries here - each entries are separated by newlines.\n\nFor example: \nTea\nBeef",
-					Required:    true,
+					Required:    &required,
 					MaxLength:   4000,
 					Style:       discordgo.TextInputParagraph,
 					Value:       textInputValue,
