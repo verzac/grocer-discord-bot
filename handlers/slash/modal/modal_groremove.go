@@ -2,6 +2,7 @@ package modal
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,7 @@ const checkboxGroupMaxOptions = 10
 const groremoveEntryFYIText = "FYI: You do not need to type in the items you'd like to remove manually; you can just select the checkboxes next time."
 
 func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected []string) []discordgo.MessageComponent {
+	nonce := rand.Int63()
 	preselectedSet := make(map[string]struct{}, len(preselected))
 	for _, v := range preselected {
 		preselectedSet[v] = struct{}{}
@@ -38,6 +40,7 @@ func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected 
 			}
 			if _, ok := preselectedSet[value]; ok {
 				def = true
+				opt.Default = &def
 			}
 			options = append(options, opt)
 		}
@@ -45,7 +48,7 @@ func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected 
 		components = append(components, discordgo.Label{
 			Label: fmt.Sprintf("Items %d-%d", chunkStart+1, chunkEnd),
 			Component: discordgo.CheckboxGroup{
-				CustomID: fmt.Sprintf("groremove_items_%d", groupNum),
+				CustomID: fmt.Sprintf("groremove_items_%d_%d", groupNum, nonce),
 				Options:  options,
 			},
 		})
