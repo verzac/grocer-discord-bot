@@ -25,17 +25,19 @@ func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected 
 	for chunkStart := 0; chunkStart < len(groceries); chunkStart += checkboxGroupMaxOptions {
 		chunkEnd := min(chunkStart+checkboxGroupMaxOptions, len(groceries))
 		chunk := groceries[chunkStart:chunkEnd]
-		options := make([]discordgo.RadioGroupOption, 0, len(chunk))
+		options := make([]discordgo.CheckboxGroupOption, 0, len(chunk))
 		for j, g := range chunk {
 			absIdx := chunkStart + j
 			// absIdx+1 is the 1-based index that OnRemove() expects
 			value := strconv.Itoa(absIdx + 1)
-			opt := discordgo.RadioGroupOption{
-				Label: fmt.Sprintf("%d. %s", absIdx+1, g.ItemDesc),
-				Value: value,
+			def := false
+			opt := discordgo.CheckboxGroupOption{
+				Label:   fmt.Sprintf("%d. %s", absIdx+1, g.ItemDesc),
+				Value:   value,
+				Default: &def,
 			}
 			if _, ok := preselectedSet[value]; ok {
-				opt.Default = true
+				def = true
 			}
 			options = append(options, opt)
 		}

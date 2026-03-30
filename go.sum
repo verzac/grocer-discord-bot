@@ -497,8 +497,8 @@ github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6Kllzaw
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v1.2.1 h1:TVEnxayobAdVkhQfrfes2IzOB6o+z4roRkPF52WA1u4=
 github.com/valyala/fasttemplate v1.2.1/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=
-github.com/verzac/discordgo-new-components v0.29.1-0.20260327223151-b82acf032edb h1:YT0aNyD0CV+aPNpQ+AcEQCp1cHr7zcVKz1SHcwvHrPA=
-github.com/verzac/discordgo-new-components v0.29.1-0.20260327223151-b82acf032edb/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
+github.com/verzac/discordgo-new-components v0.29.1-0.20260330022609-874d4bcdeb68 h1:HEWg3CQEsjloa+qzoEFTsyBVIGjc8Jk+wIdbvy2DaLM=
+github.com/verzac/discordgo-new-components v0.29.1-0.20260330022609-874d4bcdeb68/go.mod h1:JsaNXATZGUDc+uiR1/TGW4Aq4IKc2Hh/O8LhsBiSIBs=
 github.com/xanzy/go-gitlab v0.15.0/go.mod h1:8zdQa/ri1dfn8eS3Ir1SyfvOKlw7WBJ8DVThkpGiXrs=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=
 github.com/xdg-go/scram v1.0.2/go.mod h1:1WAq6h33pAW+iRreB34OORO2Nf7qel3VV3fjBj+hCSs=

@@ -126,10 +126,11 @@ func TestBuildGroremoveModalComponents_PreselectedSetsDefault(t *testing.T) {
 	}
 	label := components[0].(discordgo.Label)
 	group := label.Component.(discordgo.CheckboxGroup)
-	if !group.Options[1].Default {
+	if group.Options[1].Default == nil || !*group.Options[1].Default {
 		t.Errorf("expected option 2 to have Default true, got %+v", group.Options[1])
 	}
-	if group.Options[0].Default || group.Options[2].Default {
+	if (group.Options[0].Default != nil && *group.Options[0].Default) ||
+		(group.Options[2].Default != nil && *group.Options[2].Default) {
 		t.Errorf("expected only index 2 defaulted, got %+v", group.Options)
 	}
 }
@@ -145,11 +146,11 @@ func TestBuildGroremoveModalComponents_PreselectedAcrossChunks(t *testing.T) {
 		t.Fatalf("expected 2 labels, got %d", len(components))
 	}
 	first := components[0].(discordgo.Label).Component.(discordgo.CheckboxGroup)
-	if !first.Options[0].Default {
+	if first.Options[0].Default == nil || !*first.Options[0].Default {
 		t.Error("expected first item defaulted in first chunk")
 	}
 	second := components[1].(discordgo.Label).Component.(discordgo.CheckboxGroup)
-	if !second.Options[0].Default || second.Options[0].Value != "11" {
+	if second.Options[0].Default == nil || !*second.Options[0].Default || second.Options[0].Value != "11" {
 		t.Errorf("expected item 11 defaulted in second chunk, got %+v", second.Options[0])
 	}
 }
