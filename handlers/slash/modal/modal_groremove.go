@@ -45,11 +45,13 @@ func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected 
 			options = append(options, opt)
 		}
 		groupNum := chunkStart / checkboxGroupMaxOptions
+		required := false
 		components = append(components, discordgo.Label{
 			Label: fmt.Sprintf("Items %d-%d", chunkStart+1, chunkEnd),
 			Component: discordgo.CheckboxGroup{
 				CustomID: fmt.Sprintf("groremove_items_%d_%d", groupNum, nonce),
 				Options:  options,
+				Required: &required,
 			},
 		})
 	}
