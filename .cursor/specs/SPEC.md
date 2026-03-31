@@ -141,7 +141,7 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 3. **GroceryBot backend** exchanges the `code` for a Discord access token + refresh token (server-side, confidential).
 4. Backend calls Discord `GET /users/@me` to get the user's identity.
 5. Backend stores the user's Discord access token (encrypted) and refresh token server-side, associated with the user ID. This is used later for guild lookups.
-6. Backend issues a **GroceryBot JWT** containing `{ sub: discordUserID, exp, iat }` and optionally a **refresh token** stored server-side. The JWT identifies the user only — **it does not contain a guild list**.
+6. Backend issues a **GroceryBot JWT** (short-lived access token) containing `{ sub: discordUserID, exp, iat }` and a **refresh token** stored server-side. The JWT identifies the user only — **it does not contain a guild list**. Refresh tokens are required so users don't have to re-authenticate with Discord every time the access token expires.
 7. Client stores the JWT (in-memory or secure storage) and includes it as `Authorization: Bearer <jwt>` on subsequent requests.
 8. When the user wants to select a guild, `GET /guilds` calls Discord `GET /users/@me/guilds` using the **stored Discord access token** for that user, cross-references with bot-installed guilds, and returns a **fresh** list. This means the guild list is always up-to-date at the moment of selection.
 9. CRUD endpoints accept a `guild_id` query parameter (or path segment). The middleware verifies the user's identity from the JWT; the handler verifies that the user is actually a member of the requested guild (either by a fresh Discord call or a short-lived cache).
@@ -150,10 +150,10 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 
 | Component | Change |
 |-----------|--------|
-| **DB** | New `user_sessions` table to store Discord access/refresh tokens (encrypted) keyed by user ID, plus optional GroceryBot refresh tokens. |
+| **DB** | New `user_sessions` table to store Discord access/refresh tokens (encrypted) keyed by user ID, plus GroceryBot refresh tokens. |
 | **Routes** | `GET /auth/discord` — initiate OAuth2 redirect. |
 |  | `GET /auth/discord/callback` — exchange code, issue JWT. |
-|  | `POST /auth/refresh` — refresh GroceryBot JWT (if refresh tokens are used). |
+|  | `POST /auth/refresh` — exchange a refresh token for a new JWT access token. |
 |  | `GET /guilds` — fetch the user's guilds **live from Discord** (using stored Discord token), intersect with bot guilds, return fresh list. |
 | **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID. |
 | **Handlers** | Existing CRUD handlers resolve `guildID` from a request param instead of (only) from scope. Handler/middleware verifies user's guild membership (via cached Discord lookup or short-TTL cache). |
@@ -176,6 +176,91 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 - Requires encrypted storage of the user's Discord access/refresh tokens server-side (for guild lookups).
 - Requires secure storage of `JWT_SIGNING_KEY` and `DISCORD_CLIENT_SECRET`.
 - Guild membership check on CRUD requests relies on a short-TTL cache for performance — a very recently removed guild member could still have access for the cache duration (e.g. 60 s).
+
+### 4.4 Refresh Token Flow
+
+Refresh tokens are a **must** — users should not have to re-authenticate with Discord every session. The flow:
+
+1. On login, the backend issues both a **short-lived JWT** (e.g. 15 min) and a **long-lived refresh token** (e.g. 7–30 days) stored in the `user_sessions` table.
+2. The client stores both. When the JWT expires, the client calls `POST /auth/refresh` with the refresh token.
+3. The backend validates the refresh token (lookup by hash in `user_sessions`, check expiry), then issues a new JWT. Optionally rotates the refresh token (issue a new one, invalidate the old).
+4. If the refresh token itself is expired or revoked, the user must re-authenticate with Discord.
+
+This means a user stays logged in for the refresh token's lifetime without ever seeing Discord's OAuth2 page again.
+
+### 4.5 Implementation: Auth0 vs Self-Rolled vs Go Libraries
+
+There are three implementation paths for the OAuth2 + JWT layer. Below is an evaluation.
+
+#### Path 1 — Auth0 (Managed Identity Provider)
+
+Auth0 supports Discord as a social connection out of the box. It handles the OAuth2 flow, token issuance, refresh tokens, and user management.
+
+**How it would work:**
+
+- Configure Discord as a social connection in Auth0 Dashboard.
+- The client app uses Auth0's SDK to log in (Auth0 redirects to Discord, handles callback, issues Auth0 JWTs + refresh tokens).
+- GroceryBot API validates Auth0 JWTs using Auth0's JWKS endpoint or a shared signing key.
+- To call Discord's `GET /users/@me/guilds`, we need the user's **Discord access token** — Auth0 can store this via its **Token Vault / Connected Accounts** feature.
+
+**Pricing:** Free tier covers 25,000 MAU, unlimited social connections, no credit card required. More than sufficient for GroceryBot's scale.
+
+**Verdict: Overkill for this use case.** Here's why:
+
+| Concern | Detail |
+|---------|--------|
+| **Guild access** | We need to call Discord's API with the user's Discord token to fetch guilds. Auth0 doesn't natively expose the upstream provider's access token to your API — you need Token Vault (Connected Accounts) to retrieve it, which adds complexity and an Auth0 Management API call on the hot path. |
+| **Indirection** | Auth0 sits between us and Discord. We'd authenticate with Auth0, then separately fetch Discord tokens from Auth0's Token Vault to call Discord APIs. Two hops where one suffices. |
+| **Operational dependency** | Adds Auth0 as a runtime dependency. If Auth0 is down, users can't log in or refresh tokens — even though Discord and our DB are fine. |
+| **Scope mismatch** | Auth0 is designed for apps with multiple identity providers (Google, GitHub, email/password, SSO). GroceryBot has exactly one: Discord. The multi-provider abstraction adds overhead we don't need. |
+| **Custom scopes** | We need `identify` + `guilds` scopes from Discord. Configurable in Auth0, but requires careful setup via `connection_scope` — not the default path. |
+| **Refresh tokens** | Auth0 handles refresh tokens for its own JWTs (good), but we also need to refresh the **Discord** token stored in Token Vault for guild lookups. This means managing two refresh cycles. |
+
+Auth0 would make sense if GroceryBot needed multi-provider auth (e.g. Google + Discord + email/password), enterprise SSO, or MFA. For a single Discord-only login with guild-specific API access, it introduces more complexity than it removes.
+
+#### Path 2 — Self-Rolled (Manual OAuth2 + JWT)
+
+Write the OAuth2 code exchange, JWT issuance, and refresh token logic directly using `golang.org/x/oauth2` + `golang-jwt/jwt/v5`.
+
+**Pros:**
+- Minimal dependencies; full control.
+- No abstraction mismatch — we call Discord directly.
+- `golang-jwt/jwt/v5` (v5.3.1) is the standard Go JWT library, well-maintained, supports HMAC/RSA/ECDSA signing.
+- `golang.org/x/oauth2` is Go's standard OAuth2 client — handles code exchange, token refresh, and HTTP client injection.
+
+**Cons:**
+- Must implement: state parameter generation/validation, PKCE, callback handler, token storage, refresh logic, JWT signing/verification middleware.
+- More boilerplate than using a framework, but the total surface area is small (a few hundred lines).
+
+#### Path 3 — Go OAuth2/OIDC Libraries with Discord Support
+
+Several Go libraries wrap the OAuth2 flow with Discord-specific providers:
+
+| Library | What it does | Refresh tokens | Discord guilds | Notes |
+|---------|-------------|:-:|:-:|-------|
+| **`markbates/goth`** (v1.82) | Multi-provider OAuth2 framework with session management. Discord provider built-in. | Yes (`RefreshToken()`) | Not built-in (call Discord API yourself) | Most established; 50+ providers. Brings its own session abstraction (cookie/gorilla). May conflict with Echo's patterns. |
+| **`disgoorg/disgo/oauth2`** | Discord-specific OAuth2 module with state management. | Yes | Yes (Discord-native SDK) | Part of the larger `disgo` Discord library. More Discord-aware than generic OAuth2 libs, but pulls in a larger dependency tree. |
+| **`notclynt/discord-oauth2`** | Thin Discord endpoint config for `golang.org/x/oauth2`. | Via `golang.org/x/oauth2` | Not built-in | Extremely lightweight — just provides the Discord `oauth2.Endpoint`. Almost identical to self-rolling with `golang.org/x/oauth2`. |
+| **`zekith/oauthgo`** (2025) | Modern OAuth2/OIDC lib with 50+ providers, PKCE, state/nonce validation. | Yes | Not built-in | Newer, less battle-tested. Good security defaults (PKCE, replay protection). |
+
+#### Recommendation
+
+**Path 2 (self-rolled) or `notclynt/discord-oauth2`** (which is effectively Path 2 with pre-configured Discord endpoints). The reasoning:
+
+1. **Discord is not an OIDC provider** — it implements OAuth2 but not the OpenID Connect layer (no `id_token`, no `.well-known/openid-configuration`). OIDC-focused libs don't add value here.
+2. **We need guild access** — no library handles the `GET /users/@me/guilds` → intersect with bot guilds → cache pattern. We'll write that regardless.
+3. **JWT issuance is ours** — we issue GroceryBot JWTs, not Discord tokens. The JWT layer is independent of the OAuth2 library.
+4. **Refresh is straightforward** — `golang.org/x/oauth2` already handles Discord token refresh. Our own refresh tokens are a simple DB lookup + new JWT.
+5. **Minimal coupling** — `goth` and `disgo` bring their own session/state abstractions that may conflict with Echo middleware patterns. The lighter the dependency, the easier to maintain.
+
+**Concrete dependencies:**
+
+| Package | Purpose |
+|---------|---------|
+| `golang.org/x/oauth2` | OAuth2 code exchange, Discord token refresh. |
+| `github.com/golang-jwt/jwt/v5` | Sign and verify GroceryBot JWTs. |
+
+Optionally add `github.com/notclynt/discord-oauth2` for pre-configured Discord endpoints (saves ~5 lines of config), but it's not required.
 
 ---
 
@@ -311,7 +396,7 @@ These are **not blockers** for the auth externalization work and can be added in
 
 1. **Authorization model:** Should any guild member be able to CRUD, or should we restrict to certain Discord roles/permissions?
 2. **Guild selection UX:** Query parameter (`?guild_id=`) or path prefix (`/guilds/:guildID/...`) for guild-scoped endpoints?
-3. **Token lifetime:** What should the JWT access token TTL be? (Suggestion: 15 min access / 7 day refresh.)
+3. **Token lifetimes:** What TTLs for the JWT access token and refresh token? (Suggestion: 15 min access / 7 day refresh. Refresh token rotation optional.)
 4. **Deployment:** Does the API remain an in-process goroutine, or will it be separated into its own service in the future? This affects guild resolution (bot session state vs DB).
 5. **Mobile platform:** Native iOS/Android or a web-based app (React Native, Flutter, PWA)? This affects the OAuth2 redirect URI scheme (`https://` vs custom scheme like `grocerybot://`).
 6. **Do we need to support the web app using the existing Basic auth as well?** (e.g. should the web app be able to fall back to a guild API key if the user is not logged in via Discord?)
