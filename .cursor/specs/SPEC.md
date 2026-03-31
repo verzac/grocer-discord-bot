@@ -115,40 +115,42 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 1. **Client** opens `https://api.grocerybot.net/auth/discord` (or a configured URL) which redirects to Discord's authorization page.
 2. **Discord** redirects back to `https://api.grocerybot.net/auth/discord/callback?code=...`.
 3. **GroceryBot backend** exchanges the `code` for a Discord access token + refresh token (server-side, confidential).
-4. Backend calls Discord `GET /users/@me` and `GET /users/@me/guilds` using the Discord access token.
-5. Backend cross-references the user's guild list against guilds where the bot is installed (the bot's own `discordgo.Session.State.Guilds` or a DB lookup on known guild IDs).
-6. Backend issues a **GroceryBot JWT** containing `{ sub: discordUserID, guilds: [allowedGuildIDs], exp, iat }` and optionally a **refresh token** stored server-side.
+4. Backend calls Discord `GET /users/@me` to get the user's identity.
+5. Backend stores the user's Discord access token (encrypted) and refresh token server-side, associated with the user ID. This is used later for guild lookups.
+6. Backend issues a **GroceryBot JWT** containing `{ sub: discordUserID, exp, iat }` and optionally a **refresh token** stored server-side. The JWT identifies the user only — **it does not contain a guild list**.
 7. Client stores the JWT (in-memory or secure storage) and includes it as `Authorization: Bearer <jwt>` on subsequent requests.
-8. A new `/guilds` endpoint returns the user's eligible guilds (derived from JWT claims or re-fetched).
-9. CRUD endpoints accept a `guild_id` query parameter (or path segment) and the middleware verifies the guild is in the JWT's allowed list.
+8. When the user wants to select a guild, `GET /guilds` calls Discord `GET /users/@me/guilds` using the **stored Discord access token** for that user, cross-references with bot-installed guilds, and returns a **fresh** list. This means the guild list is always up-to-date at the moment of selection.
+9. CRUD endpoints accept a `guild_id` query parameter (or path segment). The middleware verifies the user's identity from the JWT; the handler verifies that the user is actually a member of the requested guild (either by a fresh Discord call or a short-lived cache).
 
 #### New/Changed Components
 
 | Component | Change |
 |-----------|--------|
-| **DB** | New `user_sessions` table (optional — only if using opaque refresh tokens). |
+| **DB** | New `user_sessions` table to store Discord access/refresh tokens (encrypted) keyed by user ID, plus optional GroceryBot refresh tokens. |
 | **Routes** | `GET /auth/discord` — initiate OAuth2 redirect. |
 |  | `GET /auth/discord/callback` — exchange code, issue JWT. |
-|  | `POST /auth/refresh` — refresh JWT (if refresh tokens are used). |
-|  | `GET /guilds` — list eligible guilds for the authenticated user. |
-| **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID and guild list. |
-| **Handlers** | Existing CRUD handlers resolve `guildID` from a request param instead of (only) from scope. Middleware verifies the guild is in the JWT's claims. |
+|  | `POST /auth/refresh` — refresh GroceryBot JWT (if refresh tokens are used). |
+|  | `GET /guilds` — fetch the user's guilds **live from Discord** (using stored Discord token), intersect with bot guilds, return fresh list. |
+| **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID. |
+| **Handlers** | Existing CRUD handlers resolve `guildID` from a request param instead of (only) from scope. Handler/middleware verifies user's guild membership (via cached Discord lookup or short-TTL cache). |
 | **Config** | New env vars: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`. |
 | **Dependencies** | A JWT library (e.g. `golang-jwt/jwt`). |
 
 #### Pros
 
 - **Full control** over token lifetime, claims, and revocation.
-- **No per-request Discord API call** — JWT is self-contained and verified locally.
+- **No per-request Discord API call for CRUD** — JWT is self-contained and verified locally. Discord is only called when the user fetches `GET /guilds` (guild selection screen) or when guild membership needs re-validation (short-TTL cache).
+- **Guild list is always fresh at selection time** — because `GET /guilds` calls Discord live using the stored access token, the user always sees their current guilds when choosing one.
 - **Works for both confidential and public clients** — the OAuth2 code exchange happens server-side so the client never sees the Discord client secret.
 - Supports **PKCE** extension for mobile (public) clients.
 - Can embed extra claims (user roles, tier info) to avoid DB lookups on hot paths.
 
 #### Cons
 
-- More backend implementation work (OAuth2 callback handler, JWT issuance, refresh logic).
-- Guild list in the JWT can go **stale** if the user joins/leaves guilds mid-session. Mitigation: short JWT expiry (e.g. 15 min) with refresh, or re-validate guild membership on sensitive operations.
+- More backend implementation work (OAuth2 callback handler, JWT issuance, Discord token storage, refresh logic).
+- Requires encrypted storage of the user's Discord access/refresh tokens server-side (for guild lookups).
 - Requires secure storage of `JWT_SIGNING_KEY` and `DISCORD_CLIENT_SECRET`.
+- Guild membership check on CRUD requests relies on a short-TTL cache for performance — a very recently removed guild member could still have access for the cache duration (e.g. 60 s).
 
 ---
 
@@ -233,14 +235,14 @@ Similar to Option A, but instead of a JWT, the backend issues an **opaque sessio
 | Criteria | Option A (JWT) | Option B (Passthrough) | Option C (Opaque Session) |
 |----------|:-:|:-:|:-:|
 | Backend complexity | Medium | Low | Medium–High |
-| Per-request external call | No | Yes (Discord) | No (DB lookup) |
-| Latency overhead | Minimal | ~100–300 ms | Minimal (DB) |
+| Per-request external call | No (CRUD); Yes (guild selection) | Yes (every request) | No (DB lookup) |
+| Latency overhead | Minimal for CRUD | ~100–300 ms per request | Minimal (DB) |
 | Token revocation | Hard (wait for expiry or blocklist) | N/A (Discord controls) | Instant (delete row) |
-| Guild freshness | Stale until refresh | Always fresh | Stale until background refresh |
-| Discord outage resilience | Unaffected (post-login) | API fully blocked | Unaffected (post-login) |
+| Guild freshness | Fresh at selection; cached for CRUD | Always fresh | Stale until background refresh |
+| Discord outage resilience | CRUD unaffected; guild selection blocked | API fully blocked | CRUD unaffected; guild refresh blocked |
 | Client complexity | Low (just store JWT) | Medium (handle Discord OAuth + refresh) | Low (just store token) |
-| New DB tables | 0–1 | 0 | 1 |
-| Dependency on Discord at runtime | Login only | Every request | Login + background refresh |
+| New DB tables | 1 (user sessions / Discord tokens) | 0 | 1 |
+| Dependency on Discord at runtime | Login + guild selection | Every request | Login + background refresh |
 
 ---
 
