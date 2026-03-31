@@ -65,10 +65,27 @@ The following env vars are assumed to be pre-configured by the operator. They ar
 |----------|---------|
 | `DISCORD_CLIENT_ID` | Discord application client ID for the OAuth2 Authorization Code flow. |
 | `DISCORD_CLIENT_SECRET` | Discord application client secret for exchanging authorization codes for access tokens (server-side only). |
+| `DISCORD_REDIRECT_URI` | The URL that Discord redirects the user back to after they authorize. See explanation below. |
 
-These come from the Discord Developer Portal under the same application that owns the bot. The OAuth2 redirect URI(s) will also need to be registered there.
+These come from the Discord Developer Portal under the same application that owns the bot.
 
-Additional env vars introduced by the chosen option (e.g. `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`) are listed in each option's component table below.
+**`DISCORD_REDIRECT_URI` explained:**
+
+OAuth2 Authorization Code flow works in two hops:
+
+1. The client sends the user to Discord's authorization page: `https://discord.com/oauth2/authorize?client_id=...&redirect_uri=...&response_type=code&scope=identify+guilds`
+2. After the user approves, Discord redirects their browser to the `redirect_uri` with an authorization `code` appended as a query parameter: `<redirect_uri>?code=abc123`
+
+`DISCORD_REDIRECT_URI` is that callback URL — the GroceryBot endpoint that receives the authorization code and exchanges it for tokens. For example:
+
+- Production: `https://api.grocerybot.net/auth/discord/callback`
+- Local dev: `http://localhost:8080/auth/discord/callback`
+
+This value must **exactly match** one of the redirect URIs registered in the Discord Developer Portal (under the application's OAuth2 settings). Discord will reject the authorization request if the `redirect_uri` parameter doesn't match a registered URI. This is a security measure to prevent authorization codes from being sent to attacker-controlled URLs.
+
+The env var is needed (rather than hardcoding) because the value differs across environments (local dev, staging, production).
+
+Additional env vars introduced by this approach (e.g. `JWT_SIGNING_KEY`) are listed in §4.2.
 
 ---
 
@@ -113,17 +130,11 @@ Additional env vars introduced by the chosen option (e.g. `DISCORD_REDIRECT_URI`
 
 ---
 
-## 4. Options
-
-Three options are presented below. They differ primarily in **where tokens are issued** and **how the API resolves the user's identity on each request**.
-
----
-
-### Option A — Discord OAuth2 + GroceryBot-Issued JWT
+## 4. Approach — Discord OAuth2 + GroceryBot-Issued JWT
 
 The GroceryBot backend drives the full OAuth2 Authorization Code flow with Discord and issues its own short-lived JWTs.
 
-#### Flow
+### 4.1 Flow
 
 1. **Client** opens `https://api.grocerybot.net/auth/discord` (or a configured URL) which redirects to Discord's authorization page.
 2. **Discord** redirects back to `https://api.grocerybot.net/auth/discord/callback?code=...`.
@@ -135,7 +146,7 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 8. When the user wants to select a guild, `GET /guilds` calls Discord `GET /users/@me/guilds` using the **stored Discord access token** for that user, cross-references with bot-installed guilds, and returns a **fresh** list. This means the guild list is always up-to-date at the moment of selection.
 9. CRUD endpoints accept a `guild_id` query parameter (or path segment). The middleware verifies the user's identity from the JWT; the handler verifies that the user is actually a member of the requested guild (either by a fresh Discord call or a short-lived cache).
 
-#### New/Changed Components
+### 4.2 New/Changed Components
 
 | Component | Change |
 |-----------|--------|
@@ -146,10 +157,12 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 |  | `GET /guilds` — fetch the user's guilds **live from Discord** (using stored Discord token), intersect with bot guilds, return fresh list. |
 | **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID. |
 | **Handlers** | Existing CRUD handlers resolve `guildID` from a request param instead of (only) from scope. Handler/middleware verifies user's guild membership (via cached Discord lookup or short-TTL cache). |
-| **Config** | New env vars: `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`. Uses assumed `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (see §2.5). |
+| **Config** | New env var: `JWT_SIGNING_KEY`. Uses `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_REDIRECT_URI` from §2.5. |
 | **Dependencies** | A JWT library (e.g. `golang-jwt/jwt`). |
 
-#### Pros
+### 4.3 Characteristics
+
+**Strengths:**
 
 - **Full control** over token lifetime, claims, and revocation.
 - **No per-request Discord API call for CRUD** — JWT is self-contained and verified locally. Discord is only called when the user fetches `GET /guilds` (guild selection screen) or when guild membership needs re-validation (short-TTL cache).
@@ -158,126 +171,33 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 - Supports **PKCE** extension for mobile (public) clients.
 - Can embed extra claims (user roles, tier info) to avoid DB lookups on hot paths.
 
-#### Cons
+**Trade-offs:**
 
-- More backend implementation work (OAuth2 callback handler, JWT issuance, Discord token storage, refresh logic).
 - Requires encrypted storage of the user's Discord access/refresh tokens server-side (for guild lookups).
 - Requires secure storage of `JWT_SIGNING_KEY` and `DISCORD_CLIENT_SECRET`.
 - Guild membership check on CRUD requests relies on a short-TTL cache for performance — a very recently removed guild member could still have access for the cache duration (e.g. 60 s).
 
 ---
 
-### Option B — Discord OAuth2 Passthrough (Use Discord Tokens Directly)
+## 5. Shared Concerns
 
-The client app handles the Discord OAuth2 flow itself (e.g. using Discord's SDK). The GroceryBot API receives the Discord access token on every request and validates it upstream.
+### 5.1 Guild Resolution
 
-#### Flow
-
-1. **Client** performs Discord OAuth2 (Authorization Code + PKCE for public clients) directly with Discord, obtaining an access token with scopes `identify guilds`.
-2. Client sends `Authorization: Bearer <discordAccessToken>` to GroceryBot API.
-3. **GroceryBot middleware** calls Discord `GET /users/@me` (and optionally `GET /users/@me/guilds`) to validate the token and extract the user's identity + guild memberships.
-4. Middleware caches the validation result briefly (e.g. 60 s in-memory) keyed by token hash to avoid hammering Discord.
-5. CRUD endpoints accept `guild_id` as a request parameter; middleware checks it against the user's guild list intersected with bot-installed guilds.
-
-#### New/Changed Components
-
-| Component | Change |
-|-----------|--------|
-| **DB** | None required (stateless). |
-| **Routes** | `GET /guilds` — returns eligible guilds (fetched from Discord and filtered). |
-| **Middleware** | New `BearerDiscordMiddleware` that validates Discord tokens upstream. Dual-mode: Basic for legacy, Bearer for new flow. |
-| **Handlers** | Same CRUD changes as Option A (guild from request param). |
-| **Config** | Uses assumed `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (see §2.5) only if the backend needs to refresh tokens on behalf of the user. Otherwise, none. |
-| **Cache** | Extend `cache/` package for token-validation caching. |
-
-#### Pros
-
-- **Simplest backend** — no token issuance, no JWT signing, no refresh logic.
-- **No new DB tables** for sessions.
-- **Always-fresh** guild list (fetched from Discord on each request or short TTL cache).
-
-#### Cons
-
-- **Per-request Discord API call** (or per cache-miss). Discord API rate limits (50 req/s per token globally) may become a bottleneck under moderate load.
-- **Latency** — each uncached request adds ~100–300 ms for the Discord roundtrip.
-- **Token management on the client** — the client must handle Discord token refresh itself, which adds complexity to mobile/web apps.
-- **Less control** — cannot add custom claims; role/tier lookups always hit the DB.
-- If Discord has an **outage**, the GroceryBot API becomes unusable even though the data layer is fine.
-
----
-
-### Option C — Discord OAuth2 + GroceryBot-Issued Opaque Session Token
-
-Similar to Option A, but instead of a JWT, the backend issues an **opaque session token** stored in a server-side session table.
-
-#### Flow
-
-1–5. Same as Option A (backend-driven OAuth2, Discord token exchange, guild resolution).
-6. Backend generates a random opaque token (e.g. 64-char hex), stores it in a `user_sessions` table with `user_id`, `discord_access_token` (encrypted), `guild_ids`, `expires_at`.
-7. Client receives the opaque token and sends it as `Authorization: Bearer <sessionToken>` on subsequent requests.
-8. Middleware looks up the session in DB, verifies expiry, extracts user ID and guilds.
-9. A background job or on-demand refresh re-validates guild membership via the stored Discord token.
-
-#### New/Changed Components
-
-| Component | Change |
-|-----------|--------|
-| **DB** | New `user_sessions` table: `token_hash`, `user_id`, `discord_user_id`, `discord_access_token` (encrypted), `discord_refresh_token` (encrypted), `guild_ids` (JSON), `expires_at`, `created_at`. |
-| **Routes** | Same as Option A (`/auth/discord`, `/auth/discord/callback`, `/auth/refresh`, `/guilds`). |
-| **Middleware** | Bearer path does a DB lookup by token hash instead of JWT verification. |
-| **Config** | New env vars: `DISCORD_REDIRECT_URI`, `SESSION_ENCRYPTION_KEY`. Uses assumed `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (see §2.5). |
-
-#### Pros
-
-- **Immediate revocation** — delete the session row and the token is invalid.
-- **Can store Discord tokens server-side** for background guild refresh, avoiding stale data.
-- **No JWT signing key** to manage or rotate.
-- Familiar session-based pattern.
-
-#### Cons
-
-- **DB lookup on every request** — adds latency; mitigated by in-memory cache with short TTL.
-- **More storage** — session table grows with active users; needs cleanup job.
-- **Encrypted token storage** — storing Discord tokens at rest requires an encryption key and adds operational complexity.
-- More implementation work than Option B.
-
----
-
-## 5. Comparison Matrix
-
-| Criteria | Option A (JWT) | Option B (Passthrough) | Option C (Opaque Session) |
-|----------|:-:|:-:|:-:|
-| Backend complexity | Medium | Low | Medium–High |
-| Per-request external call | No (CRUD); Yes (guild selection) | Yes (every request) | No (DB lookup) |
-| Latency overhead | Minimal for CRUD | ~100–300 ms per request | Minimal (DB) |
-| Token revocation | Hard (wait for expiry or blocklist) | N/A (Discord controls) | Instant (delete row) |
-| Guild freshness | Fresh at selection; cached for CRUD | Always fresh | Stale until background refresh |
-| Discord outage resilience | CRUD unaffected; guild selection blocked | API fully blocked | CRUD unaffected; guild refresh blocked |
-| Client complexity | Low (just store JWT) | Medium (handle Discord OAuth + refresh) | Low (just store token) |
-| New DB tables | 1 (user sessions / Discord tokens) | 0 | 1 |
-| Dependency on Discord at runtime | Login + guild selection | Every request | Login + background refresh |
-
----
-
-## 6. Shared Concerns (Regardless of Option)
-
-### 6.1 Guild Resolution
-
-All options need a way to determine which guilds the bot is installed in. Two approaches:
+The `GET /guilds` endpoint and CRUD guild-membership checks need a way to determine which guilds the bot is installed in. Two approaches:
 
 - **A) Bot session state** — `discordgo.Session.State.Guilds` holds the bot's current guild list in memory. Fast, but only available in the bot process, not a separate API process.
 - **B) DB-derived** — query distinct `guild_id` values from `guild_configs` or `grocery_entries`. Slightly stale if the bot joins a guild but no config row exists yet.
 
 Since the API runs in-process (goroutine in `main.go`), approach **(A)** is available and preferred.
 
-### 6.2 Authorization Within a Guild
+### 5.2 Authorization Within a Guild
 
 Currently, any holder of the guild API key can perform any operation. For user-scoped auth, decide:
 
 - **Permissive (recommended for MVP):** Any guild member can CRUD groceries on that guild. This mirrors the bot's Discord command behavior (no role restrictions except `/developer`).
 - **Role-based (future):** Check the user's Discord roles/permissions in the target guild before allowing mutations. Requires additional Discord API calls or caching role info.
 
-### 6.3 User Attribution (`updated_by_id`)
+### 5.3 User Attribution (`updated_by_id`)
 
 `GroceryEntry.UpdatedByID` stores the Discord user ID of whoever last created or edited the entry. It is used in Discord embeds (grohere) to show "Last updated by @user".
 
@@ -286,9 +206,9 @@ Currently, any holder of the guild API key can perform any operation. For user-s
 - **Discord commands** set this field server-side from `commandContext.AuthorID` — always correct.
 - **Basic auth API** has no concept of a user identity (the `AuthContext` only carries a guild `Scope`). The field is technically bindable from the JSON request body, but there is no server-side enforcement. In practice it is either client-supplied (untrusted) or null.
 
-**With user-scoped auth (JWT / session / Discord token):**
+**With JWT auth:**
 
-The middleware now knows the Discord user ID (from the JWT `sub` claim, session lookup, or Discord `/users/@me`). The `AuthContext` should be extended to carry this:
+The middleware now knows the Discord user ID (from the JWT `sub` claim). The `AuthContext` should be extended to carry this:
 
 ```go
 type AuthContext struct {
@@ -308,20 +228,20 @@ For **Basic auth** requests (no user identity), existing behavior is preserved �
 
 This is a net improvement: the field was already there but unused by the API. User-scoped auth fills it in properly for free.
 
-### 6.4 Backward Compatibility
+### 5.4 Backward Compatibility
 
 The existing Basic auth flow **must continue to work**. The middleware should support dual schemes:
 
 ```
 Authorization: Basic ...   → existing api_clients lookup (guild-scoped)
-Authorization: Bearer ...  → new user-scoped auth (JWT / session / Discord token)
+Authorization: Bearer ...  → new user-scoped auth (JWT)
 ```
 
 No changes to the existing `api_clients` table or `/developer` slash command.
 
-### 6.4 New Endpoint: `GET /guilds`
+### 5.5 New Endpoint: `GET /guilds`
 
-All options require a new endpoint that returns the guilds the authenticated user can interact with:
+A new endpoint returns the guilds the authenticated user can interact with:
 
 ```json
 GET /guilds
@@ -338,7 +258,7 @@ Response 200:
 
 This list is the intersection of the user's Discord guilds and the guilds where GroceryBot is installed.
 
-### 6.5 Guild Selection on CRUD Endpoints
+### 5.6 Guild Selection on CRUD Endpoints
 
 Currently, the guild is implicitly derived from the API key's scope. With user-scoped auth, the guild must be **explicitly specified** per request. Two patterns:
 
@@ -347,28 +267,28 @@ Currently, the guild is implicitly derived from the API key's scope. With user-s
 
 The path-prefix approach is more RESTful and avoids the risk of forgetting the query parameter, but either works. The middleware must verify the user has access to the specified guild.
 
-### 6.6 CORS
+### 5.7 CORS
 
 The allowed origins list (`GROCER_BOT_API_ALLOW_ORIGINS`) will need to include the mobile app's web view origin (if applicable) or the web app's domain.
 
-### 6.7 Rate Limiting
+### 5.8 Rate Limiting
 
 The current rate limiter keys on `clientID` (Basic auth) or IP. For Bearer auth, it should key on the Discord user ID to prevent per-user abuse while allowing shared IPs (e.g. NAT).
 
-### 6.8 Discord OAuth2 Scopes Needed
+### 5.9 Discord OAuth2 Scopes Needed
 
-Regardless of option, the Discord OAuth2 request needs these scopes:
+The Discord OAuth2 request needs these scopes:
 
 - `identify` — access to `GET /users/@me` (user ID, username, avatar).
 - `guilds` — access to `GET /users/@me/guilds` (list of guilds the user is in).
 
 No bot-level or message-level scopes are required.
 
-### 6.9 PKCE
+### 5.10 PKCE
 
 For public clients (SPA, mobile app), **PKCE (Proof Key for Code Exchange)** should be used with the Authorization Code flow. Discord supports PKCE. This removes the need for the client to hold a client secret.
 
-### 6.10 Missing CRUD Endpoints
+### 5.11 Missing CRUD Endpoints
 
 The current API is incomplete. The following operations exist in Discord commands but not in the API:
 
@@ -387,12 +307,11 @@ These are **not blockers** for the auth externalization work and can be added in
 
 ---
 
-## 7. Open Questions
+## 6. Open Questions
 
-1. **Which option do you prefer?** (A / B / C, or a hybrid.)
-2. **Authorization model:** Should any guild member be able to CRUD, or should we restrict to certain Discord roles/permissions?
-3. **Guild selection UX:** Query parameter (`?guild_id=`) or path prefix (`/guilds/:guildID/...`) for guild-scoped endpoints?
-4. **Token lifetime:** For Option A/C, what should the access token TTL be? (Suggestion: 15 min access / 7 day refresh.)
-5. **Deployment:** Does the API remain an in-process goroutine, or will it be separated into its own service in the future? This affects guild resolution (bot session state vs DB).
-6. **Mobile platform:** Native iOS/Android or a web-based app (React Native, Flutter, PWA)? This affects the OAuth2 redirect URI scheme (`https://` vs custom scheme like `grocerybot://`).
-7. **Do we need to support the web app using the existing Basic auth as well?** (e.g. should the web app be able to fall back to a guild API key if the user is not logged in via Discord?)
+1. **Authorization model:** Should any guild member be able to CRUD, or should we restrict to certain Discord roles/permissions?
+2. **Guild selection UX:** Query parameter (`?guild_id=`) or path prefix (`/guilds/:guildID/...`) for guild-scoped endpoints?
+3. **Token lifetime:** What should the JWT access token TTL be? (Suggestion: 15 min access / 7 day refresh.)
+4. **Deployment:** Does the API remain an in-process goroutine, or will it be separated into its own service in the future? This affects guild resolution (bot session state vs DB).
+5. **Mobile platform:** Native iOS/Android or a web-based app (React Native, Flutter, PWA)? This affects the OAuth2 redirect URI scheme (`https://` vs custom scheme like `grocerybot://`).
+6. **Do we need to support the web app using the existing Basic auth as well?** (e.g. should the web app be able to fall back to a guild API key if the user is not logged in via Discord?)
