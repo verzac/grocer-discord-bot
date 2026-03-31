@@ -349,10 +349,87 @@ These are **not blockers** for the auth externalization work and can be added in
 
 ---
 
-## 6. Open Questions
+## 6. Acceptance Criteria
+
+### AC-1: Discord OAuth2 Login
+
+- [ ] `GET /auth/discord` redirects the user to Discord's authorization page with `response_type=code`, the configured `client_id`, `redirect_uri`, `scope=identify guilds`, and a random `state` parameter.
+- [ ] `GET /auth/discord/callback` accepts the `code` and `state` query parameters, validates the state, exchanges the code for a Discord access + refresh token via Discord's token endpoint, and calls `GET /users/@me` to resolve the Discord user ID.
+- [ ] On successful callback, the endpoint returns a GroceryBot JWT access token and a refresh token to the client.
+- [ ] The Discord access token and refresh token are stored server-side (encrypted) in the `user_sessions` table, associated with the Discord user ID.
+- [ ] If the `state` parameter is missing or does not match, the callback returns `400`.
+- [ ] If the Discord code exchange fails, the callback returns an appropriate error (e.g. `401` or `502`).
+
+### AC-2: JWT Access Token
+
+- [ ] The JWT contains at minimum: `sub` (Discord user ID), `iat` (issued at), `exp` (expiration).
+- [ ] The JWT is signed using `JWT_SIGNING_KEY` (HMAC-SHA256 or equivalent).
+- [ ] The JWT has a short TTL (configurable; suggested default 15 minutes).
+- [ ] API endpoints that require authentication accept `Authorization: Bearer <jwt>` and verify the signature + expiry.
+- [ ] An expired or malformed JWT returns `401`.
+- [ ] An invalid signature returns `403`.
+
+### AC-3: Refresh Token
+
+- [ ] On login, a long-lived refresh token is issued alongside the JWT and stored (hashed) in the `user_sessions` table with an expiry (configurable; suggested default 7 days).
+- [ ] `POST /auth/refresh` accepts a refresh token in the request body, validates it (hash lookup + expiry check), and returns a new JWT access token.
+- [ ] If the refresh token is expired or not found, `POST /auth/refresh` returns `401`, forcing the user to re-authenticate with Discord.
+- [ ] A user can stay logged in for the refresh token's lifetime without re-authenticating with Discord.
+
+### AC-4: Guild Listing
+
+- [ ] `GET /guilds` is accessible only with a valid Bearer JWT.
+- [ ] The endpoint calls Discord `GET /users/@me/guilds` using the stored Discord access token for the authenticated user.
+- [ ] The returned list is the intersection of the user's Discord guilds and the guilds where GroceryBot is installed.
+- [ ] Each guild object in the response includes at minimum: `id`, `name`, `icon`.
+- [ ] If the stored Discord token is expired, the backend refreshes it using the stored Discord refresh token before retrying the guild fetch.
+- [ ] If the Discord token cannot be refreshed (e.g. user revoked access), the endpoint returns `401` with a message indicating re-authentication is required.
+
+### AC-5: Guild-Scoped CRUD with Bearer Auth
+
+- [ ] Existing CRUD endpoints (`GET /grocery-lists`, `POST /groceries`, `DELETE /groceries/:id`) accept a guild identifier (query parameter or path segment — see open question §7.2) when authenticated via Bearer JWT.
+- [ ] The middleware/handler verifies that the authenticated user is a member of the specified guild before processing the request.
+- [ ] If the user is not a member of the specified guild, the endpoint returns `403`.
+- [ ] If no guild is specified on a Bearer-auth request, the endpoint returns `400`.
+- [ ] The guild membership check may use a short-TTL cache (e.g. 60 s) for performance.
+
+### AC-6: User Attribution
+
+- [ ] When a Bearer-authenticated user creates a grocery entry (`POST /groceries`), the `updated_by_id` field is set server-side to the Discord user ID from the JWT — regardless of what the client sends in the body.
+- [ ] When a Bearer-authenticated user modifies a grocery entry (future edit endpoint), the same override applies.
+- [ ] For Basic-auth requests, existing behavior is preserved (no server-side override of `updated_by_id`).
+
+### AC-7: Backward Compatibility
+
+- [ ] All existing API endpoints continue to work with `Authorization: Basic` (guild-scoped `api_clients` auth) exactly as before.
+- [ ] The `/developer` slash command is unchanged.
+- [ ] The `api_clients` table and its schema are unchanged.
+- [ ] The `/metrics` endpoint remains unauthenticated.
+- [ ] Existing CORS, rate limiting, timeout, and recovery middleware remain functional.
+
+### AC-8: Rate Limiting
+
+- [ ] For Bearer-auth requests, the rate limiter keys on the Discord user ID (from the JWT `sub` claim) rather than the IP address.
+- [ ] For Basic-auth requests, the existing rate limiter behavior (keyed on `clientID`) is preserved.
+
+### AC-9: Database Migration
+
+- [ ] A new migration file is added to `db/changelog/` that creates the `user_sessions` table.
+- [ ] The migration runs automatically on startup, consistent with existing migration behavior.
+- [ ] The migration is backward-compatible — it does not alter any existing tables.
+
+### AC-10: Configuration
+
+- [ ] The feature requires the following env vars to be set: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`.
+- [ ] If any of the Discord OAuth2 env vars are missing, the OAuth2 routes (`/auth/*`, `/guilds`) are not registered, but the rest of the API (including Basic auth) continues to work. The bot does not panic.
+- [ ] The `DISCORD_REDIRECT_URI` must exactly match a redirect URI registered in the Discord Developer Portal.
+
+---
+
+## 7. Open Questions
 
 1. **Authorization model:** Should any guild member be able to CRUD, or should we restrict to certain Discord roles/permissions?
-2. **Guild selection UX:** Query parameter (`?guild_id=`) or path prefix (`/guilds/:guildID/...`) for guild-scoped endpoints?
+2. **Guild selection UX:** Query parameter (`?guild_id=`) or path prefix (`/guilds/:guildID/...`) for guild-scoped endpoints? (Referenced by AC-5.)
 3. **Token lifetimes:** What TTLs for the JWT access token and refresh token? (Suggestion: 15 min access / 7 day refresh. Refresh token rotation optional.)
 4. **Deployment:** Does the API remain an in-process goroutine, or will it be separated into its own service in the future? This affects guild resolution (bot session state vs DB).
 5. **Mobile platform:** Native iOS/Android or a web-based app (React Native, Flutter, PWA)? This affects the OAuth2 redirect URI scheme (`https://` vs custom scheme like `grocerybot://`).
