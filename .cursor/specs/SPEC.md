@@ -158,7 +158,7 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 | **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID. |
 | **Handlers** | Existing CRUD handlers resolve `guildID` from a request param instead of (only) from scope. Handler/middleware verifies user's guild membership (via cached Discord lookup or short-TTL cache). |
 | **Config** | New env var: `JWT_SIGNING_KEY`. Uses `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_REDIRECT_URI` from §2.5. |
-| **Dependencies** | A JWT library (e.g. `golang-jwt/jwt`). |
+| **Dependencies** | `golang.org/x/oauth2` (OAuth2 flow), `github.com/golang-jwt/jwt/v5` (JWT signing/verification). See §4.5. |
 
 ### 4.3 Characteristics
 
@@ -188,79 +188,36 @@ Refresh tokens are a **must** — users should not have to re-authenticate with 
 
 This means a user stays logged in for the refresh token's lifetime without ever seeing Discord's OAuth2 page again.
 
-### 4.5 Implementation: Auth0 vs Self-Rolled vs Go Libraries
+### 4.5 Dependencies
 
-There are three implementation paths for the OAuth2 + JWT layer. Below is an evaluation.
+Two standard Go packages handle the OAuth2 + JWT layer:
 
-#### Path 1 — Auth0 (Managed Identity Provider)
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `golang.org/x/oauth2` | latest | OAuth2 Authorization Code flow with Discord: code exchange, token refresh, HTTP client injection. |
+| `github.com/golang-jwt/jwt/v5` | v5.3.1+ | Sign and verify GroceryBot-issued JWTs (HMAC-SHA256 or similar). |
 
-Auth0 supports Discord as a social connection out of the box. It handles the OAuth2 flow, token issuance, refresh tokens, and user management.
+We self-roll the Discord OAuth2 integration rather than using a managed provider (Auth0) or a multi-provider framework (`goth`, `disgo`). Rationale:
 
-**How it would work:**
+- **Auth0 was evaluated and ruled out.** It supports Discord as a social connection, but retrieving the user's Discord access token (needed for `GET /users/@me/guilds`) requires Auth0's Token Vault + Management API — adding indirection and a runtime dependency for a single-provider use case. It makes sense for multi-provider auth; not here.
+- **Higher-level Go libraries** (`markbates/goth`, `disgoorg/disgo/oauth2`) bring session/state abstractions that may conflict with Echo's middleware. None handle the guild-intersection logic we need regardless.
+- **Discord is not an OIDC provider** (no `id_token`, no `.well-known/openid-configuration`), so OIDC-focused libraries add no value.
+- The total implementation surface is small: state parameter generation, PKCE, callback handler, Discord token storage, refresh logic, and JWT signing middleware — a few hundred lines.
 
-- Configure Discord as a social connection in Auth0 Dashboard.
-- The client app uses Auth0's SDK to log in (Auth0 redirects to Discord, handles callback, issues Auth0 JWTs + refresh tokens).
-- GroceryBot API validates Auth0 JWTs using Auth0's JWKS endpoint or a shared signing key.
-- To call Discord's `GET /users/@me/guilds`, we need the user's **Discord access token** — Auth0 can store this via its **Token Vault / Connected Accounts** feature.
+`golang.org/x/oauth2` requires a Discord endpoint config (auth URL + token URL). This is ~5 lines of setup:
 
-**Pricing:** Free tier covers 25,000 MAU, unlimited social connections, no credit card required. More than sufficient for GroceryBot's scale.
-
-**Verdict: Overkill for this use case.** Here's why:
-
-| Concern | Detail |
-|---------|--------|
-| **Guild access** | We need to call Discord's API with the user's Discord token to fetch guilds. Auth0 doesn't natively expose the upstream provider's access token to your API — you need Token Vault (Connected Accounts) to retrieve it, which adds complexity and an Auth0 Management API call on the hot path. |
-| **Indirection** | Auth0 sits between us and Discord. We'd authenticate with Auth0, then separately fetch Discord tokens from Auth0's Token Vault to call Discord APIs. Two hops where one suffices. |
-| **Operational dependency** | Adds Auth0 as a runtime dependency. If Auth0 is down, users can't log in or refresh tokens — even though Discord and our DB are fine. |
-| **Scope mismatch** | Auth0 is designed for apps with multiple identity providers (Google, GitHub, email/password, SSO). GroceryBot has exactly one: Discord. The multi-provider abstraction adds overhead we don't need. |
-| **Custom scopes** | We need `identify` + `guilds` scopes from Discord. Configurable in Auth0, but requires careful setup via `connection_scope` — not the default path. |
-| **Refresh tokens** | Auth0 handles refresh tokens for its own JWTs (good), but we also need to refresh the **Discord** token stored in Token Vault for guild lookups. This means managing two refresh cycles. |
-
-Auth0 would make sense if GroceryBot needed multi-provider auth (e.g. Google + Discord + email/password), enterprise SSO, or MFA. For a single Discord-only login with guild-specific API access, it introduces more complexity than it removes.
-
-#### Path 2 — Self-Rolled (Manual OAuth2 + JWT)
-
-Write the OAuth2 code exchange, JWT issuance, and refresh token logic directly using `golang.org/x/oauth2` + `golang-jwt/jwt/v5`.
-
-**Pros:**
-- Minimal dependencies; full control.
-- No abstraction mismatch — we call Discord directly.
-- `golang-jwt/jwt/v5` (v5.3.1) is the standard Go JWT library, well-maintained, supports HMAC/RSA/ECDSA signing.
-- `golang.org/x/oauth2` is Go's standard OAuth2 client — handles code exchange, token refresh, and HTTP client injection.
-
-**Cons:**
-- Must implement: state parameter generation/validation, PKCE, callback handler, token storage, refresh logic, JWT signing/verification middleware.
-- More boilerplate than using a framework, but the total surface area is small (a few hundred lines).
-
-#### Path 3 — Go OAuth2/OIDC Libraries with Discord Support
-
-Several Go libraries wrap the OAuth2 flow with Discord-specific providers:
-
-| Library | What it does | Refresh tokens | Discord guilds | Notes |
-|---------|-------------|:-:|:-:|-------|
-| **`markbates/goth`** (v1.82) | Multi-provider OAuth2 framework with session management. Discord provider built-in. | Yes (`RefreshToken()`) | Not built-in (call Discord API yourself) | Most established; 50+ providers. Brings its own session abstraction (cookie/gorilla). May conflict with Echo's patterns. |
-| **`disgoorg/disgo/oauth2`** | Discord-specific OAuth2 module with state management. | Yes | Yes (Discord-native SDK) | Part of the larger `disgo` Discord library. More Discord-aware than generic OAuth2 libs, but pulls in a larger dependency tree. |
-| **`notclynt/discord-oauth2`** | Thin Discord endpoint config for `golang.org/x/oauth2`. | Via `golang.org/x/oauth2` | Not built-in | Extremely lightweight — just provides the Discord `oauth2.Endpoint`. Almost identical to self-rolling with `golang.org/x/oauth2`. |
-| **`zekith/oauthgo`** (2025) | Modern OAuth2/OIDC lib with 50+ providers, PKCE, state/nonce validation. | Yes | Not built-in | Newer, less battle-tested. Good security defaults (PKCE, replay protection). |
-
-#### Recommendation
-
-**Path 2 (self-rolled) or `notclynt/discord-oauth2`** (which is effectively Path 2 with pre-configured Discord endpoints). The reasoning:
-
-1. **Discord is not an OIDC provider** — it implements OAuth2 but not the OpenID Connect layer (no `id_token`, no `.well-known/openid-configuration`). OIDC-focused libs don't add value here.
-2. **We need guild access** — no library handles the `GET /users/@me/guilds` → intersect with bot guilds → cache pattern. We'll write that regardless.
-3. **JWT issuance is ours** — we issue GroceryBot JWTs, not Discord tokens. The JWT layer is independent of the OAuth2 library.
-4. **Refresh is straightforward** — `golang.org/x/oauth2` already handles Discord token refresh. Our own refresh tokens are a simple DB lookup + new JWT.
-5. **Minimal coupling** — `goth` and `disgo` bring their own session/state abstractions that may conflict with Echo middleware patterns. The lighter the dependency, the easier to maintain.
-
-**Concrete dependencies:**
-
-| Package | Purpose |
-|---------|---------|
-| `golang.org/x/oauth2` | OAuth2 code exchange, Discord token refresh. |
-| `github.com/golang-jwt/jwt/v5` | Sign and verify GroceryBot JWTs. |
-
-Optionally add `github.com/notclynt/discord-oauth2` for pre-configured Discord endpoints (saves ~5 lines of config), but it's not required.
+```go
+var discordOAuthConfig = &oauth2.Config{
+    ClientID:     os.Getenv("DISCORD_CLIENT_ID"),
+    ClientSecret: os.Getenv("DISCORD_CLIENT_SECRET"),
+    RedirectURL:  os.Getenv("DISCORD_REDIRECT_URI"),
+    Scopes:       []string{"identify", "guilds"},
+    Endpoint: oauth2.Endpoint{
+        AuthURL:  "https://discord.com/api/oauth2/authorize",
+        TokenURL: "https://discord.com/api/oauth2/token",
+    },
+}
+```
 
 ---
 
