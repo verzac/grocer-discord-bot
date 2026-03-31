@@ -57,6 +57,19 @@ API consumer sends:  Authorization: Basic base64(guildID:clientSecret)
 
 CORS (configurable origins), 10 s timeout, rate limiter (10 req / 30 s per client ID or IP), panic recovery, custom validator.
 
+### 2.5 Assumed Environment Variables for OAuth2
+
+The following env vars are assumed to be pre-configured by the operator. They are **not currently used** anywhere in the codebase (the hardcoded client ID `815120759680532510` in invite URLs is a different concern — it's the bot's application ID for the OAuth2 bot-invite flow, not the user-facing OAuth2 flow).
+
+| Variable | Purpose |
+|----------|---------|
+| `DISCORD_CLIENT_ID` | Discord application client ID for the OAuth2 Authorization Code flow. |
+| `DISCORD_CLIENT_SECRET` | Discord application client secret for exchanging authorization codes for access tokens (server-side only). |
+
+These come from the Discord Developer Portal under the same application that owns the bot. The OAuth2 redirect URI(s) will also need to be registered there.
+
+Additional env vars introduced by the chosen option (e.g. `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`) are listed in each option's component table below.
+
 ---
 
 ## 3. Desired User Flow
@@ -133,7 +146,7 @@ The GroceryBot backend drives the full OAuth2 Authorization Code flow with Disco
 |  | `GET /guilds` — fetch the user's guilds **live from Discord** (using stored Discord token), intersect with bot guilds, return fresh list. |
 | **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID. |
 | **Handlers** | Existing CRUD handlers resolve `guildID` from a request param instead of (only) from scope. Handler/middleware verifies user's guild membership (via cached Discord lookup or short-TTL cache). |
-| **Config** | New env vars: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`. |
+| **Config** | New env vars: `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`. Uses assumed `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (see §2.5). |
 | **Dependencies** | A JWT library (e.g. `golang-jwt/jwt`). |
 
 #### Pros
@@ -174,7 +187,7 @@ The client app handles the Discord OAuth2 flow itself (e.g. using Discord's SDK)
 | **Routes** | `GET /guilds` — returns eligible guilds (fetched from Discord and filtered). |
 | **Middleware** | New `BearerDiscordMiddleware` that validates Discord tokens upstream. Dual-mode: Basic for legacy, Bearer for new flow. |
 | **Handlers** | Same CRUD changes as Option A (guild from request param). |
-| **Config** | Potentially `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` only if the backend needs to refresh tokens on behalf of the user. Otherwise, none. |
+| **Config** | Uses assumed `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (see §2.5) only if the backend needs to refresh tokens on behalf of the user. Otherwise, none. |
 | **Cache** | Extend `cache/` package for token-validation caching. |
 
 #### Pros
@@ -212,7 +225,7 @@ Similar to Option A, but instead of a JWT, the backend issues an **opaque sessio
 | **DB** | New `user_sessions` table: `token_hash`, `user_id`, `discord_user_id`, `discord_access_token` (encrypted), `discord_refresh_token` (encrypted), `guild_ids` (JSON), `expires_at`, `created_at`. |
 | **Routes** | Same as Option A (`/auth/discord`, `/auth/discord/callback`, `/auth/refresh`, `/guilds`). |
 | **Middleware** | Bearer path does a DB lookup by token hash instead of JWT verification. |
-| **Config** | `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `SESSION_ENCRYPTION_KEY`. |
+| **Config** | New env vars: `DISCORD_REDIRECT_URI`, `SESSION_ENCRYPTION_KEY`. Uses assumed `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (see §2.5). |
 
 #### Pros
 
