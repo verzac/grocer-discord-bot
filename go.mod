@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.40.32
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/go-playground/validator/v10 v10.10.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.15.0
 	github.com/joho/godotenv v1.3.0
 	github.com/labstack/echo/v4 v4.6.3
@@ -16,6 +17,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/crypto v0.31.0
+	golang.org/x/oauth2 v0.24.0
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.14
 )
