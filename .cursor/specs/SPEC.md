@@ -264,7 +264,38 @@ Currently, any holder of the guild API key can perform any operation. For user-s
 - **Permissive (recommended for MVP):** Any guild member can CRUD groceries on that guild. This mirrors the bot's Discord command behavior (no role restrictions except `/developer`).
 - **Role-based (future):** Check the user's Discord roles/permissions in the target guild before allowing mutations. Requires additional Discord API calls or caching role info.
 
-### 6.3 Backward Compatibility
+### 6.3 User Attribution (`updated_by_id`)
+
+`GroceryEntry.UpdatedByID` stores the Discord user ID of whoever last created or edited the entry. It is used in Discord embeds (grohere) to show "Last updated by @user".
+
+**Current behavior:**
+
+- **Discord commands** set this field server-side from `commandContext.AuthorID` — always correct.
+- **Basic auth API** has no concept of a user identity (the `AuthContext` only carries a guild `Scope`). The field is technically bindable from the JSON request body, but there is no server-side enforcement. In practice it is either client-supplied (untrusted) or null.
+
+**With user-scoped auth (JWT / session / Discord token):**
+
+The middleware now knows the Discord user ID (from the JWT `sub` claim, session lookup, or Discord `/users/@me`). The `AuthContext` should be extended to carry this:
+
+```go
+type AuthContext struct {
+    echo.Context
+    Scope   string // Basic auth: guild-scoped (existing)
+    UserID  string // Bearer auth: Discord user ID (new)
+    GuildID string // resolved from scope or request param (new)
+}
+```
+
+CRUD handlers should **override** `UpdatedByID` server-side when a user ID is available, matching what the Discord command handlers already do. This means:
+
+- `POST /groceries` → set `groceryEntry.UpdatedByID = &authContext.UserID`
+- Future `PUT /groceries/:id` (edit) → set `entry.UpdatedByID = &authContext.UserID`
+
+For **Basic auth** requests (no user identity), existing behavior is preserved — `UpdatedByID` remains whatever the client sent or null.
+
+This is a net improvement: the field was already there but unused by the API. User-scoped auth fills it in properly for free.
+
+### 6.4 Backward Compatibility
 
 The existing Basic auth flow **must continue to work**. The middleware should support dual schemes:
 
