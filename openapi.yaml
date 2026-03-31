@@ -55,6 +55,60 @@ paths:
           $ref: "#/components/responses/UnauthorizedError"
         "403":
           $ref: "#/components/responses/ForbiddenError"
+    post:
+      summary: POST Grocery List
+      description: "Create a new grocery list for your server with a unique `list_label`. Optional `fancy_name` is the display name. You cannot set `id`, `guild_id`, or timestamps; they are assigned by the server. Same per-server limits apply as in Discord (`!grolist new`)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroceryListRequest"
+      responses:
+        "201":
+          description: The grocery list was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryList"
+        "400":
+          description: Validation failed, duplicate list_label, or maximum grocery lists for the server reached.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+  /grocery-lists/{id}:
+    delete:
+      summary: DELETE Grocery List
+      description: "Delete a grocery list by ID (from GET /grocery-lists). If the list still has grocery entries, the request fails with 409 unless `force=true`, in which case entries are cleared first, then the list is removed."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The grocery list ID.
+          schema:
+            type: integer
+            format: int64
+        - name: force
+          in: query
+          required: false
+          description: If true and the list is non-empty, clears all entries on that list then deletes the list. Accepts values parseable as booleans (e.g. true, 1, false, 0).
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "204":
+          description: The grocery list was deleted.
+        "400":
+          description: Invalid ID or invalid force parameter.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          description: Grocery list not found.
+        "409":
+          description: The list has entries and force was not set to true.
   /groceries:
     post:
       # tags:
@@ -146,6 +200,18 @@ components:
         grocery_list_id:
           type: int
           description: The foreign key pointing to a particular grocery list in your server. A null value means that this belongs to the server's default grocery list.
+          nullable: true
+    CreateGroceryListRequest:
+      type: object
+      required:
+        - list_label
+      properties:
+        list_label:
+          type: string
+          description: Unique label for this list within the server (e.g. used as `!gro:label`).
+        fancy_name:
+          type: string
+          description: Optional display name; omit or empty for label-only display.
           nullable: true
     GroceryList:
       type: object

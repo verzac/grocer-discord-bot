@@ -78,6 +78,121 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		}
 		return c.JSON(200, out)
 	})
+	e.POST("/grocery-lists", func(c echo.Context) error {
+		defer handlers.Recover(logger)
+		authContext := c.(*AuthContext)
+		ctx := c.Request().Context()
+		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+
+		registrationContext, err := registration.Service.GetRegistrationContext(guildID)
+		if err != nil {
+			return err
+		}
+
+		var req dto.CreateGroceryListRequest
+		if err := c.Bind(&req); err != nil {
+			return err
+		}
+		if err := c.Validate(&req); err != nil {
+			return echo.NewHTTPError(400, err.Error())
+		}
+
+		existingCount, err := groceryListRepo.Count(&models.GroceryList{GuildID: guildID})
+		if err != nil {
+			return c.String(500, err.Error())
+		}
+		if existingCount+1 >= int64(registrationContext.MaxGroceryListsPerServer) {
+			return echo.NewHTTPError(400, fmt.Sprintf(
+				"This server already has the maximum of %d grocery lists. Delete a list with DELETE /grocery-lists/{id} before creating another. The force query parameter does not apply when creating lists.",
+				registrationContext.MaxGroceryListsPerServer,
+			))
+		}
+
+		created, err := groceryListRepo.CreateGroceryList(guildID, req.ListLabel, req.FancyName)
+		if err != nil {
+			if err == repositories.ErrGroceryListDuplicate {
+				return echo.NewHTTPError(400, fmt.Sprintf("A grocery list with the label %q already exists for this server.", req.ListLabel))
+			}
+			return c.String(500, err.Error())
+		}
+
+		if err := grocery.Service.UpdateGuildGrohere(ctx, guildID); err != nil {
+			logger.Error("Failed to run UpdateGuildGrohere after creating grocery list", zap.Error(err))
+		}
+		return c.JSON(201, created)
+	})
+	e.DELETE("/grocery-lists/:id", func(c echo.Context) error {
+		defer handlers.Recover(logger)
+		authContext := c.(*AuthContext)
+		ctx := c.Request().Context()
+		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+
+		idStr := c.Param("id")
+		id, err := strconv.ParseUint(idStr, 10, 64)
+		if err != nil {
+			return echo.NewHTTPError(400, "Invalid ID format.")
+		}
+
+		groceryList, err := groceryListRepo.GetByQuery(&models.GroceryList{ID: uint(id), GuildID: guildID})
+		if err != nil {
+			return err
+		}
+		if groceryList == nil {
+			return echo.NewHTTPError(404, "Grocery list not found.")
+		}
+
+		count, err := groceryEntryRepo.GetCount(&models.GroceryEntry{GuildID: guildID, GroceryListID: &groceryList.ID})
+		if err != nil {
+			return err
+		}
+
+		force := false
+		if fq := c.QueryParam("force"); fq != "" {
+			var parseErr error
+			force, parseErr = strconv.ParseBool(fq)
+			if parseErr != nil {
+				return echo.NewHTTPError(400, "Invalid force parameter; use true or false.")
+			}
+		}
+
+		if count > 0 && !force {
+			return echo.NewHTTPError(409, fmt.Sprintf(
+				"This list still has %d entries. Clear them, use ?force=true to clear and delete the list, or remove items with DELETE /groceries/{id}.",
+				count,
+			))
+		}
+
+		if force && count > 0 {
+			_, rErr := groceryEntryRepo.WithContext(ctx).ClearGroceryList(groceryList, guildID)
+			if rErr != nil {
+				switch rErr.ErrCode {
+				case repositories.ErrCodeValidationError:
+					return echo.NewHTTPError(400, rErr.Error())
+				default:
+					return rErr
+				}
+			}
+			if err := grocery.Service.OnGroceryListEdit(ctx, groceryList, guildID); err != nil {
+				logger.Error("Failed to run OnGroceryListEdit after clearing grocery list", zap.Error(err))
+			}
+		}
+
+		if err := grocery.Service.RemoveGrohereBindingsForList(ctx, groceryList, guildID); err != nil {
+			return err
+		}
+
+		if err := groceryListRepo.Delete(groceryList); err != nil {
+			if err == repositories.ErrGroceryListNotFound {
+				return echo.NewHTTPError(404, "Grocery list not found.")
+			}
+			return err
+		}
+
+		if err := grocery.Service.UpdateGuildGrohere(ctx, guildID); err != nil {
+			logger.Error("Failed to run UpdateGuildGrohere after deleting grocery list", zap.Error(err))
+		}
+		return c.NoContent(204)
+	})
 	e.DELETE("/groceries/:id", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)

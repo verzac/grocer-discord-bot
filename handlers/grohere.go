@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	errCannotEditMsgWhenRemovingGrolist  = errors.New("Failed to edit message when grocery list was removed.")
 	errCannotEditMsgWhenReplacingGrohere = errors.New("Failed to edit !grohere message upon replacement.")
 )
 
@@ -117,20 +116,5 @@ func (m *MessageHandlerContext) onEditUpdateGrohereWithGroceryList() error {
 }
 
 func (m *MessageHandlerContext) onListRemoveGrohereRecord(groceryList *models.GroceryList) error {
-	record := models.GrohereRecord{}
-	if r := m.db.Model(&models.GrohereRecord{}).Where("guild_id = ? AND grocery_list_id = ?", m.commandContext.GuildID, groceryList.ID).Take(&record); r.Error != nil {
-		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			// nothing needs to be cleaned up
-			return nil
-		}
-		return m.onError(r.Error)
-	}
-	_, err := m.sess.ChannelMessageEdit(record.GrohereChannelID, record.GrohereMessageID, fmt.Sprintf(":shopping_cart: %s\n *:wave: This grocery list has been deleted. Type `!grohere:<your-new-grocery-list>` to get a self-updating message for your grocery list!*", groceryList.GetName()))
-	if err != nil {
-		m.LogError(errCannotEditMsgWhenRemovingGrolist, zap.String("DiscordErr", err.Error()))
-	}
-	if r := m.db.Delete(record); r.Error != nil {
-		return m.onError(r.Error)
-	}
-	return nil
+	return m.groceryService.RemoveGrohereBindingsForList(context.Background(), groceryList, m.commandContext.GuildID)
 }

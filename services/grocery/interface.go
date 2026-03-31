@@ -22,6 +22,7 @@ type GroceryService interface {
 	OnGroceryListEdit(ctx context.Context, groceryList *models.GroceryList, guildID string) error
 	UpdateGuildGrohere(ctx context.Context, guildID string) error
 	ProcessListlessGroceries(ctx context.Context, groceries []models.GroceryEntry) error
+	RemoveGrohereBindingsForList(ctx context.Context, groceryList *models.GroceryList, guildID string) error
 }
 
 type GroceryServiceImpl struct {
