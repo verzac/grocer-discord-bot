@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/verzac/grocer-discord-bot/auth"
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/models"
@@ -27,10 +27,10 @@ var (
 	guildRegistrationRepo repositories.GuildRegistrationRepository
 	groceryListRepo       repositories.GroceryListRepository
 	apiClientRepo         repositories.ApiClientRepository
+	userSessionRepo       repositories.UserSessionRepository
 )
 
-// RegisterAndStart starts the API handler goroutine. TO BE USED IN DEV ONLY FOR NOW
-func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
+func RegisterAndStart(logger *zap.Logger, db *gorm.DB, sess *discordgo.Session) error {
 	logger = logger.Named("api")
 	e := echo.New()
 	e.HideBanner = true
@@ -43,7 +43,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	e.Logger.SetHeader("L-${time_rfc3339} ${level} ${short_file}:${line}")
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: strings.Split(ao, ","),
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, headerGuildID},
 	}))
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		Timeout: 10 * time.Second,
@@ -55,14 +55,50 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	groceryListRepo = &repositories.GroceryListRepositoryImpl{DB: db}
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
+	userSessionRepo = &repositories.UserSessionRepositoryImpl{DB: db}
 
-	e.Use(AuthMiddleware(apiClientRepo, logger))
+	jwtKey := os.Getenv("JWT_SIGNING_KEY")
+	oauthCfg := discordOAuth2ConfigFromEnv()
+	oauthRoutesEnabled := oauthEnvComplete() && jwtKey != ""
+	if oauthEnvComplete() && jwtKey == "" {
+		logger.Warn("Discord OAuth env vars are set but JWT_SIGNING_KEY is empty; OAuth routes and Bearer auth are disabled.")
+	}
+
+	if oauthRoutesEnabled {
+		oauthDeps := newOAuthDeps(logger, userSessionRepo, oauthCfg, jwtKey)
+		e.GET("/auth/discord", oauthDeps.handleAuthDiscordStart)
+		e.GET("/auth/discord/callback", oauthDeps.handleAuthDiscordCallback)
+		e.POST("/auth/refresh", oauthDeps.handleAuthRefresh)
+	}
 
 	e.GET("/metrics", groprometheus.PrometheusHandler())
-	e.GET("/grocery-lists", func(c echo.Context) error {
+
+	authMw := AuthMiddleware(AuthMiddlewareDeps{
+		ApiKeyRepo:   apiClientRepo,
+		Logger:       logger,
+		OAuthEnabled: oauthRoutesEnabled,
+		JWTKey:       jwtKey,
+		BotSession:   sess,
+	})
+
+	protected := e.Group("")
+	protected.Use(authMw)
+
+	if oauthRoutesEnabled {
+		gh := &guildsHandlerDeps{
+			logger:          logger,
+			userSessionRepo: userSessionRepo,
+			oauth2Cfg:       oauthCfg,
+			encryptionKey:   jwtKey,
+			botSession:      sess,
+		}
+		protected.GET("/guilds", gh.handleGuilds)
+	}
+
+	protected.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 		groceryEntries, err := groceryEntryRepo.FindByQuery(&models.GroceryEntry{GuildID: guildID})
 		if err != nil {
 			return c.String(500, err.Error())
@@ -78,20 +114,18 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		}
 		return c.JSON(200, out)
 	})
-	e.DELETE("/groceries/:id", func(c echo.Context) error {
+	protected.DELETE("/groceries/:id", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)
 		ctx := c.Request().Context()
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 
-		// Parse ID from path parameter
 		idStr := c.Param("id")
 		id, err := strconv.ParseUint(idStr, 10, 64)
 		if err != nil {
 			return echo.NewHTTPError(400, "Invalid ID format.")
 		}
 
-		// Look up the grocery entry by ID and GuildID
 		entries, err := groceryEntryRepo.FindByQuery(&models.GroceryEntry{
 			ID:      uint(id),
 			GuildID: guildID,
@@ -104,7 +138,6 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		}
 		entry := entries[0]
 
-		// Resolve grocery list if the entry has one
 		var groceryList *models.GroceryList
 		if entry.GroceryListID != nil && *entry.GroceryListID != 0 {
 			groceryList, err = groceryListRepo.GetByQuery(&models.GroceryList{
@@ -116,23 +149,20 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 			}
 		}
 
-		// Delete the entry
 		if err := groceryEntryRepo.WithContext(ctx).Delete(ctx, &entry); err != nil {
 			return err
 		}
 
-		// Call post-deletion hook
 		if err := grocery.Service.OnGroceryListEdit(ctx, groceryList, guildID); err != nil {
 			logger.Error("Failed to run OnGroceryListEdit", zap.Error(err))
 		}
 
 		return c.NoContent(204)
 	})
-	// create new grocery
-	e.POST("/groceries", func(c echo.Context) error {
+	protected.POST("/groceries", func(c echo.Context) error {
 		authContext := c.(*AuthContext)
 		ctx := c.Request().Context()
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 		registrationContext, err := registration.Service.GetRegistrationContext(guildID)
 		if err != nil {
 			return err
@@ -149,9 +179,13 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		if groceryEntry.ID != 0 {
 			return echo.NewHTTPError(400, "ID must be empty.")
 		}
+		if authContext.UserID != "" {
+			uid := authContext.UserID
+			groceryEntry.UpdatedByID = &uid
+		}
 		var groceryList *models.GroceryList
 		if groceryEntry.GroceryListID != nil && *groceryEntry.GroceryListID != 0 {
-			groceryList, err := groceryListRepo.GetByQuery(&models.GroceryList{
+			groceryList, err = groceryListRepo.GetByQuery(&models.GroceryList{
 				ID:      *groceryEntry.GroceryListID,
 				GuildID: guildID,
 			})
@@ -184,34 +218,17 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		}
 		return c.JSON(201, inputEntries[0])
 	})
-	e.GET("/registrations", func(c echo.Context) error {
+	protected.GET("/registrations", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 		registrations, err := guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
 		if err != nil {
 			return c.String(500, err.Error())
 		}
 		return c.JSON(200, registrations)
 	})
-	// myUserID := "183947835467759617"
-	// myUsername := "verzac"
-	// myDiscriminator := "6377"
-	// if err := registrationEntitlementRepo.Save(&models.RegistrationEntitlement{
-	// 	// UserID: &myUserID,
-	// 	Username:              &myUsername,
-	// 	UsernameDiscriminator: &myDiscriminator,
-	// 	MaxRedemption:         99,
-	// 	RegistrationTierID:    1,
-	// }); err != nil {
-	// 	logger.Error("Failed to save entitlement.", zap.Error(err))
-	// }
-	// if err := guildRegistrationRepo.Save(&models.GuildRegistration{
-	// 	GuildID:                       "815482602278354944",
-	// 	RegistrationEntitlementUserID: "183947835467759617",
-	// }); err != nil {
-	// 	logger.Error("Failed to save registration.", zap.Error(err))
-	// }
+
 	logger.Info("Starting API!")
 	return e.Start(":8080")
 }
