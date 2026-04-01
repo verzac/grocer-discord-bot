@@ -56,14 +56,23 @@ func AuthMiddleware(
 			if id, ok := c.Get("rateLimitKey").(string); ok && id != "" {
 				return id, nil
 			}
-			return c.RealIP(), nil
+			if clientID, ok := c.Get("clientID").(string); ok {
+				return clientID, nil
+			} else {
+				return c.RealIP(), nil
+			}
 		},
 		Store: rateLimiterStore,
 	})
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			p := c.Request().URL.Path
-			if p == "/metrics" || p == "/auth/discord" || p == "/auth/discord/callback" ||
+			// skip auth for metrics endpoint
+			if p == "/metrics" {
+				return next(c)
+			}
+			// unauthenticated OAuth initiation, callback, and refresh
+			if p == "/auth/discord" || p == "/auth/discord/callback" ||
 				(p == "/auth/refresh" && c.Request().Method == http.MethodPost) {
 				return next(c)
 			}
@@ -103,6 +112,7 @@ func handleBasicAuth(
 	}
 	clientID := splitTokens[0]
 	clientSecret := splitTokens[1]
+	c.Set("clientID", clientID)
 	c.Set("rateLimitKey", "basic:"+clientID)
 
 	return rateLimitMiddleware(func(c echo.Context) error {

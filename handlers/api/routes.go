@@ -29,7 +29,7 @@ var (
 	apiClientRepo         repositories.ApiClientRepository
 )
 
-// RegisterAndStart starts the API handler goroutine.
+// RegisterAndStart starts the API handler goroutine. TO BE USED IN DEV ONLY FOR NOW
 func RegisterAndStart(logger *zap.Logger, db *gorm.DB, dg *discordgo.Session) error {
 	logger = logger.Named("api")
 	e := echo.New()
@@ -92,12 +92,14 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, dg *discordgo.Session) er
 		ctx := c.Request().Context()
 		guildID := authContext.ResolveGuildID()
 
+		// Parse ID from path parameter
 		idStr := c.Param("id")
 		id, err := strconv.ParseUint(idStr, 10, 64)
 		if err != nil {
 			return echo.NewHTTPError(400, "Invalid ID format.")
 		}
 
+		// Look up the grocery entry by ID and GuildID
 		entries, err := groceryEntryRepo.FindByQuery(&models.GroceryEntry{
 			ID:      uint(id),
 			GuildID: guildID,
@@ -110,6 +112,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, dg *discordgo.Session) er
 		}
 		entry := entries[0]
 
+		// Resolve grocery list if the entry has one
 		var groceryList *models.GroceryList
 		if entry.GroceryListID != nil && *entry.GroceryListID != 0 {
 			groceryList, err = groceryListRepo.GetByQuery(&models.GroceryList{
@@ -121,16 +124,19 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, dg *discordgo.Session) er
 			}
 		}
 
+		// Delete the entry
 		if err := groceryEntryRepo.WithContext(ctx).Delete(ctx, &entry); err != nil {
 			return err
 		}
 
+		// Call post-deletion hook
 		if err := grocery.Service.OnGroceryListEdit(ctx, groceryList, guildID); err != nil {
 			logger.Error("Failed to run OnGroceryListEdit", zap.Error(err))
 		}
 
 		return c.NoContent(204)
 	})
+	// create new grocery
 	e.POST("/groceries", func(c echo.Context) error {
 		authContext := c.(*AuthContext)
 		ctx := c.Request().Context()
@@ -157,8 +163,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, dg *discordgo.Session) er
 		}
 		var groceryList *models.GroceryList
 		if groceryEntry.GroceryListID != nil && *groceryEntry.GroceryListID != 0 {
-			var err error
-			groceryList, err = groceryListRepo.GetByQuery(&models.GroceryList{
+			groceryList, err := groceryListRepo.GetByQuery(&models.GroceryList{
 				ID:      *groceryEntry.GroceryListID,
 				GuildID: guildID,
 			})
@@ -201,6 +206,24 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, dg *discordgo.Session) er
 		}
 		return c.JSON(200, registrations)
 	})
+	// myUserID := "183947835467759617"
+	// myUsername := "verzac"
+	// myDiscriminator := "6377"
+	// if err := registrationEntitlementRepo.Save(&models.RegistrationEntitlement{
+	// 	// UserID: &myUserID,
+	// 	Username:              &myUsername,
+	// 	UsernameDiscriminator: &myDiscriminator,
+	// 	MaxRedemption:         99,
+	// 	RegistrationTierID:    1,
+	// }); err != nil {
+	// 	logger.Error("Failed to save entitlement.", zap.Error(err))
+	// }
+	// if err := guildRegistrationRepo.Save(&models.GuildRegistration{
+	// 	GuildID:                       "815482602278354944",
+	// 	RegistrationEntitlementUserID: "183947835467759617",
+	// }); err != nil {
+	// 	logger.Error("Failed to save registration.", zap.Error(err))
+	// }
 	logger.Info("Starting API!")
 	return e.Start(":8080")
 }
