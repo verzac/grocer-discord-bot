@@ -517,6 +517,10 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		// parse the command context - this is the main handler context that will be used to handle the command
 		commandContext, err := getCommandContext(i, commandName, db)
 		if err != nil {
+			logger.Error("Failed to build command context",
+				zap.Error(err),
+				zap.Any("interactionType", uint8(i.Type)),
+			)
 			onHandlingErrorRespond(logger, sess, i.Interaction)
 			return
 		}

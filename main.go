@@ -115,6 +115,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	d.ShouldReconnectOnError = true
 	logger.Info(fmt.Sprintf("Using %s\n", dsn))
 	db = dbUtils.Setup(dsn, logger.Named("db"), GroBotVersion)
 	services.InitServices(db, logger.Named("service"), d)
@@ -195,6 +196,11 @@ func main() {
 			zap.Int("totalServers", serverCount))
 	})
 
+	// track discord websocket disconnects
+	d.AddHandler(func(s *discordgo.Session, r *discordgo.Disconnect) {
+		logger.Warn("Discord websocket disconnected")
+	})
+
 	d.Identify.Intents = discordgo.IntentsGuildMessages
 	if err := d.Open(); err != nil {
 		panic(err)
@@ -226,5 +232,7 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 	logger.Info("Shutting down GroceryBot...")
-	d.Close()
+	if err := d.Close(); err != nil {
+		logger.Error("Error while closing Discord session", zap.Error(err))
+	}
 }

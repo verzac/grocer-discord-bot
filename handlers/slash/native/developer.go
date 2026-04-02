@@ -14,13 +14,17 @@ const customIDGenerateNewApiClient = "generate_new_api_client"
 
 var handleDeveloper NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 	if c.i.Member == nil {
-		c.reply("This command can only be used in a server (to generate your API Client).")
+		if err := c.reply("This command can only be used in a server (to generate your API Client)."); err != nil {
+			c.onError(err)
+		}
 		return
 	}
 	// check for perms
 	userPermissions := c.i.Member.Permissions
 	if userPermissions&discordgo.PermissionAdministrator != discordgo.PermissionAdministrator {
-		c.reply("This command can only be used by people with the Administrator permission in your server.")
+		if err := c.reply("This command can only be used by people with the Administrator permission in your server."); err != nil {
+			c.onError(err)
+		}
 		return
 	}
 	// check for existing API client
@@ -86,7 +90,9 @@ var handleDeveloperCreateNewApiClient NativeSlashHandler = func(c *NativeSlashHa
 		createNewApiClient(c)
 		return
 	} else {
-		c.reply("Got it - no problem! No new API Client has been created. Your old API Client ID & Client Secret should still work!")
+		if err := c.reply("Got it - no problem! No new API Client has been created. Your old API Client ID & Client Secret should still work!"); err != nil {
+			c.onError(err)
+		}
 		return
 	}
 }

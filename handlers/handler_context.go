@@ -250,13 +250,25 @@ func NewHandler(ctx context.Context, sess *discordgo.Session, cc *CommandContext
 	}
 }
 
+const discordErrorBodyLogMaxBytes = 512
+
 // onError handles errors coming in from the handlers and sends the appropriate err resp to the user. returns an error if an error occurs during error-handling; nil otherwise
 func (m *MessageHandlerContext) onError(err error) error {
+	skipRedundantErrLog := false
 	if discordError, ok := err.(*discordgo.RESTError); ok {
 		if discordError.Response.StatusCode == 400 {
 			discordErrorResponse := dto.DiscordError{}
 			if unmarshalErr := json.Unmarshal(discordError.ResponseBody, &discordErrorResponse); unmarshalErr != nil {
-				m.LogError(unmarshalErr)
+				bodySnippet := string(discordError.ResponseBody)
+				if len(bodySnippet) > discordErrorBodyLogMaxBytes {
+					bodySnippet = bodySnippet[:discordErrorBodyLogMaxBytes] + "...(truncated)"
+				}
+				m.logger.Error("Failed to parse Discord error response body",
+					zap.Error(unmarshalErr),
+					zap.NamedError("discord_error", err),
+					zap.String("response_body_snippet", bodySnippet),
+				)
+				skipRedundantErrLog = true
 			} else if discordErrorResponse.Code == 50035 {
 				maxLengthExceeded := false
 				for _, e := range discordErrorResponse.Errors.Content.Errors {
@@ -275,7 +287,9 @@ func (m *MessageHandlerContext) onError(err error) error {
 			}
 		}
 	}
-	m.LogError(err)
+	if !skipRedundantErrLog {
+		m.LogError(err)
+	}
 	_, sErr := m.sess.ChannelMessageSend(m.commandContext.ChannelID, utils.GenericErrorMessage(err))
 	if sErr != nil {
 		wrappedErr := errors.Wrap(err, sErr.Error())

@@ -16,12 +16,16 @@ const (
 
 var handleConfig NativeSlashHandler = func(c *NativeSlashHandlingContext) {
 	if c.i.Member == nil {
-		c.reply("This command can only be used in a server (since configurations are stored for each server).")
+		if err := c.reply("This command can only be used in a server (since configurations are stored for each server)."); err != nil {
+			c.onError(err)
+		}
 		return
 	}
 	userPermissions := c.i.Member.Permissions
 	if userPermissions&discordgo.PermissionAdministrator != discordgo.PermissionAdministrator {
-		c.reply("This command can only be used by people with the Administrator permission in your server.")
+		if err := c.reply("This command can only be used by people with the Administrator permission in your server."); err != nil {
+			c.onError(err)
+		}
 		return
 	}
 	guildID := c.i.GuildID
@@ -77,7 +81,9 @@ func getConfig(c *NativeSlashHandlingContext, config *models.GuildConfig) {
 		enabledStr(config.UseEphemeral), ContentUseEphemeralDescription,
 		enabledStr(!config.UseGrobulkAppend), ContentUseGrobulkReplaceDescription)
 
-	c.reply(strings.TrimSpace(message))
+	if err := c.reply(strings.TrimSpace(message)); err != nil {
+		c.onError(err)
+	}
 }
 
 func setConfig(c *NativeSlashHandlingContext, existingConfig *models.GuildConfig, optionNameToOptionsMapping map[string]*discordgo.ApplicationCommandInteractionDataOption) {
@@ -108,9 +114,13 @@ func setConfig(c *NativeSlashHandlingContext, existingConfig *models.GuildConfig
 
 	// reply with specific changes
 	if len(updatedSettings) == 0 {
-		c.reply("No configuration changes were made.\n\nDid you paste the command from somewhere? Discord doesn't allow me to read pasted commands :(")
+		if err := c.reply("No configuration changes were made.\n\nDid you paste the command from somewhere? Discord doesn't allow me to read pasted commands :("); err != nil {
+			c.onError(err)
+		}
 	} else {
 		message := fmt.Sprintf("✅ Configuration updated:\n\n%s", strings.Join(updatedSettings, "\n"))
-		c.reply(message)
+		if err := c.reply(message); err != nil {
+			c.onError(err)
+		}
 	}
 }
