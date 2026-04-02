@@ -15,7 +15,54 @@ import (
 
 const checkboxGroupMaxOptions = 10
 
+// Discord counts string length like JS (UTF-16 code units); labels must be 1–100.
+const discordCheckboxOptionLabelMaxUTF16 = 100
+
 const groremoveEntryFYIText = "FYI: You do not need to type in the items you'd like to remove manually; you can just select the checkboxes next time."
+
+func utf16UnitsForRune(r rune) int {
+	if r > 0xffff {
+		return 2
+	}
+	return 1
+}
+
+func utf16Len(s string) int {
+	n := 0
+	for _, r := range s {
+		n += utf16UnitsForRune(r)
+	}
+	return n
+}
+
+// truncateDiscordLabel returns a prefix of s whose UTF-16 length is at most maxUTF16.
+func truncateDiscordLabel(s string, maxUTF16 int) string {
+	if maxUTF16 <= 0 {
+		return ""
+	}
+	rs := []rune(s)
+	n := 0
+	i := 0
+	for i < len(rs) {
+		add := utf16UnitsForRune(rs[i])
+		if n+add > maxUTF16 {
+			break
+		}
+		n += add
+		i++
+	}
+	return string(rs[:i])
+}
+
+func groremoveCheckboxOptionLabel(index int, itemDesc string) string {
+	prefix := fmt.Sprintf("%d. ", index)
+	prefixLen := utf16Len(prefix)
+	if prefixLen >= discordCheckboxOptionLabelMaxUTF16 {
+		return truncateDiscordLabel(prefix, discordCheckboxOptionLabelMaxUTF16)
+	}
+	remaining := discordCheckboxOptionLabelMaxUTF16 - prefixLen
+	return prefix + truncateDiscordLabel(itemDesc, remaining)
+}
 
 func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected []string) []discordgo.MessageComponent {
 	nonce := rand.Int63()
@@ -34,7 +81,7 @@ func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected 
 			value := strconv.Itoa(absIdx + 1)
 			def := false
 			opt := discordgo.CheckboxGroupOption{
-				Label:   fmt.Sprintf("%d. %s", absIdx+1, g.ItemDesc),
+				Label:   groremoveCheckboxOptionLabel(absIdx+1, g.ItemDesc),
 				Value:   value,
 				Default: &def,
 			}

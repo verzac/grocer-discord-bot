@@ -135,6 +135,17 @@ func TestBuildGroremoveModalComponents_PreselectedSetsDefault(t *testing.T) {
 	}
 }
 
+func TestGroremoveCheckboxOptionLabel_TruncatesLongItemDesc(t *testing.T) {
+	long := strings.Repeat("a", 200)
+	label := groremoveCheckboxOptionLabel(9, long)
+	if utf16Len(label) > discordCheckboxOptionLabelMaxUTF16 {
+		t.Fatalf("label UTF-16 length %d > max %d: %q", utf16Len(label), discordCheckboxOptionLabelMaxUTF16, label)
+	}
+	if !strings.HasPrefix(label, "9. ") {
+		t.Fatalf("expected numbered prefix, got %q", label)
+	}
+}
+
 func TestBuildGroremoveModalComponents_PreselectedAcrossChunks(t *testing.T) {
 	names := make([]string, 15)
 	for i := range names {
