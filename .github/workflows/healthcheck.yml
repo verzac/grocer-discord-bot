@@ -37,5 +37,5 @@ jobs:
         if: failure()
         run: |
           curl -X POST -H 'Content-Type: application/json' \
-            -d '{"content":"Healthcheck failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' \
+            -d '{"content":"<@183947835467759617> Healthcheck failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","allowed_mentions":{"users":["183947835467759617"]}}' \
             "${{ secrets.HEALTHCHECK_ALERT_DISCORD_WEBHOOK_URL }}"
