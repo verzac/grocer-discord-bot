@@ -87,3 +87,11 @@ You may need the following env vars set up:
 
 - GROCER_BOT_TOKEN - your Discord bot token
 - GROCER_BOT_DSN - DSN target, by default it's set to "db/gorm.db"
+
+Optional (REST API user login via Discord OAuth2 + JWT; if any of `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, or `DISCORD_REDIRECT_URI` is unset, OAuth routes and Bearer auth are disabled and the API continues to use Basic auth only):
+
+- DISCORD_CLIENT_ID - Discord application OAuth2 client ID
+- DISCORD_CLIENT_SECRET - Discord application OAuth2 client secret (server-side only)
+- DISCORD_REDIRECT_URI - Must match a redirect URI in the Discord Developer Portal (e.g. `http://localhost:8080/auth/discord/callback`)
+- JWT_SIGNING_KEY - Required when the three Discord OAuth vars above are set; used to sign API JWTs and to encrypt stored Discord tokens
+- GROCER_BOT_API_ALLOW_ORIGINS - Comma-separated CORS origins (include your app origin; `X-Guild-ID` is allowed for CORS)
