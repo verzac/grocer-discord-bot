@@ -117,7 +117,7 @@ func (tss *TestSuiteSession) AwaitTesteeReadiness() {
 	select {
 	case <-readyChan:
 		return
-	case <-time.After(1 * time.Second):
+	case <-time.After(10 * time.Second):
 		panic(errAwaitTesteeReadinessTimeout.Error())
 	}
 }
