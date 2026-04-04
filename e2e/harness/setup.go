@@ -4,9 +4,12 @@ package harness
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -26,9 +29,17 @@ var (
 	errAwaitTesteeReadinessTimeout = errors.New("timed out when waiting for tested bot to come online")
 )
 
+func dotEnvPath() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("harness.dotEnvPath: runtime.Caller failed")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".env"))
+}
+
 func SetupTestSuite() *TestSuiteSession {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	if err := godotenv.Load("../.env"); err != nil {
+	if err := godotenv.Load(dotEnvPath()); err != nil {
 		log.Println("Cannot load .env file:", err.Error())
 	}
 	token := os.Getenv("E2E_BOT_TOKEN")
@@ -122,7 +133,8 @@ func (tss *TestSuiteSession) ClientUserID() string {
 }
 
 func (tss *TestSuiteSession) SendAndAwaitReply(msg string) *discordgo.Message {
-	_, err := tss.d.ChannelMessageSend(tss.channelID, msg)
+	// test that GroBot should work when mentioned (plus prod only accepts message commands if the bot is mentioned, so this is useful for the healthcheck)
+	_, err := tss.d.ChannelMessageSend(tss.channelID, fmt.Sprintf("<@%s> %s", tss.testeeClientID, msg))
 	if err != nil {
 		panic(err)
 	}

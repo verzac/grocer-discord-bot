@@ -16,6 +16,10 @@ full_e2e:
 e2e:
 	go test -tags=integration ./e2e/... -v -count=1
 
+.PHONY: healthcheck
+healthcheck:
+	go test -tags=healthcheck ./e2e/healthcheck/... -v -count=1
+
 docker_login:
 	aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(registry_uri)
 
