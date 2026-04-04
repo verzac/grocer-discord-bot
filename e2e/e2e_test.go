@@ -9,27 +9,28 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/verzac/grocer-discord-bot/e2e/harness"
 )
 
-var tss *testSuiteSession
+var tss *harness.TestSuiteSession
 
 func TestMain(m *testing.M) {
-	tss = setupTestSuite()
-	defer tss.recoverFromPanic()
+	tss = harness.SetupTestSuite()
+	defer tss.RecoverFromPanic()
 	code := m.Run()
 	tss.Cleanup()
 	os.Exit(code)
 }
 
-func setup(tss *testSuiteSession) {
-	defer tss.recoverFromPanic()
+func setup(tss *harness.TestSuiteSession) {
+	defer tss.RecoverFromPanic()
 	tss.SendAndAwaitReply("!groclear")
 	tss.SendAndAwaitReply("!grobulk\nChicken\nvery delicious milkshake")
 }
 
 func TestList(t *testing.T) {
 	setup(tss)
-	defer tss.recoverFromPanic()
+	defer tss.RecoverFromPanic()
 	assert := require.New(t)
 	listContent := tss.SendAndAwaitReply("!grolist").Content
 	assert.Contains(listContent, "1: Chicken")
@@ -39,7 +40,7 @@ func TestList(t *testing.T) {
 
 func TestRemoveAndClear(t *testing.T) {
 	setup(tss)
-	defer tss.recoverFromPanic()
+	defer tss.RecoverFromPanic()
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!grobulk Satay\nNasi padang\nTomato")
 	// note that we can just do a grobulk here because we assume that the bot is going to set the grobulk append flag to true for existing guilds
@@ -66,7 +67,7 @@ func TestRemoveAndClear(t *testing.T) {
 
 func TestClear(t *testing.T) {
 	setup(tss)
-	defer tss.recoverFromPanic()
+	defer tss.RecoverFromPanic()
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groclear")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
@@ -74,18 +75,18 @@ func TestClear(t *testing.T) {
 
 func TestEditAndDeets(t *testing.T) {
 	setup(tss)
-	defer tss.recoverFromPanic()
+	defer tss.RecoverFromPanic()
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groedit 1 HEEY WASSUP")
 	assert.Regexp(
-		regexp.MustCompile(fmt.Sprintf("^.*HEEY WASSUP.*(updated by <@%s> (\\d+ seconds* ago|just now))", tss.d.State.User.ID)),
+		regexp.MustCompile(fmt.Sprintf("^.*HEEY WASSUP.*(updated by <@%s> (\\d+ seconds* ago|just now))", tss.ClientUserID())),
 		tss.SendAndAwaitReply("!grodeets 1").Content,
 	)
 }
 
 func TestAdd(t *testing.T) {
 	setup(tss)
-	defer tss.recoverFromPanic()
+	defer tss.RecoverFromPanic()
 	assert := require.New(t)
 	assert.Contains(tss.SendAndAwaitReply("!gro Chickinz").Content, "Added *Chickinz*")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "3: Chickinz")
@@ -93,7 +94,7 @@ func TestAdd(t *testing.T) {
 
 func TestReset(t *testing.T) {
 	setup(tss)
-	defer tss.recoverFromPanic()
+	defer tss.RecoverFromPanic()
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groreset")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
