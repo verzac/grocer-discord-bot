@@ -1,12 +1,15 @@
-//go:build integration
+//go:build integration || healthcheck
 
-package e2e
+package harness
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -14,7 +17,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type testSuiteSession struct {
+type TestSuiteSession struct {
 	d              *discordgo.Session
 	testeeClientID string
 	channelID      string
@@ -26,9 +29,17 @@ var (
 	errAwaitTesteeReadinessTimeout = errors.New("timed out when waiting for tested bot to come online")
 )
 
-func setupTestSuite() *testSuiteSession {
+func dotEnvPath() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("harness.dotEnvPath: runtime.Caller failed")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".env"))
+}
+
+func SetupTestSuite() *TestSuiteSession {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	if err := godotenv.Load("../.env"); err != nil {
+	if err := godotenv.Load(dotEnvPath()); err != nil {
 		log.Println("Cannot load .env file:", err.Error())
 	}
 	token := os.Getenv("E2E_BOT_TOKEN")
@@ -53,7 +64,7 @@ func setupTestSuite() *testSuiteSession {
 	}
 	d.Identify.Intents = discordgo.IntentsGuildMessages |
 		discordgo.IntentsGuildPresences | discordgo.IntentsGuildMembers
-	tss := &testSuiteSession{
+	tss := &TestSuiteSession{
 		d:              d,
 		testeeClientID: groBotClientID,
 		channelID:      channelID,
@@ -62,7 +73,7 @@ func setupTestSuite() *testSuiteSession {
 	if err := d.Open(); err != nil {
 		panic(err)
 	}
-	defer tss.recoverFromPanic()
+	defer tss.RecoverFromPanic()
 	log.Printf("Waiting for testee %s to be ready.", tss.testeeClientID)
 	tss.AwaitTesteeReadiness()
 	log.Printf("Testee %s is now ready.", tss.testeeClientID)
@@ -76,7 +87,7 @@ func setupTestSuite() *testSuiteSession {
 	return tss
 }
 
-func (tss *testSuiteSession) recoverFromPanic() {
+func (tss *TestSuiteSession) RecoverFromPanic() {
 	if r := recover(); r != nil {
 		log.Println("Detected panic. Cleaning up session before panicking further.")
 		tss.Cleanup()
@@ -84,7 +95,7 @@ func (tss *testSuiteSession) recoverFromPanic() {
 	}
 }
 
-func (tss *testSuiteSession) AwaitTesteeReadiness() {
+func (tss *TestSuiteSession) AwaitTesteeReadiness() {
 	readyChan := make(chan bool)
 	removePresenceHandler := tss.d.AddHandler(func(s *discordgo.Session, p *discordgo.PresenceUpdate) {
 		if p.User.ID == tss.testeeClientID && p.Status == discordgo.StatusOnline {
@@ -111,20 +122,28 @@ func (tss *testSuiteSession) AwaitTesteeReadiness() {
 	}
 }
 
-func (tss *testSuiteSession) Cleanup() {
+func (tss *TestSuiteSession) Cleanup() {
 	log.Println("Cleaning up test session...")
-	tss.d.Close()
+	if tss != nil && tss.d != nil {
+		tss.d.Close()
+	}
 }
 
-func (tss *testSuiteSession) SendAndAwaitReply(msg string) *discordgo.Message {
-	_, err := tss.d.ChannelMessageSend(tss.channelID, msg)
+// ClientUserID returns the Discord user ID of the E2E test bot session.
+func (tss *TestSuiteSession) ClientUserID() string {
+	return tss.d.State.User.ID
+}
+
+func (tss *TestSuiteSession) SendAndAwaitReply(msg string) *discordgo.Message {
+	// test that GroBot should work when mentioned (plus prod only accepts message commands if the bot is mentioned, so this is useful for the healthcheck)
+	_, err := tss.d.ChannelMessageSend(tss.channelID, fmt.Sprintf("<@%s> %s", tss.testeeClientID, msg))
 	if err != nil {
 		panic(err)
 	}
 	return tss.AwaitReply()
 }
 
-func (tss *testSuiteSession) AwaitReply() *discordgo.Message {
+func (tss *TestSuiteSession) AwaitReply() *discordgo.Message {
 	replyChan := make(chan *discordgo.Message)
 	remove := tss.d.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == tss.testeeClientID {

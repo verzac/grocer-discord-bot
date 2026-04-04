@@ -1,0 +1,41 @@
+name: Healthcheck
+
+# Polls production every 5 minutes. Scheduled workflows are defined on the default
+# branch; use `ref: master` below so the job always runs against master.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+
+jobs:
+  e2e_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.23.2"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - run: go version
+      - run: go mod download
+      - run: make healthcheck
+        env:
+          # note: we don't need GROCER_BOT_TOKEN since we're running the test against prod
+          E2E_BOT_TOKEN: ${{ secrets.E2E_BOT_TOKEN }}
+          E2E_CHANNEL_ID: "828807963694989332"
+          E2E_GROCER_BOT_ID: "815120759680532510"
+          E2E_GUILD_ID: "815482602278354944"
+      - name: Alert on failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-Type: application/json' \
+            -d '{"content":"<@183947835467759617> Healthcheck failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","allowed_mentions":{"users":["183947835467759617"]}}' \
+            "${{ secrets.HEALTHCHECK_ALERT_DISCORD_WEBHOOK_URL }}"
