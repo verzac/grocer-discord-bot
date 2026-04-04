@@ -3,23 +3,52 @@
 package e2e
 
 import (
+	"log"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/verzac/grocer-discord-bot/e2e/harness"
 )
 
 const (
-	GroceryBotIDProd = "815120759680532510" // hard-coding it here since it's not likely to change
+	maxHealthcheckRetries     = 2
+	healthcheckRestartBackoff = 3 * time.Second
 )
 
 var tss *harness.TestSuiteSession
 
-func TestMain(m *testing.M) {
+func runHealthcheckAndCaptureAnyPanic(m *testing.M) (code int) {
+	defer func() {
+		// recover from panic and return non-zero code so that we can retry
+		if r := recover(); r != nil {
+			log.Printf("prod healthcheck TestMain: panic recovered: %v\n", r)
+			tss.Cleanup() // might be a no-op since tss.Cleanup isn't needed for SetupTestSuite, but better to be safe than sorry
+			code = 1
+		}
+	}()
 	tss = harness.SetupTestSuite()
-	defer tss.RecoverFromPanic()
-	code := m.Run()
+	defer tss.Cleanup() // ensure that tss is cleaned up
+	code = m.Run()
+	return
+}
+
+func TestMain(m *testing.M) {
+	var code int
+	for attempt := 0; attempt <= maxHealthcheckRetries; attempt++ {
+		if attempt > 0 {
+			log.Printf("prod healthcheck TestMain: retry %d of %d (immediate, fresh Discord session)", attempt, maxHealthcheckRetries)
+		}
+		code = runHealthcheckAndCaptureAnyPanic(m)
+		if code == 0 {
+			break
+		}
+		// sad path: healthcheck failed. retry
+		log.Printf("prod healthcheck TestMain: m.Run exited %d (non-zero), attempt %d/%d\n", code, attempt+1, maxHealthcheckRetries+1)
+		time.Sleep(healthcheckRestartBackoff)
+	}
+	// cleanup
 	tss.Cleanup()
 	os.Exit(code)
 }
@@ -38,5 +67,4 @@ func TestProdHealthcheck(t *testing.T) {
 	assert.Contains(listContent, "1: Chicken")
 	assert.Contains(listContent, "2: very delicious milkshake")
 	assert.NotContains(listContent, "chicken")
-
 }

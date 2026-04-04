@@ -117,14 +117,16 @@ func (tss *TestSuiteSession) AwaitTesteeReadiness() {
 	select {
 	case <-readyChan:
 		return
-	case <-time.After(10 * time.Second):
+	case <-time.After(1 * time.Second):
 		panic(errAwaitTesteeReadinessTimeout.Error())
 	}
 }
 
 func (tss *TestSuiteSession) Cleanup() {
 	log.Println("Cleaning up test session...")
-	tss.d.Close()
+	if tss != nil && tss.d != nil {
+		tss.d.Close()
+	}
 }
 
 // ClientUserID returns the Discord user ID of the E2E test bot session.
