@@ -73,6 +73,6 @@ func TestProdHealthcheck(t *testing.T) {
 		}
 	}
 	if !ok {
-		t.Errorf("expected a response containing one of %v, got %s", possibleResponses, content)
+		t.Fatalf("expected a response containing one of %v, got %s", possibleResponses, content)
 	}
 }
