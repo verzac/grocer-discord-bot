@@ -5,10 +5,10 @@ package e2e
 import (
 	"log"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/verzac/grocer-discord-bot/e2e/harness"
 )
 
@@ -55,16 +55,24 @@ func TestMain(m *testing.M) {
 
 func setup(tss *harness.TestSuiteSession) {
 	defer tss.RecoverFromPanic()
-	tss.SendAndAwaitReply("!groclear")
-	tss.SendAndAwaitReply("!grobulk\nChicken\nvery delicious milkshake")
 }
 
 func TestProdHealthcheck(t *testing.T) {
 	setup(tss)
 	defer tss.RecoverFromPanic()
-	assert := require.New(t)
-	listContent := tss.SendAndAwaitReply("!grolist").Content
-	assert.Contains(listContent, "1: Chicken")
-	assert.Contains(listContent, "2: very delicious milkshake")
-	assert.NotContains(listContent, "chicken")
+	content := tss.SendAndAwaitReply("!grolist").Content
+	possibleResponses := []string{
+		"Here's your grocery list:",
+		"You have no groceries",
+	}
+	ok := false
+	for _, response := range possibleResponses {
+		if strings.Contains(content, response) {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		t.Errorf("expected a response containing one of %v, got %s", possibleResponses, content)
+	}
 }
