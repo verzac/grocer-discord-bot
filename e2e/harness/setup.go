@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"syscall"
+	"testing"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -92,6 +93,18 @@ func (tss *TestSuiteSession) RecoverFromPanic() {
 		log.Println("Detected panic. Cleaning up session before panicking further.")
 		tss.Cleanup()
 		panic(r)
+	}
+}
+
+// RecoverTestPanic is like RecoverFromPanic but ends the test with t.Fatalf instead of re-panicking.
+// Re-panicking from a test goroutine can prevent testing from unblocking t.Run, so m.Run() never
+// returns and TestMain cannot observe failure or retry (see go.dev/issue/41479).
+func (tss *TestSuiteSession) RecoverTestPanic(t *testing.T) {
+	t.Helper()
+	if r := recover(); r != nil {
+		log.Println("Detected panic. Cleaning up session before failing test.")
+		tss.Cleanup()
+		t.Fatalf("%v", r)
 	}
 }
 

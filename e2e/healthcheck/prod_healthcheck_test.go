@@ -53,13 +53,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func setup(tss *harness.TestSuiteSession) {
-	defer tss.RecoverFromPanic()
-}
-
 func TestProdHealthcheck(t *testing.T) {
-	setup(tss)
-	defer tss.RecoverFromPanic()
+	defer tss.RecoverTestPanic(t)
 	content := tss.SendAndAwaitReply("!grolist").Content
 	possibleResponses := []string{
 		"Here's your grocery list:",

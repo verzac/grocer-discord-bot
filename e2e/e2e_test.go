@@ -22,15 +22,15 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func setup(tss *harness.TestSuiteSession) {
-	defer tss.RecoverFromPanic()
+func setup(t *testing.T, tss *harness.TestSuiteSession) {
+	defer tss.RecoverTestPanic(t)
 	tss.SendAndAwaitReply("!groclear")
 	tss.SendAndAwaitReply("!grobulk\nChicken\nvery delicious milkshake")
 }
 
 func TestList(t *testing.T) {
-	setup(tss)
-	defer tss.RecoverFromPanic()
+	setup(t, tss)
+	defer tss.RecoverTestPanic(t)
 	assert := require.New(t)
 	listContent := tss.SendAndAwaitReply("!grolist").Content
 	assert.Contains(listContent, "1: Chicken")
@@ -39,8 +39,8 @@ func TestList(t *testing.T) {
 }
 
 func TestRemoveAndClear(t *testing.T) {
-	setup(tss)
-	defer tss.RecoverFromPanic()
+	setup(t, tss)
+	defer tss.RecoverTestPanic(t)
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!grobulk Satay\nNasi padang\nTomato")
 	// note that we can just do a grobulk here because we assume that the bot is going to set the grobulk append flag to true for existing guilds
@@ -66,16 +66,16 @@ func TestRemoveAndClear(t *testing.T) {
 }
 
 func TestClear(t *testing.T) {
-	setup(tss)
-	defer tss.RecoverFromPanic()
+	setup(t, tss)
+	defer tss.RecoverTestPanic(t)
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groclear")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
 }
 
 func TestEditAndDeets(t *testing.T) {
-	setup(tss)
-	defer tss.RecoverFromPanic()
+	setup(t, tss)
+	defer tss.RecoverTestPanic(t)
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groedit 1 HEEY WASSUP")
 	assert.Regexp(
@@ -85,16 +85,16 @@ func TestEditAndDeets(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	setup(tss)
-	defer tss.RecoverFromPanic()
+	setup(t, tss)
+	defer tss.RecoverTestPanic(t)
 	assert := require.New(t)
 	assert.Contains(tss.SendAndAwaitReply("!gro Chickinz").Content, "Added *Chickinz*")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "3: Chickinz")
 }
 
 func TestReset(t *testing.T) {
-	setup(tss)
-	defer tss.RecoverFromPanic()
+	setup(t, tss)
+	defer tss.RecoverTestPanic(t)
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groreset")
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
