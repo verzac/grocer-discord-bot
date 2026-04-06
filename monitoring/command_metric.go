@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"go.uber.org/zap"
 )
@@ -26,13 +27,24 @@ type CommandMetric struct {
 	startTime time.Time
 	logger    *zap.Logger
 	command   string
+	guildID   string
 }
 
-func NewCommandMetric(cw *cloudwatch.CloudWatch, command string, logger *zap.Logger) *CommandMetric {
-	return &CommandMetric{cw: cw, startTime: time.Now(), command: command, logger: logger.Named("metric")}
+func NewCommandMetric(cw *cloudwatch.CloudWatch, command string, logger *zap.Logger, guildID string) *CommandMetric {
+	guildIDsToIgnoreForMetrics := config.GetListOfGuildIDsToIgnoreForMetrics()
+	for _, guildIDToIgnore := range guildIDsToIgnoreForMetrics {
+		if guildIDToIgnore == guildID {
+			return nil
+		}
+	}
+	return &CommandMetric{cw: cw, startTime: time.Now(), command: command, guildID: guildID, logger: logger.Named("metric")}
 }
 
 func (cm *CommandMetric) Done() {
+	if cm == nil {
+		// this means init was skipped intentionally - don't send any metrics
+		return
+	}
 	command := cm.command
 	if command == "" {
 		return

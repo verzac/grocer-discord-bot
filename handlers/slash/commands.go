@@ -499,7 +499,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 
 		// great - so it's a slash command; proxy to message handler
 		command := "!" + commandName
-		cm := monitoring.NewCommandMetric(cw, command, logger)
+		cm := monitoring.NewCommandMetric(cw, command, logger, i.GuildID)
 		defer cm.Done()
 		logger.Debug("Received slash command.")
 

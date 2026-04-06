@@ -50,7 +50,7 @@ func onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		mLogger.Error(err.Error())
 		return
 	}
-	metric := monitoring.NewCommandMetric(cw, mh.GetCommand(), mh.GetLogger())
+	metric := monitoring.NewCommandMetric(cw, mh.GetCommand(), mh.GetLogger(), m.GuildID)
 	err = mh.Handle()
 	if err == handlers.ErrCmdNotProcessable {
 		return
