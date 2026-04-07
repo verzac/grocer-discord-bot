@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
+	"github.com/verzac/grocer-discord-bot/utils"
 )
 
 func makeGroceries(names ...string) []models.GroceryEntry {
@@ -132,6 +133,17 @@ func TestBuildGroremoveModalComponents_PreselectedSetsDefault(t *testing.T) {
 	if (group.Options[0].Default != nil && *group.Options[0].Default) ||
 		(group.Options[2].Default != nil && *group.Options[2].Default) {
 		t.Errorf("expected only index 2 defaulted, got %+v", group.Options)
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_TruncatesLongItemDesc(t *testing.T) {
+	long := strings.Repeat("a", 200)
+	label := groremoveCheckboxOptionLabel(9, long)
+	if utils.UTF16Len(label) > utils.DiscordCheckboxOptionLabelMaxUTF16 {
+		t.Fatalf("label UTF-16 length %d > max %d: %q", utils.UTF16Len(label), utils.DiscordCheckboxOptionLabelMaxUTF16, label)
+	}
+	if !strings.HasPrefix(label, "9. ") {
+		t.Fatalf("expected numbered prefix, got %q", label)
 	}
 }
 

@@ -11,11 +11,22 @@ import (
 	"github.com/verzac/grocer-discord-bot/handlers/slash/defaults"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/utils"
 )
 
 const checkboxGroupMaxOptions = 10
 
 const groremoveEntryFYIText = "FYI: You do not need to type in the items you'd like to remove manually; you can just select the checkboxes next time."
+
+func groremoveCheckboxOptionLabel(index int, itemDesc string) string {
+	prefix := fmt.Sprintf("%d. ", index)
+	prefixLen := utils.UTF16Len(prefix)
+	if prefixLen >= utils.DiscordCheckboxOptionLabelMaxUTF16 {
+		return utils.TruncateStringForDiscord(prefix, utils.DiscordCheckboxOptionLabelMaxUTF16)
+	}
+	remaining := utils.DiscordCheckboxOptionLabelMaxUTF16 - prefixLen
+	return prefix + utils.TruncateStringForDiscord(itemDesc, remaining)
+}
 
 func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected []string) []discordgo.MessageComponent {
 	nonce := rand.Int63()
@@ -34,7 +45,7 @@ func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected 
 			value := strconv.Itoa(absIdx + 1)
 			def := false
 			opt := discordgo.CheckboxGroupOption{
-				Label:   fmt.Sprintf("%d. %s", absIdx+1, g.ItemDesc),
+				Label:   groremoveCheckboxOptionLabel(absIdx+1, g.ItemDesc),
 				Value:   value,
 				Default: &def,
 			}
