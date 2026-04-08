@@ -9,7 +9,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/verzac/grocer-discord-bot/auth"
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	"github.com/verzac/grocer-discord-bot/models"
@@ -62,7 +61,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	e.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 		groceryEntries, err := groceryEntryRepo.FindByQuery(&models.GroceryEntry{GuildID: guildID})
 		if err != nil {
 			return c.String(500, err.Error())
@@ -82,7 +81,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)
 		ctx := c.Request().Context()
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 
 		// Parse ID from path parameter
 		idStr := c.Param("id")
@@ -132,7 +131,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	e.POST("/groceries", func(c echo.Context) error {
 		authContext := c.(*AuthContext)
 		ctx := c.Request().Context()
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 		registrationContext, err := registration.Service.GetRegistrationContext(guildID)
 		if err != nil {
 			return err
@@ -187,7 +186,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	e.GET("/registrations", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*AuthContext)
-		guildID := auth.GetGuildIDFromScope(authContext.Scope)
+		guildID := authContext.GuildID
 		registrations, err := guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
 		if err != nil {
 			return c.String(500, err.Error())
