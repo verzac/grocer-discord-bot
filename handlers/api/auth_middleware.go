@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/verzac/grocer-discord-bot/auth"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
@@ -16,7 +17,7 @@ import (
 
 type AuthContext struct {
 	echo.Context
-	Scope string
+	GuildID string
 }
 
 var (
@@ -80,9 +81,10 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 					return errIncorrectToken
 				}
 
+				guildID := auth.GetGuildIDFromScope(apiClient.Scope)
 				return next(&AuthContext{
 					Context: c,
-					Scope:   apiClient.Scope,
+					GuildID: guildID,
 				})
 			})(c)
 		}
