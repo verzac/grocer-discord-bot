@@ -21,7 +21,7 @@ It is also important to note that we do aggregate and collect anonymised perform
 When you use a GroceryBot command, we store the following data required for the bot to function properly:
 
 - Your server's ID (because each server has their own grocery list)
-- Your server's channel IDs (which isn't human-readable) - this is used so that GroBot knows where to send updates (currently used by !grohere).
+- Your server's channel IDs (which isn't human-readable) - this is used so that GroBot knows where to send updates (currently used by `/grohere`).
 - The ID of the user who inputted each grocery entry into your grocery list
 - The grocery entry itself (duh)
 - When grocery entries are updated (deleted entries are deleted permanently and immediately)
@@ -31,7 +31,7 @@ We also keep logs of when an error occurs. This log is automatically disposed of
 
 ## Removing your data
 
-While we're sad to see you go, removing your data is as easy as running `!groreset` or `/groreset` and removing the bot afterwards. This utility function ensures that all your data is removed from our database.
+While we're sad to see you go, removing your data is as easy as running `/groreset` (or the legacy `!groreset`) and removing the bot afterwards. This utility function ensures that all your data is removed from our database.
 
 The only minor exception to the immediate "no entry, no data, no problem" rule is the error logs: error logs are automatically deleted within 14 days (as opposed to immediately). If you've never had an error occur, you shouldn't have this problem.
 
