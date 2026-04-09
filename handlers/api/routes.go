@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
+	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"github.com/verzac/grocer-discord-bot/repositories"
@@ -55,12 +56,12 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
 
-	e.Use(AuthMiddleware(apiClientRepo, logger))
+	e.Use(apimw.AuthMiddleware(apiClientRepo, logger))
 
 	e.GET("/metrics", groprometheus.PrometheusHandler())
 	e.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
-		authContext := c.(*AuthContext)
+		authContext := c.(*apimw.AuthContext)
 		guildID := authContext.GuildID
 		groceryEntries, err := groceryEntryRepo.FindByQuery(&models.GroceryEntry{GuildID: guildID})
 		if err != nil {
@@ -79,7 +80,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	})
 	e.DELETE("/groceries/:id", func(c echo.Context) error {
 		defer handlers.Recover(logger)
-		authContext := c.(*AuthContext)
+		authContext := c.(*apimw.AuthContext)
 		ctx := c.Request().Context()
 		guildID := authContext.GuildID
 
@@ -129,7 +130,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	})
 	// create new grocery
 	e.POST("/groceries", func(c echo.Context) error {
-		authContext := c.(*AuthContext)
+		authContext := c.(*apimw.AuthContext)
 		ctx := c.Request().Context()
 		guildID := authContext.GuildID
 		registrationContext, err := registration.Service.GetRegistrationContext(guildID)
@@ -185,7 +186,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	})
 	e.GET("/registrations", func(c echo.Context) error {
 		defer handlers.Recover(logger)
-		authContext := c.(*AuthContext)
+		authContext := c.(*apimw.AuthContext)
 		guildID := authContext.GuildID
 		registrations, err := guildRegistrationRepo.FindByQuery(&models.GuildRegistration{GuildID: guildID})
 		if err != nil {
