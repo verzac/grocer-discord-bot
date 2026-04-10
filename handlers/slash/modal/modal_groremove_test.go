@@ -3,11 +3,23 @@ package modal
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/utils"
 )
+
+func assertGroremoveLabelByteBudget(t *testing.T, label string) {
+	t.Helper()
+	n := len([]byte(label))
+	if n > utils.DiscordCheckboxOptionLabelMaxBytes {
+		t.Fatalf("label UTF-8 length %d > max %d: %q", n, utils.DiscordCheckboxOptionLabelMaxBytes, label)
+	}
+	if !utf8.ValidString(label) {
+		t.Fatalf("label is not valid UTF-8: %q", label)
+	}
+}
 
 func makeGroceries(names ...string) []models.GroceryEntry {
 	entries := make([]models.GroceryEntry, len(names))
@@ -139,11 +151,134 @@ func TestBuildGroremoveModalComponents_PreselectedSetsDefault(t *testing.T) {
 func TestGroremoveCheckboxOptionLabel_TruncatesLongItemDesc(t *testing.T) {
 	long := strings.Repeat("a", 200)
 	label := groremoveCheckboxOptionLabel(9, long)
-	if utils.UTF16Len(label) > utils.DiscordCheckboxOptionLabelMaxUTF16 {
-		t.Fatalf("label UTF-16 length %d > max %d: %q", utils.UTF16Len(label), utils.DiscordCheckboxOptionLabelMaxUTF16, label)
-	}
+	assertGroremoveLabelByteBudget(t, label)
 	if !strings.HasPrefix(label, "9. ") {
 		t.Fatalf("expected numbered prefix, got %q", label)
+	}
+	if !strings.HasSuffix(label, groremoveTruncationEllipsis) {
+		t.Fatalf("expected truncated label to end with ellipsis, got %q", label)
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_ExactFitNoEllipsis(t *testing.T) {
+	// "1. " is 3 UTF-16 / 3 bytes → 97 characters of ASCII fit exactly under both caps.
+	item := strings.Repeat("a", 97)
+	label := groremoveCheckboxOptionLabel(1, item)
+	assertGroremoveLabelByteBudget(t, label)
+	if strings.Contains(label, groremoveTruncationEllipsis) {
+		t.Fatalf("should not add ellipsis when item fits exactly: %q", label)
+	}
+	if label != "1. "+item {
+		t.Fatalf("expected full item, got %q", label)
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_CJKRespectsUTF8ByteCap(t *testing.T) {
+	water := strings.Repeat("\u6c34", 200)
+	label := groremoveCheckboxOptionLabel(1, water)
+	assertGroremoveLabelByteBudget(t, label)
+	if !strings.HasPrefix(label, "1. ") {
+		t.Fatalf("expected numbered prefix, got %q", label)
+	}
+	if !strings.HasSuffix(label, groremoveTruncationEllipsis) {
+		t.Fatalf("expected truncated CJK label to end with ellipsis, got %q", label)
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_LongEmojiTruncates(t *testing.T) {
+	// UTF-8: 4 bytes per emoji; forces aggressive byte truncation vs rune count.
+	emoji := "\U0001f600" // 😀
+	long := strings.Repeat(emoji, 80)
+	label := groremoveCheckboxOptionLabel(2, long)
+	assertGroremoveLabelByteBudget(t, label)
+	if !strings.HasPrefix(label, "2. ") {
+		t.Fatalf("expected numbered prefix, got %q", label)
+	}
+	if !strings.HasSuffix(label, groremoveTruncationEllipsis) {
+		t.Fatalf("expected ellipsis when truncated, got %q", label)
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_MixedScriptTruncates(t *testing.T) {
+	// Latin + CJK + emoji in one long description.
+	part := "café 牛乳 " + "\U0001f6d2" + " "
+	long := strings.Repeat(part, 40)
+	label := groremoveCheckboxOptionLabel(3, long)
+	assertGroremoveLabelByteBudget(t, label)
+	if !strings.HasPrefix(label, "3. ") {
+		t.Fatalf("expected numbered prefix, got %q", label)
+	}
+	if !strings.HasSuffix(label, groremoveTruncationEllipsis) {
+		t.Fatalf("expected ellipsis when truncated, got %q", label)
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_ExactFitCJKPlusASCIINoEllipsis(t *testing.T) {
+	// "1. " = 3 bytes; 32× 水 (3 bytes each) + "x" = 97 bytes → total 100, no truncation.
+	item := strings.Repeat("\u6c34", 32) + "x"
+	label := groremoveCheckboxOptionLabel(1, item)
+	assertGroremoveLabelByteBudget(t, label)
+	if strings.Contains(label, groremoveTruncationEllipsis) {
+		t.Fatalf("should not add ellipsis when item fits exactly: %q", label)
+	}
+	want := "1. " + item
+	if label != want {
+		t.Fatalf("want %q, got %q", want, label)
+	}
+	if len([]byte(label)) != utils.DiscordCheckboxOptionLabelMaxBytes {
+		t.Fatalf("expected exactly %d UTF-8 bytes, got %d", utils.DiscordCheckboxOptionLabelMaxBytes, len([]byte(label)))
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_ExactFitEmojiNoEllipsis(t *testing.T) {
+	// "2. " = 3 bytes; 24 emoji × 4 bytes = 96 → total 99 (room left; add one ASCII for 100).
+	emoji := "\U0001f389" // 🎉
+	item := strings.Repeat(emoji, 24) + "!"
+	label := groremoveCheckboxOptionLabel(2, item)
+	assertGroremoveLabelByteBudget(t, label)
+	if strings.Contains(label, groremoveTruncationEllipsis) {
+		t.Fatalf("should not add ellipsis when item fits exactly: %q", label)
+	}
+	if label != "2. "+item {
+		t.Fatalf("expected full item, got %q", label)
+	}
+	if len([]byte(label)) != utils.DiscordCheckboxOptionLabelMaxBytes {
+		t.Fatalf("expected exactly %d UTF-8 bytes, got %d", utils.DiscordCheckboxOptionLabelMaxBytes, len([]byte(label)))
+	}
+}
+
+func TestGroremoveCheckboxOptionLabel_LargeIndexPrefixStillValid(t *testing.T) {
+	// Wider numbered prefix uses more bytes; remainder should still truncate safely.
+	long := strings.Repeat("\u3042", 200) // hiragana あ
+	label := groremoveCheckboxOptionLabel(9999, long)
+	assertGroremoveLabelByteBudget(t, label)
+	if !strings.HasPrefix(label, "9999. ") {
+		t.Fatalf("expected prefix, got %q", label)
+	}
+	if !strings.HasSuffix(label, groremoveTruncationEllipsis) {
+		t.Fatalf("expected ellipsis, got %q", label)
+	}
+}
+
+func TestBuildGroremoveModalComponents_AllOptionLabelsWithinByteBudget(t *testing.T) {
+	longJP := strings.Repeat("\u6c34", 50)
+	longEmoji := strings.Repeat("\U0001f36a", 30) // 🍪
+	names := []string{
+		"short",
+		longJP,
+		"mix " + longEmoji + " tail",
+		strings.Repeat("é", 120), // 2 UTF-8 bytes per é
+	}
+	groceries := makeGroceries(names...)
+	components := buildGroremoveModalComponents(groceries, nil)
+	for i, comp := range components {
+		group := comp.(discordgo.Label).Component.(discordgo.CheckboxGroup)
+		for j, opt := range group.Options {
+			assertGroremoveLabelByteBudget(t, opt.Label)
+			if opt.Label == "" {
+				t.Fatalf("component %d option %d: empty label", i, j)
+			}
+		}
 	}
 }
 

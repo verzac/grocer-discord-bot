@@ -465,6 +465,10 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 
 		// check if it's a DM interaction
 		if i.Member == nil {
+			logger := logger.Named("dm-interaction")
+			if i.User != nil {
+				logger = logger.With(zap.String("userID", i.User.ID))
+			}
 			if err := sess.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
@@ -475,6 +479,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 			}
 			return
 		}
+		logger := logger.With(zap.String("GuildID", i.GuildID))
 
 		// check if it's a modal submission first - we have our own handler context (not combined with the main slash command & message handler context)
 		if modalCreationCtx := modal.NewModalCreationContext(sess, db, logger, i, grobotVersion); modalCreationCtx != nil {
@@ -483,7 +488,7 @@ func Register(sess *discordgo.Session, db *gorm.DB, logger *zap.Logger, grobotVe
 		}
 
 		commandName := getCommandName(i)
-		logger := logger.Named("handler").With(
+		logger = logger.Named("handler").With(
 			zap.String("GuildID", i.GuildID),
 			zap.String("SlashCommandName", commandName),
 		)

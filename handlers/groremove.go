@@ -116,7 +116,7 @@ func getItemIndexes(args []string) ([]int, error) {
 	return itemIndexes, nil
 }
 
-// PreselectedGroremoveOptionValues returns checkbox option value strings ("1", "2", …) for entry text,
+// PreselectedGroremoveOptionValues returns checkbox option value strings ("1", "2", ...) for entry text,
 // using the same rules as OnRemove (numeric indexes vs substring name match).
 // equivalent to parsing it into !groremove 1, even when the user passes in !groremove Item 1
 func PreselectedGroremoveOptionValues(entry string, groceries []models.GroceryEntry, groceryList *models.GroceryList) ([]string, error) {

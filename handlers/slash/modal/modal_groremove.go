@@ -18,14 +18,31 @@ const checkboxGroupMaxOptions = 10
 
 const groremoveEntryFYIText = "FYI: You do not need to type in the items you'd like to remove manually; you can just select the checkboxes next time."
 
+const groremoveTruncationEllipsis = "..."
+
 func groremoveCheckboxOptionLabel(index int, itemDesc string) string {
+	const maxB = utils.DiscordCheckboxOptionLabelMaxBytes
 	prefix := fmt.Sprintf("%d. ", index)
-	prefixLen := utils.UTF16Len(prefix)
-	if prefixLen >= utils.DiscordCheckboxOptionLabelMaxUTF16 {
-		return utils.TruncateStringForDiscord(prefix, utils.DiscordCheckboxOptionLabelMaxUTF16)
+	prefixBytes := len([]byte(prefix))
+	if prefixBytes >= maxB {
+		return utils.TruncateStringToMaxUTF8Bytes(prefix, maxB)
 	}
-	remaining := utils.DiscordCheckboxOptionLabelMaxUTF16 - prefixLen
-	return prefix + utils.TruncateStringForDiscord(itemDesc, remaining)
+	remainingBytes := maxB - prefixBytes
+	suffix := utils.TruncateStringToMaxUTF8Bytes(itemDesc, remainingBytes)
+	if suffix == itemDesc {
+		return prefix + suffix
+	}
+	ell := groremoveTruncationEllipsis
+	ellB := len([]byte(ell))
+	if ellB > remainingBytes {
+		return prefix + suffix
+	}
+	contentBytes := remainingBytes - ellB
+	if contentBytes < 0 {
+		contentBytes = 0
+	}
+	suffix = utils.TruncateStringToMaxUTF8Bytes(itemDesc, contentBytes)
+	return prefix + suffix + ell
 }
 
 func buildGroremoveModalComponents(groceries []models.GroceryEntry, preselected []string) []discordgo.MessageComponent {
