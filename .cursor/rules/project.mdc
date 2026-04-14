@@ -19,3 +19,5 @@ It also has a /docs subfolder which is a web app (Docusaurus) that is independen
 You can find the db migrations on `/db/changelog`.
 
 All new repository methods should accept context (even if it's not directly using it) - leave the old repository methods be for backward-compatibility.
+
+When returning Echo errors, refrain from referencing HTTP consts like `http.StatusServiceUnavailable` - use the int value directly instead (e.g. `return echo.NewHTTPError(401, "blah")`).
