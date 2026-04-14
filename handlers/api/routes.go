@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/verzac/grocer-discord-bot/auth"
+	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
@@ -30,7 +33,7 @@ var (
 )
 
 // RegisterAndStart starts the API handler goroutine. TO BE USED IN DEV ONLY FOR NOW
-func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
+func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string) error {
 	logger = logger.Named("api")
 	e := echo.New()
 	e.HideBanner = true
@@ -56,7 +59,28 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB) error {
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
 
-	e.Use(apimw.AuthMiddleware(apiClientRepo, logger))
+	e.Use(apimw.AuthMiddleware(apiClientRepo, logger, grobotVersion))
+
+	if grobotVersion == config.GrobotVersionLocal {
+		e.POST("/.test/issue-jwt", func(c echo.Context) error {
+			key := os.Getenv("JWT_SIGNING_KEY")
+			if key == "" {
+				return echo.NewHTTPError(500, "JWT_SIGNING_KEY is not set.")
+			}
+			issuer, err := auth.NewJWTIssuer([]byte(key))
+			if err != nil {
+				return echo.NewHTTPError(500, err.Error())
+			}
+			tokenStr, err := issuer.Issue(c.Request().Context(), "sub123")
+			if err != nil {
+				return echo.NewHTTPError(500, err.Error())
+			}
+			return c.JSON(http.StatusOK, map[string]string{
+				"access_token": tokenStr,
+				"sub":          "sub123",
+			})
+		})
+	}
 
 	e.GET("/metrics", groprometheus.PrometheusHandler())
 	e.GET("/grocery-lists", func(c echo.Context) error {

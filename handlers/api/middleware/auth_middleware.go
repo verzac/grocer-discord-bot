@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/verzac/grocer-discord-bot/auth"
+	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
@@ -28,7 +29,7 @@ var (
 	errIncorrectToken = echo.NewHTTPError(403, "Forbidden.")
 )
 
-func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Logger) echo.MiddlewareFunc {
+func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Logger, grobotVersion string) echo.MiddlewareFunc {
 	logger = logger.Named("middleware.auth")
 	rateLimiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{Rate: 10, Burst: 0, ExpiresIn: 30 * time.Second},
@@ -47,6 +48,9 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 		return func(c echo.Context) error {
 			if c.Request().URL.Path == "/metrics" {
 				// skip auth for metrics endpoint
+				return next(c)
+			}
+			if grobotVersion == config.GrobotVersionLocal && strings.HasPrefix(c.Request().URL.Path, "/.test/issue-jwt") {
 				return next(c)
 			}
 			authHeader := c.Request().Header.Get("Authorization")
@@ -94,6 +98,9 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 						GuildID: guildID,
 					})
 				})(c)
+			case HeaderTypeBearer:
+				// bearer auth
+				return echo.NewHTTPError(401, "Bearer authentication is not supported (yet).")
 			default:
 				return echo.NewHTTPError(401, "Unsupported authentication type.")
 			}

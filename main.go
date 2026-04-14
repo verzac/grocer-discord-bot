@@ -126,7 +126,7 @@ func main() {
 
 	// API handler
 	go func() {
-		if err := api.RegisterAndStart(logger, db); err != nil {
+		if err := api.RegisterAndStart(logger, db, GroBotVersion); err != nil {
 			logger.Error("API returned an error while starting.", zap.Error(err))
 		}
 	}()
