@@ -115,7 +115,7 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 			case HeaderTypeBearer:
 				ctx := c.Request().Context()
 				if auth.DefaultJWTIssuer == nil {
-					return echo.NewHTTPError(401, "Bearer authentication is not available (JWT_SIGNING_KEY is not configured).")
+					return echo.NewHTTPError(401, "Bearer authentication is not available.")
 				}
 				userInfo, err := auth.DefaultJWTIssuer.Verify(ctx, headerValue)
 				if err != nil {
