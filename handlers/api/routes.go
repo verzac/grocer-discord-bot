@@ -64,15 +64,10 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string) err
 	if grobotVersion == config.GrobotVersionLocal {
 		e.POST("/.test/issue-jwt", func(c echo.Context) error {
 			ctx := c.Request().Context()
-			key := os.Getenv("JWT_SIGNING_KEY")
-			if key == "" {
-				return echo.NewHTTPError(500, "JWT_SIGNING_KEY is not set.")
+			if auth.DefaultJWTIssuer == nil {
+				return echo.NewHTTPError(500, "JWT issuer is not initialized (check JWT_SIGNING_KEY).")
 			}
-			issuer, err := auth.NewJWTIssuer([]byte(key))
-			if err != nil {
-				return echo.NewHTTPError(500, err.Error())
-			}
-			tokenStr, err := issuer.Issue(ctx, "sub123")
+			tokenStr, err := auth.DefaultJWTIssuer.Issue(ctx, "sub123")
 			if err != nil {
 				return echo.NewHTTPError(500, err.Error())
 			}
