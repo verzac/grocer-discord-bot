@@ -66,7 +66,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		e.POST("/.test/issue-jwt", func(c echo.Context) error {
 			ctx := c.Request().Context()
 			if auth.DefaultJWTIssuer == nil {
-				return echo.NewHTTPError(500, "JWT issuer is not initialized (check JWT_SIGNING_KEY).")
+				return echo.NewHTTPError(500, "JWT issuer is not ready.")
 			}
 			discordUserID := "sub123"
 			forParam := c.QueryParam("for")
