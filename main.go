@@ -128,7 +128,7 @@ func main() {
 	// API handler
 	auth.InitDefaultJWTIssuer(logger)
 	go func() {
-		if err := api.RegisterAndStart(logger, db, GroBotVersion); err != nil {
+		if err := api.RegisterAndStart(logger, db, GroBotVersion, d); err != nil {
 			logger.Error("API returned an error while starting.", zap.Error(err))
 		}
 	}()

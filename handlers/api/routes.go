@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/verzac/grocer-discord-bot/auth"
@@ -32,8 +33,8 @@ var (
 	apiClientRepo         repositories.ApiClientRepository
 )
 
-// RegisterAndStart starts the API handler goroutine. TO BE USED IN DEV ONLY FOR NOW
-func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string) error {
+// RegisterAndStart starts the API handler goroutine
+func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, discordSess *discordgo.Session) error {
 	logger = logger.Named("api")
 	e := echo.New()
 	e.HideBanner = true
@@ -46,7 +47,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string) err
 	e.Logger.SetHeader("L-${time_rfc3339} ${level} ${short_file}:${line}")
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: strings.Split(ao, ","),
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, apimw.HeaderXGuildID},
 	}))
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		Timeout: 10 * time.Second,
@@ -59,7 +60,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string) err
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
 
-	e.Use(apimw.AuthMiddleware(apiClientRepo, logger, grobotVersion))
+	e.Use(apimw.AuthMiddleware(apiClientRepo, logger, grobotVersion, discordSess))
 
 	if grobotVersion == config.GrobotVersionLocal {
 		e.POST("/.test/issue-jwt", func(c echo.Context) error {
@@ -67,13 +68,18 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string) err
 			if auth.DefaultJWTIssuer == nil {
 				return echo.NewHTTPError(500, "JWT issuer is not initialized (check JWT_SIGNING_KEY).")
 			}
-			tokenStr, err := auth.DefaultJWTIssuer.Issue(ctx, "sub123")
+			discordUserID := "sub123"
+			forParam := c.QueryParam("for")
+			if forParam != "" {
+				discordUserID = forParam
+			}
+			tokenStr, err := auth.DefaultJWTIssuer.Issue(ctx, discordUserID)
 			if err != nil {
 				return echo.NewHTTPError(500, err.Error())
 			}
 			return c.JSON(http.StatusOK, map[string]string{
 				"access_token": tokenStr,
-				"sub":          "sub123",
+				"sub":          discordUserID,
 			})
 		})
 	}

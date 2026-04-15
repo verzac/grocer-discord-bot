@@ -6,8 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/patrickmn/go-cache"
 	"github.com/verzac/grocer-discord-bot/auth"
 	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/models"
@@ -16,20 +18,32 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	// HeaderXGuildID selects the target guild for Bearer-authenticated requests (see SPEC-001).
+	HeaderXGuildID = "X-Guild-ID"
+)
+
 type AuthContext struct {
 	echo.Context
+	// UserID is set for Bearer auth (JWT sub); empty for Basic auth.
+	UserID  string
 	GuildID string
 }
+
+var bearerGuildOKCache = cache.New(60*time.Second, 2*time.Minute)
 
 const (
 	CtxKeyIdentifier = "sub"
 )
 
 var (
-	errIncorrectToken = echo.NewHTTPError(403, "Forbidden.")
+	errIncorrectToken             = echo.NewHTTPError(403, "Forbidden.")
+	bearerPathSkipGuildIDCheckMap = map[string]bool{
+		"/guilds": false,
+	}
 )
 
-func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Logger, grobotVersion string) echo.MiddlewareFunc {
+func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Logger, grobotVersion string, discordSess *discordgo.Session) echo.MiddlewareFunc {
 	logger = logger.Named("middleware.auth")
 	rateLimiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{Rate: 10, Burst: 0, ExpiresIn: 30 * time.Second},
@@ -99,8 +113,51 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 					})
 				})(c)
 			case HeaderTypeBearer:
-				// bearer auth
-				return echo.NewHTTPError(401, "Bearer authentication is not supported (yet).")
+				ctx := c.Request().Context()
+				if auth.DefaultJWTIssuer == nil {
+					return echo.NewHTTPError(401, "Bearer authentication is not available (JWT_SIGNING_KEY is not configured).")
+				}
+				userInfo, err := auth.DefaultJWTIssuer.Verify(ctx, headerValue)
+				if err != nil {
+					return echo.NewHTTPError(401, "Invalid token.")
+				}
+				discordUserID := userInfo.DiscordUserID
+				c.Set(CtxKeyIdentifier, discordUserID)
+
+				return rateLimitMiddleware(func(c echo.Context) error {
+					path := c.Request().URL.Path
+					if _, ok := bearerPathSkipGuildIDCheckMap[path]; ok {
+						return next(&AuthContext{
+							Context: c,
+							UserID:  discordUserID,
+							GuildID: "",
+						})
+					}
+					guildID := strings.TrimSpace(c.Request().Header.Get(HeaderXGuildID))
+					if guildID == "" {
+						return echo.NewHTTPError(400, "X-Guild-ID header is required.")
+					}
+					if discordSess == nil {
+						return echo.NewHTTPError(500, "Cannot verify token.")
+					}
+					cacheKey := discordUserID + ":" + guildID
+					if _, ok := bearerGuildOKCache.Get(cacheKey); !ok {
+						if _, err := discordSess.Guild(guildID); err != nil {
+							logger.Debug("bearer auth: guild lookup failed (bot may not be in guild)", zap.Error(err))
+							return errIncorrectToken
+						}
+						if _, err := discordSess.GuildMember(guildID, discordUserID); err != nil {
+							logger.Debug("bearer auth: user is not a member of guild", zap.Error(err))
+							return errIncorrectToken
+						}
+						bearerGuildOKCache.Set(cacheKey, true, cache.DefaultExpiration)
+					}
+					return next(&AuthContext{
+						Context: c,
+						UserID:  discordUserID,
+						GuildID: guildID,
+					})
+				})(c)
 			default:
 				return echo.NewHTTPError(401, "Unsupported authentication type.")
 			}
