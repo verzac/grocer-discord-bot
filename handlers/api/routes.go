@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +15,8 @@ import (
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
 	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
+	"github.com/verzac/grocer-discord-bot/handlers/api/routeauth"
+	"github.com/verzac/grocer-discord-bot/handlers/api/routetest"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"github.com/verzac/grocer-discord-bot/repositories"
@@ -31,6 +32,7 @@ var (
 	guildRegistrationRepo repositories.GuildRegistrationRepository
 	groceryListRepo       repositories.GroceryListRepository
 	apiClientRepo         repositories.ApiClientRepository
+	userSessionRepo       repositories.UserSessionRepository
 )
 
 // RegisterAndStart starts the API handler goroutine
@@ -59,29 +61,16 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	groceryListRepo = &repositories.GroceryListRepositoryImpl{DB: db}
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
+	userSessionRepo = &repositories.UserSessionRepositoryImpl{DB: db}
 
 	e.Use(apimw.AuthMiddleware(apiClientRepo, logger, grobotVersion, discordSess))
 
+	if oauthSetup := auth.LoadOAuthSetup(logger); oauthSetup != nil {
+		routeauth.Register(e, logger, oauthSetup, userSessionRepo)
+	}
+
 	if grobotVersion == config.GrobotVersionLocal {
-		e.POST("/.test/issue-jwt", func(c echo.Context) error {
-			ctx := c.Request().Context()
-			if auth.DefaultJWTIssuer == nil {
-				return echo.NewHTTPError(500, "JWT issuer is not ready.")
-			}
-			discordUserID := "sub123"
-			forParam := c.QueryParam("for")
-			if forParam != "" {
-				discordUserID = forParam
-			}
-			tokenStr, err := auth.DefaultJWTIssuer.Issue(ctx, discordUserID)
-			if err != nil {
-				return echo.NewHTTPError(500, err.Error())
-			}
-			return c.JSON(http.StatusOK, map[string]string{
-				"access_token": tokenStr,
-				"sub":          discordUserID,
-			})
-		})
+		routetest.Register(e, logger)
 	}
 
 	e.GET("/metrics", groprometheus.PrometheusHandler())

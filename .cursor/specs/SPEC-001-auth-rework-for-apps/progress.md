@@ -12,6 +12,23 @@ The Discord OAuth2 redirect URI points to the **GroceryBot backend** (`api.groce
 
 ---
 
+## Thin slice: Areas 1, 4, 5 (no stored Discord tokens)
+
+Implemented: Discord OAuth2 login → GroceryBot JWT + refresh token; refresh endpoint; **no** persistence of Discord access/refresh tokens (Areas 3 and full Area 2 fields deferred). **PKCE (4.3) not implemented.**
+
+| Item | Location |
+|------|----------|
+| OAuth2 config + `APP_REDIRECT_URI` | `auth/oauth2.go` |
+| Refresh token generate + SHA-256 hash | `auth/refresh_token.go` |
+| `GET /auth/discord`, `GET /auth/discord/callback`, `POST /auth/refresh` | `handlers/api/routeauth/auth_handlers.go` |
+| Register auth routes when Discord env complete | `handlers/api/routes.go` |
+| Skip auth for `/auth/*` | `handlers/api/middleware/auth_middleware.go` |
+| Minimal `user_sessions` migration + model + repo | `db/changelog/000011_create_user_sessions.up.sql`, `models/user_session.go`, `repositories/user_session_repository.go` |
+
+Env: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI` (required to enable `/auth/*`); optional `APP_REDIRECT_URI` (default `grocerybot://auth/callback`). `JWT_SIGNING_KEY` required for issuing/refreshing JWTs.
+
+---
+
 ## Status Overview
 
 ### Done
@@ -26,7 +43,16 @@ The Discord OAuth2 redirect URI points to the **GroceryBot backend** (`api.groce
 | 6 | Basic auth backward compatibility preserved | `handlers/api/middleware/auth_middleware.go:76-114` | AC-7 |
 | 7 | `/metrics` remains unauthenticated | `handlers/api/middleware/auth_middleware.go:63-66` | AC-7 |
 | 8 | Middleware skip for `/guilds` path (no `X-Guild-ID` required) | `handlers/api/middleware/auth_middleware.go:41-43` | AC-4 |
-| 9 | Local-only test JWT endpoint (`POST /.test/issue-jwt`) | `handlers/api/routes.go:66-85` | — |
+| 9 | Local-only test JWT endpoint (`POST /.test/issue-jwt`) | `handlers/api/routes.go` | — |
+| 10 | `golang.org/x/oauth2` direct dependency | `go.mod` | AC-10 |
+| 11 | Discord OAuth2 env → `oauth2.Config` + `APP_REDIRECT_URI` | `auth/oauth2.go` | AC-10 |
+| 12 | Skip `/auth/*` when OAuth env incomplete; no panic | `handlers/api/routes.go`, `auth/oauth2.go` | AC-10 |
+| 13 | `GET /auth/discord` (state + redirect) | `handlers/api/auth_handlers.go` | AC-1 |
+| 14 | `GET /auth/discord/callback` (exchange, `@me`, JWT + refresh redirect) | `handlers/api/auth_handlers.go` | AC-1 |
+| 15 | Refresh token issue (random), SHA-256 storage, 7-day TTL | `auth/refresh_token.go`, `user_sessions` | AC-3 |
+| 16 | `POST /auth/refresh` (hash lookup, rotate refresh, new JWT) | `handlers/api/auth_handlers.go` | AC-3 |
+| 17 | Minimal `user_sessions` + migration + repository | `db/changelog/000011_*.sql`, `models/user_session.go`, `repositories/user_session_repository.go` | AC-9 (partial) |
+| 18 | Unauthenticated `/auth/*` (middleware prefix skip) | `handlers/api/middleware/auth_middleware.go` | — |
 
 ### Missing
 
@@ -34,16 +60,16 @@ Items are grouped by area and listed in suggested implementation order (dependen
 
 #### Area 1: Configuration & Dependencies (AC-10)
 
-- [ ] **1.1** Add `golang.org/x/oauth2` as a direct dependency in `go.mod`.
-- [ ] **1.2** Read `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI` from env and build an `oauth2.Config` with Discord endpoints.
-- [ ] **1.3** Add a configurable app redirect URI (e.g. env var `APP_REDIRECT_URI`, default `grocerybot://auth/callback`) for the final redirect back to the mobile app after callback.
-- [ ] **1.4** Graceful degradation: if any Discord OAuth2 env vars are missing, skip registering `/auth/*` and `/guilds` routes. The bot must not panic; Basic auth continues to work.
+- [x] **1.1** Add `golang.org/x/oauth2` as a direct dependency in `go.mod`.
+- [x] **1.2** Read `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI` from env and build an `oauth2.Config` with Discord endpoints.
+- [x] **1.3** Add a configurable app redirect URI (e.g. env var `APP_REDIRECT_URI`, default `grocerybot://auth/callback`) for the final redirect back to the mobile app after callback.
+- [x] **1.4** Graceful degradation: if any Discord OAuth2 env vars are missing, skip registering `/auth/*` routes. The bot must not panic; Basic auth continues to work. (`/guilds` not registered yet — still missing Area 6.)
 
 #### Area 2: Database — `user_sessions` Table (AC-9)
 
-- [ ] **2.1** Create model `models/user_session.go` with fields: `ID`, `DiscordUserID`, `EncryptedDiscordAccessToken`, `EncryptedDiscordRefreshToken`, `DiscordTokenExpiry`, `RefreshTokenHash`, `RefreshTokenExpiry`, `CreatedAt`, `UpdatedAt`.
-- [ ] **2.2** Create migration `db/changelog/000011_create_user_sessions.up.sql` (and `.down.sql`) to create the `user_sessions` table.
-- [ ] **2.3** Create repository `repositories/user_session_repository.go` with CRUD methods (accepting `context.Context`).
+- [ ] **2.1** Extend model with fields: `EncryptedDiscordAccessToken`, `EncryptedDiscordRefreshToken`, `DiscordTokenExpiry` (and keep existing refresh columns).
+- [ ] **2.2** Follow-up migration altering `user_sessions` for Discord token columns (initial `000011` creates minimal table only).
+- [x] **2.3** Repository `repositories/user_session_repository.go` with context-aware methods (minimal schema).
 
 #### Area 3: Encryption for Discord Tokens (AC-1)
 
@@ -52,16 +78,16 @@ Items are grouped by area and listed in suggested implementation order (dependen
 
 #### Area 4: OAuth2 Routes (AC-1)
 
-- [ ] **4.1** `GET /auth/discord` — generate random `state` (+ optional PKCE `code_verifier`), store in short-lived cache, redirect to Discord authorization URL.
-- [ ] **4.2** `GET /auth/discord/callback` — validate `state`, exchange `code` for Discord tokens via `oauth2.Config.Exchange()`, call Discord `GET /users/@me` to get user ID, store encrypted Discord tokens in `user_sessions`, issue GroceryBot JWT + refresh token, redirect browser to `APP_REDIRECT_URI?access_token=...&refresh_token=...`.
+- [x] **4.1** `GET /auth/discord` — generate random `state`, store in short-lived cache, redirect to Discord authorization URL.
+- [x] **4.2** `GET /auth/discord/callback` — validate `state`, exchange `code`, `GET /users/@me`, issue GroceryBot JWT + refresh token, redirect to `APP_REDIRECT_URI`. **Does not** store Discord tokens (deferred).
 - [ ] **4.3** PKCE support for public clients (generate `code_verifier`/`code_challenge`, pass to Discord, use in exchange). Discord supports PKCE.
 
 #### Area 5: Refresh Tokens (AC-3)
 
-- [ ] **5.1** Generate cryptographically random refresh token on login.
-- [ ] **5.2** Store SHA-256 hash of refresh token in `user_sessions` with 7-day expiry.
-- [ ] **5.3** `POST /auth/refresh` — accept refresh token in body, look up by hash, check expiry, issue new JWT. Optionally rotate refresh token (issue new, invalidate old).
-- [ ] **5.4** Return `401` if refresh token is expired/missing, forcing re-auth with Discord.
+- [x] **5.1** Generate cryptographically random refresh token on login.
+- [x] **5.2** Store SHA-256 hash of refresh token in `user_sessions` with 7-day expiry.
+- [x] **5.3** `POST /auth/refresh` — accept refresh token in body, look up by hash, check expiry, issue new JWT; **rotates** refresh token.
+- [x] **5.4** Return `401` if refresh token is expired/missing, forcing re-auth with Discord.
 
 #### Area 6: Guild Listing (AC-4)
 

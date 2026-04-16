@@ -41,6 +41,10 @@ var (
 	bearerPathSkipGuildIDCheckMap = map[string]bool{
 		"/guilds": false,
 	}
+	skipAuthForPathsMap = map[string]bool{
+		"/.test/discord-callback": true, // test endpoint for discord callback (dev only anyways)
+		"/metrics":                true, // prometheus metrics endpoint
+	}
 )
 
 func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Logger, grobotVersion string, discordSess *discordgo.Session) echo.MiddlewareFunc {
@@ -60,8 +64,10 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 	})
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if c.Request().URL.Path == "/metrics" {
-				// skip auth for metrics endpoint
+			if _, ok := skipAuthForPathsMap[c.Request().URL.Path]; ok {
+				return next(c)
+			}
+			if strings.HasPrefix(c.Request().URL.Path, "/auth/") {
 				return next(c)
 			}
 			if grobotVersion == config.GrobotVersionLocal && strings.HasPrefix(c.Request().URL.Path, "/.test/issue-jwt") {
@@ -121,6 +127,7 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 				if err != nil {
 					return echo.NewHTTPError(401, "Invalid token.")
 				}
+				logger.Debug("got discord user id", zap.String("DiscordUserID", userInfo.DiscordUserID))
 				discordUserID := userInfo.DiscordUserID
 				c.Set(CtxKeyIdentifier, discordUserID)
 
