@@ -2,7 +2,6 @@ package routetest
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/verzac/grocer-discord-bot/auth"
@@ -29,13 +28,5 @@ func Register(e *echo.Echo, logger *zap.Logger) {
 			"access_token": tokenStr,
 			"sub":          discordUserID,
 		})
-	})
-	e.GET("/.test/discord-callback", func(c echo.Context) error {
-		// convert query params to JSON
-		queryParams := make(map[string]string)
-		for k, v := range c.QueryParams() {
-			queryParams[k] = strings.Join(v, ",")
-		}
-		return c.JSON(http.StatusOK, queryParams)
 	})
 }

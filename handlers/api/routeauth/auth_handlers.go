@@ -3,12 +3,12 @@ package routeauth
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/patrickmn/go-cache"
 	"github.com/verzac/grocer-discord-bot/auth"
+	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
@@ -21,6 +21,12 @@ type discordUserMe struct {
 	ID string `json:"id"`
 }
 
+type tokenExchangeRequest struct {
+	Code         string `json:"code"`
+	CodeVerifier string `json:"code_verifier"`
+	RedirectURI  string `json:"redirect_uri"`
+}
+
 type refreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
@@ -28,10 +34,13 @@ type refreshTokenRequest struct {
 type refreshTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
 }
 
-type oauthStateEntry struct {
-	CodeVerifier string
+type tokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
 }
 
 // Register mounts Discord OAuth and refresh-token routes on e.
@@ -42,64 +51,24 @@ func Register(
 	userSessionRepo repositories.UserSessionRepository,
 ) {
 	logger = logger.Named("auth")
-	stateCache := cache.New(5*time.Minute, 10*time.Minute)
 
-	e.GET("/auth/discord", func(c echo.Context) error {
-		state, err := auth.GenerateKey()
-		if err != nil {
-			logger.Error("oauth state generation failed", zap.Error(err))
-			return echo.NewHTTPError(500, "Cannot start login.")
-		}
-		entry := oauthStateEntry{}
-		authOpts := []oauth2.AuthCodeOption{}
-		if oauthSetup.PKCEEnabled {
-			verifier, err := auth.GenerateCodeVerifier()
-			if err != nil {
-				logger.Error("pkce verifier generation failed", zap.Error(err))
-				return echo.NewHTTPError(500, "Cannot start login.")
-			}
-			challenge := auth.CodeChallengeS256(verifier)
-			entry.CodeVerifier = verifier
-			authOpts = append(authOpts,
-				oauth2.SetAuthURLParam("code_challenge", challenge),
-				oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-			)
-		}
-		stateCache.Set(state, entry, cache.DefaultExpiration)
-		authURL := oauthSetup.OAuth2.AuthCodeURL(state, authOpts...)
-		return c.Redirect(302, authURL)
-	})
-
-	e.GET("/auth/discord/callback", func(c echo.Context) error {
+	e.POST("/auth/token", func(c echo.Context) error {
 		ctx := c.Request().Context()
-		if qErr := c.QueryParam("error"); qErr != "" {
-			desc := c.QueryParam("error_description")
-			logger.Warn("discord oauth error", zap.String("error", qErr), zap.String("error_description", desc))
-			return echo.NewHTTPError(401, "Discord authorization was denied or failed.")
+		var body tokenExchangeRequest
+		if err := c.Bind(&body); err != nil {
+			return echo.NewHTTPError(400, "Invalid request body.")
 		}
-		code := c.QueryParam("code")
-		state := c.QueryParam("state")
-		if code == "" || state == "" {
-			return echo.NewHTTPError(400, "Missing code or state.")
+		if body.Code == "" || body.CodeVerifier == "" || body.RedirectURI == "" {
+			return echo.NewHTTPError(400, "code, code_verifier, and redirect_uri are required.")
 		}
-		raw, ok := stateCache.Get(state)
-		if !ok {
-			return echo.NewHTTPError(400, "Invalid or expired state.")
-		}
-		stateCache.Delete(state)
-		entry, ok := raw.(oauthStateEntry)
-		if !ok {
-			return echo.NewHTTPError(400, "Invalid or expired state.")
-		}
-		if oauthSetup.PKCEEnabled && entry.CodeVerifier == "" {
-			return echo.NewHTTPError(400, "Invalid or expired state.")
+		if !oauthSetup.ValidateRedirectURI(body.RedirectURI) {
+			return echo.NewHTTPError(400, "redirect_uri is not allowed.")
 		}
 
-		exchangeOpts := []oauth2.AuthCodeOption{}
-		if oauthSetup.PKCEEnabled {
-			exchangeOpts = append(exchangeOpts, oauth2.SetAuthURLParam("code_verifier", entry.CodeVerifier))
-		}
-		token, err := oauthSetup.OAuth2.Exchange(ctx, code, exchangeOpts...)
+		token, err := oauthSetup.OAuth2.Exchange(ctx, body.Code,
+			oauth2.SetAuthURLParam("redirect_uri", strings.TrimSpace(body.RedirectURI)),
+			oauth2.SetAuthURLParam("code_verifier", body.CodeVerifier),
+		)
 		if err != nil {
 			logger.Error("discord token exchange failed", zap.Error(err))
 			return echo.NewHTTPError(502, "Could not complete login with Discord.")
@@ -174,16 +143,21 @@ func Register(
 			return echo.NewHTTPError(500, "Cannot issue session.")
 		}
 
-		u, err := url.Parse(oauthSetup.AppRedirectURI)
-		if err != nil {
-			logger.Error("parse app redirect uri", zap.Error(err))
-			return echo.NewHTTPError(500, "Invalid app redirect configuration.")
+		return c.JSON(http.StatusOK, tokenResponse{
+			AccessToken:  accessJWT,
+			RefreshToken: refreshPlain,
+			ExpiresIn:    int64(auth.DefaultAccessTokenTTL.Seconds()),
+		})
+	})
+
+	e.POST("/auth/logout", func(c echo.Context) error {
+		ctx := c.Request().Context()
+		authContext := c.(*apimw.AuthContext)
+		if err := userSessionRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
+			logger.Error("delete user session on logout", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot log out.")
 		}
-		q := u.Query()
-		q.Set("access_token", accessJWT)
-		q.Set("refresh_token", refreshPlain)
-		u.RawQuery = q.Encode()
-		return c.Redirect(302, u.String())
+		return c.NoContent(204)
 	})
 
 	e.POST("/auth/refresh", func(c echo.Context) error {
@@ -226,6 +200,7 @@ func Register(
 		return c.JSON(http.StatusOK, refreshTokenResponse{
 			AccessToken:  accessJWT,
 			RefreshToken: newPlain,
+			ExpiresIn:    int64(auth.DefaultAccessTokenTTL.Seconds()),
 		})
 	})
 }

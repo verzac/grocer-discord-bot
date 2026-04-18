@@ -39,11 +39,11 @@ const (
 var (
 	errIncorrectToken             = echo.NewHTTPError(403, "Forbidden.")
 	bearerPathSkipGuildIDCheckMap = map[string]bool{
-		"/guilds": false,
+		"/guilds":      false,
+		"/auth/logout": false,
 	}
 	skipAuthForPathsMap = map[string]bool{
-		"/.test/discord-callback": true, // test endpoint for discord callback (dev only anyways)
-		"/metrics":                true, // prometheus metrics endpoint
+		"/metrics": true, // prometheus metrics endpoint
 	}
 )
 
@@ -67,7 +67,7 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 			if _, ok := skipAuthForPathsMap[c.Request().URL.Path]; ok {
 				return next(c)
 			}
-			if strings.HasPrefix(c.Request().URL.Path, "/auth/") {
+			if strings.HasPrefix(c.Request().URL.Path, "/auth/") && c.Request().URL.Path != "/auth/logout" {
 				return next(c)
 			}
 			if grobotVersion == config.GrobotVersionLocal && strings.HasPrefix(c.Request().URL.Path, "/.test/issue-jwt") {

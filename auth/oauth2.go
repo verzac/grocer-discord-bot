@@ -13,17 +13,43 @@ var discordEndpoint = oauth2.Endpoint{
 	TokenURL: "https://discord.com/api/oauth2/token",
 }
 
-// OAuthSetup holds Discord OAuth2 client config and the post-login redirect for the app.
+// OAuthSetup holds Discord OAuth2 client config and redirect URI allowlist for token exchange.
 type OAuthSetup struct {
-	OAuth2         *oauth2.Config
-	AppRedirectURI string
-	TokenEncryptor *TokenEncryptor
-	PKCEEnabled    bool
+	OAuth2              *oauth2.Config
+	AllowedRedirectURIs []string
+	TokenEncryptor      *TokenEncryptor
 }
 
-func pkceEnabledFromEnv() bool {
-	v := strings.TrimSpace(os.Getenv("OAUTH2_PKCE_ENABLED"))
-	return !strings.EqualFold(v, "false")
+// ValidateRedirectURI returns true if uri exactly matches one of the allowed redirect URIs (after trim).
+func (s *OAuthSetup) ValidateRedirectURI(uri string) bool {
+	uri = strings.TrimSpace(uri)
+	if uri == "" {
+		return false
+	}
+	for _, allowed := range s.AllowedRedirectURIs {
+		if allowed == uri {
+			return true
+		}
+	}
+	return false
+}
+
+func parseAllowedRedirectURIsFromEnv() []string {
+	raw := strings.TrimSpace(os.Getenv("ALLOWED_REDIRECT_URIS"))
+	if raw == "" {
+		return []string{"grocerybot://auth/callback"}
+	}
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		p := strings.TrimSpace(part)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return []string{"grocerybot://auth/callback"}
+	}
+	return out
 }
 
 // LoadOAuthSetup reads Discord OAuth env vars and builds an oauth2.Config.
@@ -31,12 +57,10 @@ func pkceEnabledFromEnv() bool {
 func LoadOAuthSetup(logger *zap.Logger) *OAuthSetup {
 	clientID := os.Getenv("DISCORD_CLIENT_ID")
 	secret := os.Getenv("DISCORD_CLIENT_SECRET")
-	redirect := os.Getenv("DISCORD_REDIRECT_URI")
-	if clientID == "" || secret == "" || redirect == "" {
+	if clientID == "" || secret == "" {
 		logger.Warn("Discord OAuth2 env vars incomplete; /auth routes will not be registered",
 			zap.Bool("has_client_id", clientID != ""),
 			zap.Bool("has_client_secret", secret != ""),
-			zap.Bool("has_redirect_uri", redirect != ""),
 		)
 		return nil
 	}
@@ -49,21 +73,17 @@ func LoadOAuthSetup(logger *zap.Logger) *OAuthSetup {
 		return nil
 	}
 
-	appRedirect := os.Getenv("APP_REDIRECT_URI")
-	if appRedirect == "" {
-		appRedirect = "grocerybot://auth/callback"
-	}
+	allowed := parseAllowedRedirectURIsFromEnv()
 	cfg := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: secret,
-		RedirectURL:  redirect,
+		RedirectURL:  "",
 		Scopes:       []string{"identify", "guilds"},
 		Endpoint:     discordEndpoint,
 	}
 	return &OAuthSetup{
-		OAuth2:         cfg,
-		AppRedirectURI: appRedirect,
-		TokenEncryptor: encryptor,
-		PKCEEnabled:    pkceEnabledFromEnv(),
+		OAuth2:              cfg,
+		AllowedRedirectURIs: allowed,
+		TokenEncryptor:      encryptor,
 	}
 }
