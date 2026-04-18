@@ -2,6 +2,7 @@ package auth
 
 import (
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
@@ -16,6 +17,13 @@ var discordEndpoint = oauth2.Endpoint{
 type OAuthSetup struct {
 	OAuth2         *oauth2.Config
 	AppRedirectURI string
+	TokenEncryptor *TokenEncryptor
+	PKCEEnabled    bool
+}
+
+func pkceEnabledFromEnv() bool {
+	v := strings.TrimSpace(os.Getenv("OAUTH2_PKCE_ENABLED"))
+	return !strings.EqualFold(v, "false")
 }
 
 // LoadOAuthSetup reads Discord OAuth env vars and builds an oauth2.Config.
@@ -32,6 +40,15 @@ func LoadOAuthSetup(logger *zap.Logger) *OAuthSetup {
 		)
 		return nil
 	}
+	sessionKey := os.Getenv("SESSION_ENCRYPTION_KEY")
+	encryptor, err := NewTokenEncryptor(sessionKey)
+	if err != nil {
+		logger.Warn("SESSION_ENCRYPTION_KEY missing or invalid; /auth routes will not be registered",
+			zap.Error(err),
+		)
+		return nil
+	}
+
 	appRedirect := os.Getenv("APP_REDIRECT_URI")
 	if appRedirect == "" {
 		appRedirect = "grocerybot://auth/callback"
@@ -46,5 +63,7 @@ func LoadOAuthSetup(logger *zap.Logger) *OAuthSetup {
 	return &OAuthSetup{
 		OAuth2:         cfg,
 		AppRedirectURI: appRedirect,
+		TokenEncryptor: encryptor,
+		PKCEEnabled:    pkceEnabledFromEnv(),
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"go.uber.org/zap"
+	"golang.org/x/oauth2"
 )
 
 const discordUsersMeURL = "https://discord.com/api/users/@me"
@@ -27,6 +28,10 @@ type refreshTokenRequest struct {
 type refreshTokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type oauthStateEntry struct {
+	CodeVerifier string
 }
 
 // Register mounts Discord OAuth and refresh-token routes on e.
@@ -45,8 +50,23 @@ func Register(
 			logger.Error("oauth state generation failed", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot start login.")
 		}
-		stateCache.Set(state, true, cache.DefaultExpiration)
-		authURL := oauthSetup.OAuth2.AuthCodeURL(state)
+		entry := oauthStateEntry{}
+		authOpts := []oauth2.AuthCodeOption{}
+		if oauthSetup.PKCEEnabled {
+			verifier, err := auth.GenerateCodeVerifier()
+			if err != nil {
+				logger.Error("pkce verifier generation failed", zap.Error(err))
+				return echo.NewHTTPError(500, "Cannot start login.")
+			}
+			challenge := auth.CodeChallengeS256(verifier)
+			entry.CodeVerifier = verifier
+			authOpts = append(authOpts,
+				oauth2.SetAuthURLParam("code_challenge", challenge),
+				oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+			)
+		}
+		stateCache.Set(state, entry, cache.DefaultExpiration)
+		authURL := oauthSetup.OAuth2.AuthCodeURL(state, authOpts...)
 		return c.Redirect(302, authURL)
 	})
 
@@ -62,12 +82,24 @@ func Register(
 		if code == "" || state == "" {
 			return echo.NewHTTPError(400, "Missing code or state.")
 		}
-		if _, ok := stateCache.Get(state); !ok {
+		raw, ok := stateCache.Get(state)
+		if !ok {
 			return echo.NewHTTPError(400, "Invalid or expired state.")
 		}
 		stateCache.Delete(state)
+		entry, ok := raw.(oauthStateEntry)
+		if !ok {
+			return echo.NewHTTPError(400, "Invalid or expired state.")
+		}
+		if oauthSetup.PKCEEnabled && entry.CodeVerifier == "" {
+			return echo.NewHTTPError(400, "Invalid or expired state.")
+		}
 
-		token, err := oauthSetup.OAuth2.Exchange(ctx, code)
+		exchangeOpts := []oauth2.AuthCodeOption{}
+		if oauthSetup.PKCEEnabled {
+			exchangeOpts = append(exchangeOpts, oauth2.SetAuthURLParam("code_verifier", entry.CodeVerifier))
+		}
+		token, err := oauthSetup.OAuth2.Exchange(ctx, code, exchangeOpts...)
 		if err != nil {
 			logger.Error("discord token exchange failed", zap.Error(err))
 			return echo.NewHTTPError(502, "Could not complete login with Discord.")
@@ -113,15 +145,29 @@ func Register(
 		}
 		expiry := time.Now().UTC().Add(auth.DefaultRefreshTokenTTL)
 
+		encAccess, err := oauthSetup.TokenEncryptor.Encrypt(token.AccessToken)
+		if err != nil {
+			logger.Error("encrypt discord access token", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot issue session.")
+		}
+		encDiscordRefresh, err := oauthSetup.TokenEncryptor.Encrypt(token.RefreshToken)
+		if err != nil {
+			logger.Error("encrypt discord refresh token", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot issue session.")
+		}
+
 		if err := userSessionRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, du.ID); err != nil {
 			logger.Error("delete prior user sessions", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue session.")
 		}
 		logger.Debug("received user info", zap.Any("userInfo", du))
 		sess := &models.UserSession{
-			DiscordUserID:      du.ID,
-			RefreshTokenHash:   refreshHash,
-			RefreshTokenExpiry: expiry,
+			DiscordUserID:                du.ID,
+			RefreshTokenHash:             refreshHash,
+			RefreshTokenExpiry:           expiry,
+			EncryptedDiscordAccessToken:  encAccess,
+			EncryptedDiscordRefreshToken: encDiscordRefresh,
+			DiscordTokenExpiry:           token.Expiry,
 		}
 		if err := userSessionRepo.WithContext(ctx).CreateSession(ctx, sess); err != nil {
 			logger.Error("save user session", zap.Error(err))

@@ -143,6 +143,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 
 		return c.NoContent(204)
 	})
+	// Future edit endpoints should set UpdatedByID from authContext.UserID when non-empty (Bearer), like POST /groceries.
 	// create new grocery
 	e.POST("/groceries", func(c echo.Context) error {
 		authContext := c.(*apimw.AuthContext)
@@ -163,6 +164,9 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		groceryEntry.UpdatedAt = time.Time{}
 		if groceryEntry.ID != 0 {
 			return echo.NewHTTPError(400, "ID must be empty.")
+		}
+		if authContext.UserID != "" {
+			groceryEntry.UpdatedByID = &authContext.UserID
 		}
 		var groceryList *models.GroceryList
 		if groceryEntry.GroceryListID != nil && *groceryEntry.GroceryListID != 0 {
