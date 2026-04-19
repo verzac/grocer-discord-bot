@@ -1,0 +1,6 @@
+---
+globs: *.go
+alwaysApply: false
+---
+
+When creating a function, consider if the function is going to be used in multiple places. If it is only used one-time (excluding tests), make the logic inline, put a comment above the logic, and do NOT create a separate function. Only create functions when you're certain it will be reused elsewhere.

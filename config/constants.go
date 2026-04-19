@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+const (
+	GrobotVersionLocal = "local"
+)
+
 func GetDefaultMaxGroceryEntriesPerServer() int {
 	return 100
 }

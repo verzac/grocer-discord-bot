@@ -57,35 +57,21 @@ API consumer sends:  Authorization: Basic base64(guildID:clientSecret)
 
 CORS (configurable origins), 10 s timeout, rate limiter (10 req / 30 s per client ID or IP), panic recovery, custom validator.
 
-### 2.5 Assumed Environment Variables for OAuth2
+### 2.5 Environment Variables for OAuth2 (Option B)
 
-The following env vars are assumed to be pre-configured by the operator. They are **not currently used** anywhere in the codebase (the hardcoded client ID `815120759680532510` in invite URLs is a different concern — it's the bot's application ID for the OAuth2 bot-invite flow, not the user-facing OAuth2 flow).
+Used by `auth/oauth2.go` and related handlers when registering `/auth/*` routes. (The hardcoded client ID `815120759680532510` in invite URLs is the bot application ID for the **bot-invite** flow, not the user OAuth2 app config.)
 
 | Variable | Purpose |
 |----------|---------|
-| `DISCORD_CLIENT_ID` | Discord application client ID for the OAuth2 Authorization Code flow. |
-| `DISCORD_CLIENT_SECRET` | Discord application client secret for exchanging authorization codes for access tokens (server-side only). |
-| `DISCORD_REDIRECT_URI` | The URL that Discord redirects the user back to after they authorize. See explanation below. |
+| `DISCORD_CLIENT_ID` | Discord application client ID for the user OAuth2 Authorization Code + PKCE flow. |
+| `DISCORD_CLIENT_SECRET` | Exchanges the authorization code for tokens (server-side only; never sent to the client). |
+| `ALLOWED_REDIRECT_URIS` | Comma-separated allowlist of `redirect_uri` values the client may send in **`POST /auth/token`**. Must include every redirect URI registered in the Discord Developer Portal that the app uses (e.g. `grocerybot://auth/callback`, or Expo proxy URL). If unset, defaults to `grocerybot://auth/callback`. |
+| `SESSION_ENCRYPTION_KEY` | Hex-encoded 32-byte AES key; required for `/auth/*` registration. Discord tokens encrypted at rest. |
+| `JWT_SIGNING_KEY` | HMAC key for GroceryBot access JWTs. |
 
-These come from the Discord Developer Portal under the same application that owns the bot.
+**Redirect URI:** The client chooses `redirect_uri` when opening Discord's authorize URL; Discord redirects there with `?code=`. That same `redirect_uri` must be registered in the Developer Portal and must be listed in **`ALLOWED_REDIRECT_URIS`** so the backend will accept it in **`POST /auth/token`**. Option B does **not** use a backend callback URL or `DISCORD_REDIRECT_URI`.
 
-**`DISCORD_REDIRECT_URI` explained:**
-
-OAuth2 Authorization Code flow works in two hops:
-
-1. The client sends the user to Discord's authorization page: `https://discord.com/oauth2/authorize?client_id=...&redirect_uri=...&response_type=code&scope=identify+guilds`
-2. After the user approves, Discord redirects their browser to the `redirect_uri` with an authorization `code` appended as a query parameter: `<redirect_uri>?code=abc123`
-
-`DISCORD_REDIRECT_URI` is that callback URL — the GroceryBot endpoint that receives the authorization code and exchanges it for tokens. For example:
-
-- Production: `https://api.grocerybot.net/auth/discord/callback`
-- Local dev: `http://localhost:8080/auth/discord/callback`
-
-This value must **exactly match** one of the redirect URIs registered in the Discord Developer Portal (under the application's OAuth2 settings). Discord will reject the authorization request if the `redirect_uri` parameter doesn't match a registered URI. This is a security measure to prevent authorization codes from being sent to attacker-controlled URLs.
-
-The env var is needed (rather than hardcoding) because the value differs across environments (local dev, staging, production).
-
-Additional env vars introduced by this approach (e.g. `JWT_SIGNING_KEY`) are listed in §4.2.
+Additional configuration is described in §4.2.
 
 ---
 
@@ -132,32 +118,34 @@ Additional env vars introduced by this approach (e.g. `JWT_SIGNING_KEY`) are lis
 
 ## 4. Approach — Discord OAuth2 + GroceryBot-Issued JWT
 
-The GroceryBot backend drives the full OAuth2 Authorization Code flow with Discord and issues its own short-lived JWTs.
+The **mobile/web client** drives the OAuth2 Authorization Code + PKCE flow with Discord; the **GroceryBot backend** performs the confidential code exchange, stores Discord tokens (encrypted), and issues its own short-lived JWTs (**Option B — client-driven flow**).
 
 ### 4.1 Flow
 
-1. **Client** opens `https://api.grocerybot.net/auth/discord` (or a configured URL) which redirects to Discord's authorization page.
-2. **Discord** redirects back to `https://api.grocerybot.net/auth/discord/callback?code=...`.
-3. **GroceryBot backend** exchanges the `code` for a Discord access token + refresh token (server-side, confidential).
+1. **Client** (e.g. Expo with `expo-auth-session`) builds Discord's authorization URL with `response_type=code`, `client_id`, `redirect_uri`, `scope=identify guilds`, `state`, and PKCE (`code_challenge` / `code_challenge_method=S256`), and opens the system browser.
+2. **Discord** redirects back to the app's **registered** redirect URI (e.g. `grocerybot://auth/callback?code=...&state=...`).
+3. **Client** POSTs `{ code, code_verifier, redirect_uri }` to **`POST /auth/token`** on the GroceryBot API. The backend validates `redirect_uri` against **`ALLOWED_REDIRECT_URIS`**, then exchanges the code + verifier with Discord (using `DISCORD_CLIENT_SECRET`).
 4. Backend calls Discord `GET /users/@me` to get the user's identity.
 5. Backend stores the user's Discord access token (encrypted) and refresh token server-side, associated with the user ID. This is used later for guild lookups.
-6. Backend issues a **GroceryBot JWT** (short-lived access token) containing `{ sub: discordUserID, exp, iat }` and a **refresh token** stored server-side. The JWT identifies the user only — **it does not contain a guild list**. Refresh tokens are required so users don't have to re-authenticate with Discord every time the access token expires.
-7. Client stores the JWT (in-memory or secure storage) and includes it as `Authorization: Bearer <jwt>` on subsequent requests.
-8. When the user wants to select a guild, `GET /guilds` calls Discord `GET /users/@me/guilds` using the **stored Discord access token** for that user, cross-references with bot-installed guilds, and returns a **fresh** list. This means the guild list is always up-to-date at the moment of selection.
-9. CRUD endpoints require an `X-Guild-ID` header (for Bearer-auth requests). The middleware verifies the user's identity from the JWT and checks that the user is a member of the specified guild (either by a fresh Discord call or a short-lived cache).
+6. Backend returns JSON **`{ access_token, refresh_token, expires_in }`** (GroceryBot JWT + opaque refresh token). The JWT identifies the user only — **it does not contain a guild list**.
+7. Client stores the JWT and refresh token (e.g. secure storage) and includes `Authorization: Bearer <jwt>` on subsequent requests.
+8. When the JWT expires, the client calls **`POST /auth/refresh`** with the refresh token; the response includes a new access token, rotated refresh token, and **`expires_in`**.
+9. **`POST /auth/logout`** with `Authorization: Bearer <jwt>` deletes the user's session row(s) server-side (middleware treats this path like other Bearer routes except `X-Guild-ID` is not required).
+10. When the user wants to select a guild, **`GET /guilds`** (future) will call Discord `GET /users/@me/guilds` using the **stored Discord access token**, intersect with bot-installed guilds, and return a fresh list.
+11. CRUD endpoints require an `X-Guild-ID` header (for Bearer-auth requests), except paths explicitly exempt (e.g. `/guilds`, `/auth/logout`). The middleware verifies guild membership with a short-lived cache.
 
 ### 4.2 New/Changed Components
 
 | Component | Change |
 |-----------|--------|
 | **DB** | New `user_sessions` table to store Discord access/refresh tokens (encrypted) keyed by user ID, plus GroceryBot refresh tokens. |
-| **Routes** | `GET /auth/discord` — initiate OAuth2 redirect. |
-|  | `GET /auth/discord/callback` — exchange code, issue JWT. |
-|  | `POST /auth/refresh` — exchange a refresh token for a new JWT access token. |
+| **Routes** | `POST /auth/token` — accept `{ code, code_verifier, redirect_uri }`; validate `redirect_uri`; exchange with Discord; issue JWT + refresh; return JSON including `expires_in`. |
+|  | `POST /auth/logout` — **Bearer JWT required**; delete `user_sessions` for that user; returns **204**. |
+|  | `POST /auth/refresh` — exchange a refresh token for a new JWT access token + rotated refresh token; response includes **`expires_in`**. |
 |  | `GET /guilds` — fetch the user's guilds **live from Discord** (using stored Discord token), intersect with bot guilds, return fresh list. |
-| **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID. |
+| **Middleware** | Extend `AuthMiddleware` to accept both `Basic` and `Bearer` schemes. Bearer path verifies JWT signature + expiry, extracts user ID. **`/auth/*` is unauthenticated except `/auth/logout`**, which requires Bearer (no `X-Guild-ID`). |
 | **Handlers** | Existing CRUD handlers resolve `guildID` from `X-Guild-ID` header (Bearer) or scope (Basic). Middleware verifies user's guild membership (via cached Discord lookup or short-TTL cache). |
-| **Config** | New env var: `JWT_SIGNING_KEY`. Uses `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, and `DISCORD_REDIRECT_URI` from §2.5. |
+| **Config** | `JWT_SIGNING_KEY`. `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`. **`ALLOWED_REDIRECT_URIS`** (comma-separated allowlist for `POST /auth/token`; default `grocerybot://auth/callback`). **`SESSION_ENCRYPTION_KEY`** for Discord tokens at rest. |
 | **Dependencies** | `golang.org/x/oauth2` (OAuth2 flow), `github.com/golang-jwt/jwt/v5` (JWT signing/verification). See §4.5. |
 
 ### 4.3 Characteristics
@@ -207,10 +195,11 @@ We self-roll the Discord OAuth2 integration rather than using a managed provider
 `golang.org/x/oauth2` requires a Discord endpoint config (auth URL + token URL). This is ~5 lines of setup:
 
 ```go
+// Option B: RedirectURL is empty; pass redirect_uri per Exchange via oauth2.SetAuthURLParam.
 var discordOAuthConfig = &oauth2.Config{
     ClientID:     os.Getenv("DISCORD_CLIENT_ID"),
     ClientSecret: os.Getenv("DISCORD_CLIENT_SECRET"),
-    RedirectURL:  os.Getenv("DISCORD_REDIRECT_URI"),
+    RedirectURL:  "",
     Scopes:       []string{"identify", "guilds"},
     Endpoint: oauth2.Endpoint{
         AuthURL:  "https://discord.com/api/oauth2/authorize",
@@ -352,9 +341,9 @@ This affects the OAuth2 redirect URI. Expo apps use either:
 - **Custom scheme:** e.g. `grocerybot://auth/callback` — a deep link registered in the app. More reliable for production; no Expo proxy dependency.
 - **Universal link:** e.g. `https://app.grocerybot.net/auth/callback` — an HTTPS URL that the OS routes to the app. Most robust but requires domain verification.
 
-The chosen redirect URI scheme must be registered in the Discord Developer Portal. The `DISCORD_REDIRECT_URI` env var on the backend must match.
+The chosen redirect URI(s) must be registered in the Discord Developer Portal and listed in **`ALLOWED_REDIRECT_URIS`** on the backend.
 
-Since the GroceryBot backend handles the OAuth2 code exchange server-side (the callback hits `GET /auth/discord/callback` on the API), the Expo app can simply open a web browser to `GET /auth/discord`, let the backend handle the Discord redirect + code exchange, and then the backend redirects the browser back to the app (via a custom scheme or universal link) with the JWT + refresh token as query parameters or via a post-message mechanism.
+The Expo app opens Discord's authorization URL directly, receives the `code` on the deep link, then **`POST /auth/token`** with `{ code, code_verifier, redirect_uri }`. The backend returns **`{ access_token, refresh_token, expires_in }`** as JSON (no tokens in redirect URLs).
 
 ### 5.12 Missing CRUD Endpoints
 
@@ -377,14 +366,19 @@ These are **not blockers** for the auth externalization work and can be added in
 
 ## 6. Acceptance Criteria
 
-### AC-1: Discord OAuth2 Login
+### AC-1: Discord OAuth2 Login (Option B)
 
-- [ ] `GET /auth/discord` redirects the user to Discord's authorization page with `response_type=code`, the configured `client_id`, `redirect_uri`, `scope=identify guilds`, and a random `state` parameter.
-- [ ] `GET /auth/discord/callback` accepts the `code` and `state` query parameters, validates the state, exchanges the code for a Discord access + refresh token via Discord's token endpoint, and calls `GET /users/@me` to resolve the Discord user ID.
-- [ ] On successful callback, the endpoint returns a GroceryBot JWT access token and a refresh token to the client.
+- [ ] The client drives the authorize URL (PKCE + `state`); **`POST /auth/token`** accepts `{ code, code_verifier, redirect_uri }`, validates `redirect_uri` against **`ALLOWED_REDIRECT_URIS`**, exchanges the code with Discord (including verifier), and calls `GET /users/@me` to resolve the Discord user ID.
+- [ ] On success, **`POST /auth/token`** returns JSON: GroceryBot JWT **`access_token`**, **`refresh_token`**, and **`expires_in`** (seconds).
 - [ ] The Discord access token and refresh token are stored server-side (encrypted) in the `user_sessions` table, associated with the Discord user ID.
-- [ ] If the `state` parameter is missing or does not match, the callback returns `400`.
-- [ ] If the Discord code exchange fails, the callback returns an appropriate error (e.g. `401` or `502`).
+- [ ] If `redirect_uri` is missing or not allowlisted, the API returns **`400`**.
+- [ ] If required body fields are missing, the API returns **`400`**.
+- [ ] If the Discord code exchange fails, the API returns an appropriate error (e.g. **`502`**).
+
+### AC-1b: Logout
+
+- [ ] **`POST /auth/logout`** requires **`Authorization: Bearer <jwt>`** (middleware carve-out for this path under `/auth/`). **`X-Guild-ID` is not required.**
+- [ ] On success, the user's row(s) in **`user_sessions`** are deleted and the API returns **`204`**.
 
 ### AC-2: JWT Access Token
 
@@ -398,7 +392,7 @@ These are **not blockers** for the auth externalization work and can be added in
 ### AC-3: Refresh Token
 
 - [ ] On login, a long-lived refresh token is issued alongside the JWT and stored (hashed) in the `user_sessions` table with a 7-day expiry.
-- [ ] `POST /auth/refresh` accepts a refresh token in the request body, validates it (hash lookup + expiry check), and returns a new JWT access token.
+- [ ] `POST /auth/refresh` accepts a refresh token in the request body, validates it (hash lookup + expiry check), and returns a new JWT access token, a rotated refresh token, and **`expires_in`** (seconds) for the access token.
 - [ ] If the refresh token is expired or not found, `POST /auth/refresh` returns `401`, forcing the user to re-authenticate with Discord.
 - [ ] A user can stay logged in for the refresh token's lifetime without re-authenticating with Discord.
 
@@ -447,9 +441,9 @@ These are **not blockers** for the auth externalization work and can be added in
 
 ### AC-10: Configuration
 
-- [ ] The feature requires the following env vars to be set: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_REDIRECT_URI`, `JWT_SIGNING_KEY`.
-- [ ] If any of the Discord OAuth2 env vars are missing, the OAuth2 routes (`/auth/*`, `/guilds`) are not registered, but the rest of the API (including Basic auth) continues to work. The bot does not panic.
-- [ ] The `DISCORD_REDIRECT_URI` must exactly match a redirect URI registered in the Discord Developer Portal.
+- [ ] OAuth2-related registration requires: **`DISCORD_CLIENT_ID`**, **`DISCORD_CLIENT_SECRET`**, **`SESSION_ENCRYPTION_KEY`**, and **`JWT_SIGNING_KEY`** (for Bearer on protected routes). **`ALLOWED_REDIRECT_URIS`** is optional (defaults to `grocerybot://auth/callback`) but must list every client `redirect_uri` used in production.
+- [ ] If Discord OAuth / session encryption prerequisites are missing, **`/auth/*`** routes are not registered, but the rest of the API (including Basic auth) continues to work. The bot does not panic. (`/guilds` not registered until implemented.)
+- [ ] Each `redirect_uri` the client sends in **`POST /auth/token`** must be allowlisted and registered in the Discord Developer Portal.
 
 ---
 
