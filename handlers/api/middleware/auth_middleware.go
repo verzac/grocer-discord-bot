@@ -83,7 +83,8 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 				// basic
 				decodedAuthHeader, err := base64.StdEncoding.DecodeString(headerValue)
 				if err != nil {
-					return err
+					logger.Warn("basic auth: invalid base64 in Authorization header", zap.Error(err))
+					return echo.NewHTTPError(401, "Malformed authentication.")
 				}
 				splitTokens := strings.Split(string(decodedAuthHeader), ":")
 				if len(splitTokens) != 2 {
