@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
-	"github.com/verzac/grocer-discord-bot/auth"
 	"github.com/verzac/grocer-discord-bot/config"
 	dbUtils "github.com/verzac/grocer-discord-bot/db"
 	"github.com/verzac/grocer-discord-bot/handlers"
@@ -126,7 +125,6 @@ func main() {
 	groprometheus.InitMetrics(logger)
 
 	// API handler
-	auth.InitDefaultJWTIssuer(logger)
 	go func() {
 		if err := api.RegisterAndStart(logger, db, GroBotVersion, d); err != nil {
 			logger.Error("API returned an error while starting.", zap.Error(err))

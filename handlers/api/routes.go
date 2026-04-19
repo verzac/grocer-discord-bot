@@ -66,6 +66,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	e.Use(apimw.AuthMiddleware(apiClientRepo, logger, grobotVersion, discordSess))
 
 	if oauthSetup := auth.LoadOAuthSetup(logger); oauthSetup != nil {
+		auth.InitDefaultJWTIssuer(logger)
 		routeauth.Register(e, logger, oauthSetup, userSessionRepo)
 	}
 
