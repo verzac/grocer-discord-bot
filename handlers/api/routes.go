@@ -16,11 +16,13 @@ import (
 	"github.com/verzac/grocer-discord-bot/handlers"
 	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routeauth"
+	"github.com/verzac/grocer-discord-bot/handlers/api/routeguilds"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routetest"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"github.com/verzac/grocer-discord-bot/services/grocery"
+	"github.com/verzac/grocer-discord-bot/services/oauthsession"
 	"github.com/verzac/grocer-discord-bot/services/registration"
 	"github.com/verzac/grocer-discord-bot/utils"
 	"go.uber.org/zap"
@@ -67,7 +69,9 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 
 	if oauthSetup := auth.LoadOAuthSetup(logger); oauthSetup != nil {
 		auth.InitDefaultJWTIssuer(logger)
+		oauthsession.Init(oauthSetup, userSessionRepo, logger)
 		routeauth.Register(e, logger, oauthSetup, userSessionRepo)
+		routeguilds.Register(e, logger, discordSess)
 	}
 
 	if grobotVersion == config.GrobotVersionLocal {
