@@ -8,12 +8,15 @@ info:
   # license:
   #   name: Apache 2.0
   #   url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: 2.5.x
+  version: v2.11.x
 externalDocs:
   description: GroceryBot's Website
   url: https://grocerybot.net
 servers:
-  - url: https://api.grocerybot.net/
+  - url: https://api.grocerybot.net
+security:
+  - basicApiClient: []
+  - bearerAuth: []
 # tags:
 #   - name: Interacting with GroceryBot
 #     description: Everything related to do with CRUD-ing your groceries on GroceryBot.
@@ -25,25 +28,94 @@ servers:
 # - name: auth
 #   description: Operations about user
 paths:
+  /auth/token:
+    post:
+      summary: Exchange Discord OAuth code for GroceryBot tokens
+      description: "Accepts the authorization `code`, PKCE `code_verifier`, and `redirect_uri` from the Discord OAuth flow (client-driven). Validates `redirect_uri` against the server allowlist, exchanges with Discord, and returns a GroceryBot JWT plus refresh token."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenExchangeRequest"
+      responses:
+        "200":
+          description: Session issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          description: Missing fields, invalid JSON, or `redirect_uri` is not allowed.
+        "500":
+          description: JWT issuance, encryption, or persistence failed.
+        "502":
+          description: Discord token exchange, `@me`, or upstream failed.
+  /auth/refresh:
+    post:
+      summary: Refresh GroceryBot access token
+      description: "Exchanges a valid refresh token for a new access JWT and a rotated refresh token. Returns `expires_in` for the access token (seconds)."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: New tokens issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshTokenResponse"
+        "400":
+          description: Invalid request body.
+        "401":
+          description: Missing, invalid, or expired refresh token.
+        "500":
+          description: JWT issuance or rotation failed.
+  /auth/logout:
+    post:
+      summary: Log out (revoke session)
+      description: "Deletes the authenticated user's session(s). Requires `Authorization: Bearer` with the GroceryBot JWT. Does not use `X-Guild-ID`."
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Session removed.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          description: Server failed to delete sessions.
+  /guilds:
+    get:
+      summary: List guilds shared by the user and bot
+      description: "Returns Discord guilds for the authenticated user that the bot is also in. Requires `Authorization: Bearer`. Does not use `X-Guild-ID`."
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Guild list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserGuildsResponse"
+        "401":
+          description: Invalid JWT, or Discord session expired — re-authenticate.
+        "500":
+          description: Bot session unavailable for guild intersection.
+        "502":
+          description: Discord `@me/guilds` failed.
   /grocery-lists:
     get:
       # tags:
       #   - grocery
       summary: GET Grocery Lists and Entries
       description: "Get your server's grocery lists and entries. Note: you have to map the relationship between a grocery list and the groceries themselves."
-      # requestBody:
-      #   description: Update an existent pet in the store
-      #   content:
-      #     application/json:
-      #       schema:
-      #         $ref: "#/components/schemas/Pet"
-      #     application/xml:
-      #       schema:
-      #         $ref: "#/components/schemas/Pet"
-      #     application/x-www-form-urlencoded:
-      #       schema:
-      #         $ref: "#/components/schemas/Pet"
-      #   required: true
+      parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
       responses:
         "200":
           description: Successful operation
@@ -51,6 +123,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GuildGroceryList"
+        "400":
+          description: Bearer requests require `X-Guild-ID`.
         "401":
           $ref: "#/components/responses/UnauthorizedError"
         "403":
@@ -61,6 +135,8 @@ paths:
       #   - grocery
       summary: POST Grocery Entry
       description: "Create a new grocery entry for your server. To attach it to a grocery list, obtain your server's grocery lists from GET /grocery-lists and put it into `grocery_list_id`."
+      parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
       requestBody:
         description: Creates a new grocery entry.
         content:
@@ -83,6 +159,7 @@ paths:
       summary: DELETE Grocery Entry
       description: "Delete a grocery entry by its ID. You can obtain the ID from the GET /grocery-lists endpoint."
       parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
         - name: id
           in: path
           required: true
@@ -101,8 +178,111 @@ paths:
           $ref: "#/components/responses/ForbiddenError"
         "404":
           description: Grocery entry not found.
+  /registrations:
+    get:
+      summary: GET guild registrations
+      description: Returns active registrations for the guild selected by credentials (Basic scope) or by `X-Guild-ID` (Bearer).
+      parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GuildRegistration"
+        "400":
+          description: Bearer requests require `X-Guild-ID`.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "500":
+          description: Server error.
 components:
+  parameters:
+    XGuildIDHeader:
+      name: X-Guild-ID
+      in: header
+      required: true
+      description: "Required for Bearer-authenticated requests to guild-scoped routes (see SPEC-001). Ignored for Basic auth (guild is determined from the API client scope)."
+      schema:
+        type: string
   schemas:
+    TokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri]
+      properties:
+        code:
+          type: string
+          description: Authorization code from Discord OAuth redirect.
+        code_verifier:
+          type: string
+          description: PKCE code verifier (S256) used in the authorization request.
+        redirect_uri:
+          type: string
+          description: Must match the redirect URI used with Discord and must be allowed on the server.
+    TokenResponse:
+      type: object
+      required: [access_token, refresh_token, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: "GroceryBot JWT (use as Authorization Bearer header)."
+        refresh_token:
+          type: string
+          description: "Opaque refresh token for POST /auth/refresh."
+        expires_in:
+          type: integer
+          format: int64
+          description: Access token lifetime in seconds.
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+    RefreshTokenResponse:
+      $ref: "#/components/schemas/TokenResponse"
+    UserGuild:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+          nullable: true
+    UserGuildsResponse:
+      type: object
+      properties:
+        guilds:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserGuild"
+    GuildRegistration:
+      type: object
+      description: "Wire format uses exported Go field names (default `encoding/json`). Nested entitlements may be present when preloaded."
+      properties:
+        ID:
+          type: integer
+        GuildID:
+          type: string
+        RegistrationEntitlementID:
+          type: integer
+        RegistrationEntitlement:
+          type: object
+          nullable: true
+        CreatedAt:
+          type: string
+          format: date-time
+        ExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
     GuildGroceryList:
       type: object
       description: Represents a server's grocery list information, including groceries and entries. They are unordered, so you must map the groceries <-> grocery lists relationship yourself.
@@ -121,6 +301,7 @@ components:
     GroceryEntry:
       type: object
       description: Represents a grocery entry (e.g. added by /gro).
+      required: [item_desc]
       properties:
         id:
           type: number
@@ -137,25 +318,25 @@ components:
         item_desc:
           type: string
           description: "Description of the entry. For example, `/gro chicken` would result in this field being `chicken`."
-          required: true
         updated_by_id:
           type: string
           description: Discord ID of the user who updated this entry last.
           deprecated: true
           readOnly: true
         grocery_list_id:
-          type: int
+          type: integer
+          format: int64
           description: The foreign key pointing to a particular grocery list in your server. A null value means that this belongs to the server's default grocery list.
           nullable: true
     GroceryList:
       type: object
       description: Represents a grocery list (e.g. added by /grolist-new).
+      required: [id, guild_id, list_label]
       properties:
         id:
           type: number
           description: Primary key of the list. Guaranteed to be unique.
           readOnly: true
-          required: true
         created_at:
           type: string
           description: A timestamp on when the list was created.
@@ -167,11 +348,9 @@ components:
         guild_id:
           type: string
           description: "The server ID to which the list belongs to."
-          required: true
         list_label:
           type: string
-          description: The unique label that is used to refer to this grocery list in commands. For example, `!gro:ebay blah` would be referring to a grocery list with `list_label` as "blah".
-          required: true
+          description: "The unique label that is used to refer to this grocery list in commands. For example, `!gro:ebay blah` would be referring to a grocery list with `list_label` as \"blah\"."
         fancy_name:
           type: string
           description: The fancy name that is displayed to the users (alongside `list_label`) when displaying this grocery list in commands.
@@ -204,5 +383,8 @@ components:
     basicApiClient:
       type: http
       scheme: basic
-  security:
-    - basicApiClient: []
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: GroceryBot JWT from POST /auth/token or POST /auth/refresh. On grocery and registration routes, send `X-Guild-ID` to select the target server.
