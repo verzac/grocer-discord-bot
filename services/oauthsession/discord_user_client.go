@@ -16,7 +16,7 @@ func (s *impl) DiscordUserHTTPClient(ctx context.Context, discordUserID string) 
 	sess, err := s.repo.WithContext(ctx).FindByDiscordUserID(ctx, discordUserID)
 	if err != nil {
 		s.log.Error("load user session for discord oauth", zap.Error(err))
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Cannot load session.")
+		return nil, echo.NewHTTPError(500, "Cannot load session.")
 	}
 	if sess == nil || sess.EncryptedDiscordAccessToken == "" {
 		return nil, ErrSessionNotFound
@@ -25,14 +25,14 @@ func (s *impl) DiscordUserHTTPClient(ctx context.Context, discordUserID string) 
 	accessPlain, err := s.oauth.TokenEncryptor.Decrypt(sess.EncryptedDiscordAccessToken)
 	if err != nil {
 		s.log.Error("decrypt discord access token", zap.Error(err))
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Cannot load session.")
+		return nil, echo.NewHTTPError(500, "Cannot load session.")
 	}
 	var refreshPlain string
 	if sess.EncryptedDiscordRefreshToken != "" {
 		refreshPlain, err = s.oauth.TokenEncryptor.Decrypt(sess.EncryptedDiscordRefreshToken)
 		if err != nil {
 			s.log.Error("decrypt discord refresh token", zap.Error(err))
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Cannot load session.")
+			return nil, echo.NewHTTPError(500, "Cannot load session.")
 		}
 	}
 

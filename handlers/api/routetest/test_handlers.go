@@ -1,8 +1,6 @@
 package routetest
 
 import (
-	"net/http"
-
 	"github.com/labstack/echo/v4"
 	"github.com/verzac/grocer-discord-bot/auth"
 	"go.uber.org/zap"
@@ -24,7 +22,7 @@ func Register(e *echo.Echo, logger *zap.Logger) {
 		if err != nil {
 			return echo.NewHTTPError(500, err.Error())
 		}
-		return c.JSON(http.StatusOK, map[string]string{
+		return c.JSON(200, map[string]string{
 			"access_token": tokenStr,
 			"sub":          discordUserID,
 		})

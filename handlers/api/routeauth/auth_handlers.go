@@ -86,7 +86,7 @@ func Register(
 			return echo.NewHTTPError(502, "Could not reach Discord.")
 		}
 		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode != 200 {
 			logger.Warn("discord @me non-OK", zap.Int("status", resp.StatusCode))
 			return echo.NewHTTPError(502, "Could not verify Discord account.")
 		}
@@ -143,7 +143,7 @@ func Register(
 			return echo.NewHTTPError(500, "Cannot issue session.")
 		}
 
-		return c.JSON(http.StatusOK, tokenResponse{
+		return c.JSON(200, tokenResponse{
 			AccessToken:  accessJWT,
 			RefreshToken: refreshPlain,
 			ExpiresIn:    int64(auth.DefaultAccessTokenTTL.Seconds()),
@@ -197,7 +197,7 @@ func Register(
 			logger.Error("save rotated refresh token", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot refresh session.")
 		}
-		return c.JSON(http.StatusOK, refreshTokenResponse{
+		return c.JSON(200, refreshTokenResponse{
 			AccessToken:  accessJWT,
 			RefreshToken: newPlain,
 			ExpiresIn:    int64(auth.DefaultAccessTokenTTL.Seconds()),

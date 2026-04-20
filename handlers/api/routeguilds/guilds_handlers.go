@@ -29,7 +29,7 @@ func Register(e *echo.Echo, logger *zap.Logger, discordSess *discordgo.Session) 
 		authContext := c.(*apimw.AuthContext)
 		userID := authContext.UserID
 		if userID == "" {
-			return echo.NewHTTPError(http.StatusUnauthorized, "Session not found; please re-authenticate.")
+			return echo.NewHTTPError(401, "Session not found; please re-authenticate.")
 		}
 
 		client, err := oauthsession.Service.DiscordUserHTTPClient(ctx, userID)
@@ -40,30 +40,30 @@ func Register(e *echo.Echo, logger *zap.Logger, discordSess *discordgo.Session) 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, discordUsersMeGuildsURL, nil)
 		if err != nil {
 			logger.Error("build @me/guilds request", zap.Error(err))
-			return echo.NewHTTPError(http.StatusBadGateway, "Could not reach Discord.")
+			return echo.NewHTTPError(502, "Could not reach Discord.")
 		}
 		resp, err := client.Do(req)
 		if err != nil {
 			logger.Error("discord @me/guilds request failed", zap.Error(err))
-			return echo.NewHTTPError(http.StatusBadGateway, "Could not reach Discord.")
+			return echo.NewHTTPError(502, "Could not reach Discord.")
 		}
 		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-			return echo.NewHTTPError(http.StatusUnauthorized, "Discord session expired; please re-authenticate.")
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			return echo.NewHTTPError(401, "Discord session expired; please re-authenticate.")
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode != 200 {
 			logger.Warn("discord @me/guilds non-OK", zap.Int("status", resp.StatusCode))
-			return echo.NewHTTPError(http.StatusBadGateway, "Could not load guilds from Discord.")
+			return echo.NewHTTPError(502, "Could not load guilds from Discord.")
 		}
 
 		var userGuilds []discordUserGuild
 		if err := json.NewDecoder(resp.Body).Decode(&userGuilds); err != nil {
 			logger.Error("decode discord guilds", zap.Error(err))
-			return echo.NewHTTPError(http.StatusBadGateway, "Could not load guilds from Discord.")
+			return echo.NewHTTPError(502, "Could not load guilds from Discord.")
 		}
 
 		if discordSess == nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Cannot resolve bot guilds.")
+			return echo.NewHTTPError(500, "Cannot resolve bot guilds.")
 		}
 		botGuildIDs := make(map[string]struct{}, len(discordSess.State.Guilds))
 		for _, g := range discordSess.State.Guilds {
@@ -82,6 +82,6 @@ func Register(e *echo.Echo, logger *zap.Logger, discordSess *discordgo.Session) 
 				})
 			}
 		}
-		return c.JSON(http.StatusOK, out)
+		return c.JSON(200, out)
 	})
 }
