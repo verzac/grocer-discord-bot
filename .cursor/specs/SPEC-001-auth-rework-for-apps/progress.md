@@ -1,6 +1,6 @@
 # SPEC-001 Progress Tracker
 
-> Last updated: 2026-04-18
+> Last updated: 2026-04-20
 
 Reference spec: `.cursor/specs/SPEC-001-auth-rework-for-apps/spec.md`
 
@@ -8,7 +8,7 @@ Reference spec: `.cursor/specs/SPEC-001-auth-rework-for-apps/spec.md`
 
 ## Handover Summary (read this first)
 
-**Current state of the codebase:** **Option B (Client-Driven Flow)** is implemented for the OAuth login flow. The Expo app drives OAuth with Discord (`expo-auth-session`); the backend exposes `POST /auth/token` (JSON tokens), `POST /auth/refresh` (includes `expires_in`), and `POST /auth/logout` (Bearer JWT — middleware carve-out so only this `/auth/*` route is authenticated).
+**Current state of the codebase:** **Option B (Client-Driven Flow)** is implemented for the OAuth login flow. The Expo app drives OAuth with Discord (`expo-auth-session`); the backend exposes `POST /auth/token` (JSON tokens), `POST /auth/refresh` (includes `expires_in`), `POST /auth/logout` (Bearer JWT — middleware carve-out so only this `/auth/*` route is authenticated), and **`GET /guilds`** (Bearer JWT; no `X-Guild-ID`; registered with the same OAuth env gate as `/auth/*`).
 
 **Decision made:** Option B (chosen). Option A routes and env vars have been removed.
 
@@ -18,7 +18,7 @@ Reference spec: `.cursor/specs/SPEC-001-auth-rework-for-apps/spec.md`
 
 **Logout (4.5):** Uses **Bearer JWT** only (Approach B). `POST /auth/logout` is excluded from the `/auth/*` auth skip in middleware so the JWT is verified; `X-Guild-ID` is not required (same pattern as `/guilds`). Handler deletes `user_sessions` rows for `sub`.
 
-Also still outstanding: **Area 6** (`GET /guilds`) and **Area 7.2** (user attribution on future edit/delete endpoints).
+**Area 6 (`GET /guilds`):** **Done** (`handlers/api/routeguilds/guilds_handlers.go`). **Area 7.2** (user attribution on future edit endpoints) is not actionable until a grocery edit route exists — see the reminder comment above `POST /groceries` in `handlers/api/routes.go` (`DELETE` does not need `updated_by_id`).
 
 **What to keep unchanged:** JWT issuing/verification (`auth/user_access_jwt.go`), Bearer middleware, `POST /auth/refresh`, encryption (`auth/encryption.go`), refresh token logic, `user_sessions` table + model + repo, `golang.org/x/oauth2` (still used for code exchange in the new endpoint).
 
@@ -153,6 +153,8 @@ Env for `/auth/*`: `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, **`SESSION_ENCR
 | 19 | AES-GCM `SESSION_ENCRYPTION_KEY`; Discord tokens encrypted at rest | `auth/encryption.go` | AC-1 |
 | 20 | PKCE client-side (Option B); `auth/pkce.go` utility only | `auth/pkce.go` | — |
 | 21 | `POST /groceries` sets `UpdatedByID` from JWT when Bearer | `handlers/api/routes.go` | AC-6 |
+| 22 | `GET /guilds` — Discord `@me/guilds` + intersect `discordSess.State.Guilds`; refresh via `oauth2.TokenSource`; persist rotated tokens | `handlers/api/routeguilds/guilds_handlers.go` | AC-4 |
+| 23 | Guild list response DTO | `dto/guild.go` | AC-4 |
 
 **Option B refactor (tasks 4.4–4.8):** **Completed.** Old items #13/#14 (`GET /auth/discord`, callback) removed; #11 refactored; server-side PKCE initiation removed from `auth_handlers.go`.
 
@@ -165,7 +167,7 @@ Items are grouped by area and listed in suggested implementation order (dependen
 - [x] **1.1** Add `golang.org/x/oauth2` as a direct dependency in `go.mod`.
 - [x] **1.2** Read `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET` from env and build an `oauth2.Config` with Discord endpoints. (Option B: `RedirectURL` empty; `DISCORD_REDIRECT_URI` removed.)
 - [x] **1.3** Redirect URI allowlist for token exchange: `ALLOWED_REDIRECT_URIS` (comma-separated; default `grocerybot://auth/callback`). Replaces `APP_REDIRECT_URI` post-callback redirect.
-- [x] **1.4** Graceful degradation: if any Discord OAuth2 env vars are missing, skip registering `/auth/*` routes. The bot must not panic; Basic auth continues to work. (`/guilds` not registered yet — still missing Area 6.) **`SESSION_ENCRYPTION_KEY` is also required for `/auth/*`.**
+- [x] **1.4** Graceful degradation: if any Discord OAuth2 env vars are missing, skip registering `/auth/*` and **`GET /guilds`** routes. The bot must not panic; Basic auth continues to work. **`SESSION_ENCRYPTION_KEY` is also required for `/auth/*` and `/guilds`.**
 
 #### Area 2: Database — `user_sessions` Table (AC-9)
 
@@ -198,14 +200,14 @@ Items are grouped by area and listed in suggested implementation order (dependen
 
 #### Area 6: Guild Listing (AC-4)
 
-- [ ] **6.1** `GET /guilds` handler — load stored Discord access token for the authenticated user, call Discord `GET /users/@me/guilds`, intersect with `discordSess.State.Guilds`, return `[{id, name, icon}]`.
-- [ ] **6.2** If stored Discord token is expired, refresh it using the stored Discord refresh token before retrying.
-- [ ] **6.3** If Discord token cannot be refreshed (revoked), return `401` indicating re-auth is required.
+- [x] **6.1** `GET /guilds` handler — load stored Discord access token for the authenticated user, call Discord `GET /users/@me/guilds`, intersect with `discordSess.State.Guilds`, return `[{id, name, icon}]`. (`handlers/api/routeguilds/guilds_handlers.go`)
+- [x] **6.2** If stored Discord token is expired, refresh it using the stored Discord refresh token before retrying (`oauth2.TokenSource`).
+- [x] **6.3** If Discord token cannot be refreshed (revoked), return `401` indicating re-auth is required.
 
 #### Area 7: User Attribution (AC-6)
 
 - [x] **7.1** In `POST /groceries` handler (`handlers/api/routes.go`), when `authContext.UserID != ""`, set `groceryEntry.UpdatedByID = &authContext.UserID` server-side, overriding any client-supplied value.
-- [ ] **7.2** Apply the same pattern to future edit/delete endpoints.
+- [ ] **7.2** Apply the same pattern to future **edit** endpoints (no edit route in the API yet — see comment above `POST /groceries` in `handlers/api/routes.go`). **`DELETE /groceries` does not set `updated_by_id`.**
 
 ---
 
