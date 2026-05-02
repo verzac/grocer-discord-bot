@@ -98,6 +98,10 @@ const config = {
                 label: "Privacy Policy",
                 to: "/privacy-policy",
               },
+              {
+                label: "Privacy Policy (GroceryBot App)",
+                to: "/privacy-policy-mobile",
+              },
             ],
           },
           {

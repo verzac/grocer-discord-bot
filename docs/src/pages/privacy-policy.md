@@ -4,6 +4,8 @@ sidebar_position: 3
 
 # Privacy Policy
 
+> If you're looking for the privacy policy for the mobile app (GroceryBot App), please find it [here](/privacy-policy-mobile).
+
 "No entry, no data, no problem," and "We don't run analytics or any kind of dodgy stuff because that's expensive."
 
 ## Who are the maintainers?
