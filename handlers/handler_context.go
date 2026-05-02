@@ -17,6 +17,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/repositories"
 	"github.com/verzac/grocer-discord-bot/services/announcement"
 	"github.com/verzac/grocer-discord-bot/services/grocery"
+	"github.com/verzac/grocer-discord-bot/services/guilds"
 	"github.com/verzac/grocer-discord-bot/services/registration"
 	"github.com/verzac/grocer-discord-bot/utils"
 	"go.uber.org/zap"
@@ -76,6 +77,7 @@ type MessageHandlerContext struct {
 	registrationEntitlementRepo repositories.RegistrationEntitlementRepository
 	registrationService         registration.RegistrationService
 	groceryService              grocery.GroceryService
+	guildsService               guilds.GuildsService
 	guildConfigRepo             repositories.GuildConfigRepository
 	announcementService         announcement.AnnouncementService
 	cachedConfig                *models.GuildConfig
@@ -244,6 +246,7 @@ func NewHandler(ctx context.Context, sess *discordgo.Session, cc *CommandContext
 		registrationEntitlementRepo: &repositories.RegistrationEntitlementRepositoryImpl{DB: db},
 		registrationService:         registration.Service,
 		groceryService:              grocery.Service,
+		guildsService:               guilds.Service,
 		guildConfigRepo:             &repositories.GuildConfigRepositoryImpl{DB: db},
 		announcementService:         announcement.Service,
 		ctx:                         ctx,

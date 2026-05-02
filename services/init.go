@@ -5,6 +5,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/services/announcement"
 	"github.com/verzac/grocer-discord-bot/services/grocery"
 	"github.com/verzac/grocer-discord-bot/services/guildconfig"
+	"github.com/verzac/grocer-discord-bot/services/guilds"
 	"github.com/verzac/grocer-discord-bot/services/registration"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -15,4 +16,5 @@ func InitServices(db *gorm.DB, logger *zap.Logger, sess *discordgo.Session) {
 	grocery.Init(db, logger, sess)
 	guildconfig.Init(db, logger)
 	announcement.Init(db, logger)
+	guilds.Init(db)
 }
