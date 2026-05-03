@@ -18,12 +18,13 @@ type OnDemandCollector struct {
 	logger *zap.Logger
 
 	// Metrics
-	monthlyActiveUsersGauge  *prometheus.Desc
-	weeklyActiveUsersGauge   *prometheus.Desc
-	dailyActiveUsersGauge    *prometheus.Desc
-	totalGroceryEntriesGauge *prometheus.Desc
-	activeGuildsGauge        *prometheus.Desc
-	totalGroceryListsGauge   *prometheus.Desc
+	monthlyActiveUsersGauge       *prometheus.Desc
+	weeklyActiveUsersGauge        *prometheus.Desc
+	dailyActiveUsersGauge         *prometheus.Desc
+	totalGroceryEntriesGauge      *prometheus.Desc
+	activeGuildsGauge             *prometheus.Desc
+	totalGroceryListsGauge        *prometheus.Desc
+	nonExpiredUserSessionsGauge   *prometheus.Desc
 }
 
 // NewOnDemandCollector creates a new collector for on-demand metrics
@@ -61,6 +62,11 @@ func NewOnDemandCollector(database *gorm.DB, logger *zap.Logger) *OnDemandCollec
 			"Total number of grocery lists in the database",
 			nil, nil,
 		),
+		nonExpiredUserSessionsGauge: prometheus.NewDesc(
+			"grocer_bot_user_sessions_non_expired",
+			"Number of stored OAuth user sessions whose refresh token is not yet expired (refresh_token_expiry > now UTC)",
+			nil, nil,
+		),
 	}
 }
 
@@ -72,6 +78,7 @@ func (c *OnDemandCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.totalGroceryEntriesGauge
 	ch <- c.activeGuildsGauge
 	ch <- c.totalGroceryListsGauge
+	ch <- c.nonExpiredUserSessionsGauge
 }
 
 // Collect implements prometheus.Collector
@@ -86,6 +93,7 @@ func (c *OnDemandCollector) Collect(ch chan<- prometheus.Metric) {
 	c.collectTotalGroceryEntries(ch)
 	c.collectActiveGuilds(ch)
 	c.collectGroceryListStats(ch)
+	c.collectNonExpiredUserSessions(ch)
 }
 
 // collectActiveUsers collects daily, weekly, and monthly active user counts
@@ -213,4 +221,26 @@ func (c *OnDemandCollector) collectGroceryListStats(ch chan<- prometheus.Metric)
 		metricsCache.Set(listCountKey, float64(listCount), cache.DefaultExpiration)
 		ch <- prometheus.MustNewConstMetric(c.totalGroceryListsGauge, prometheus.GaugeValue, float64(listCount))
 	}
+}
+
+func (c *OnDemandCollector) collectNonExpiredUserSessions(ch chan<- prometheus.Metric) {
+	key := "non_expired_user_sessions"
+	if cached, found := metricsCache.Get(key); found {
+		ch <- prometheus.MustNewConstMetric(c.nonExpiredUserSessionsGauge, prometheus.GaugeValue, cached.(float64))
+		return
+	}
+
+	var count int64
+	now := time.Now().UTC()
+	err := c.db.Model(&models.UserSession{}).
+		Where("refresh_token_expiry > ?", now).
+		Count(&count).Error
+
+	if err != nil {
+		c.logger.Error("Failed to count non-expired user sessions", zap.Error(err))
+		return
+	}
+
+	metricsCache.Set(key, float64(count), cache.DefaultExpiration)
+	ch <- prometheus.MustNewConstMetric(c.nonExpiredUserSessionsGauge, prometheus.GaugeValue, float64(count))
 }

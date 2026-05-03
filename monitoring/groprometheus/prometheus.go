@@ -3,9 +3,9 @@ package groprometheus
 import (
 	"sync/atomic"
 
+	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -41,13 +41,16 @@ func SetDB(database *gorm.DB) {
 	db = database
 }
 
+// Registry is the single Prometheus registry for GroBot (custom metrics and Echo HTTP metrics).
+func Registry() *prometheus.Registry {
+	return registry
+}
+
 // PrometheusHandler returns the Prometheus metrics endpoint
 func PrometheusHandler() echo.HandlerFunc {
-	return func(c echo.Context) error {
-		// Use our custom registry
-		promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(c.Response().Writer, c.Request())
-		return nil
-	}
+	return echoprometheus.NewHandlerWithConfig(echoprometheus.HandlerConfig{
+		Gatherer: registry,
+	})
 }
 
 // UpdateDiscordServers updates the Discord servers count

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/verzac/grocer-discord-bot/auth"
@@ -43,6 +44,15 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Recover())
+
+	promHTTP := echoprometheus.NewMiddlewareWithConfig(echoprometheus.MiddlewareConfig{
+		Subsystem:  "echo",
+		Registerer: groprometheus.Registry(),
+		Skipper: func(c echo.Context) bool {
+			return c.Path() == "/metrics"
+		},
+	})
+	e.Use(promHTTP)
 
 	ao := os.Getenv("GROCER_BOT_API_ALLOW_ORIGINS")
 	if ao == "" {
