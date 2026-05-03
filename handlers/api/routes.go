@@ -49,7 +49,9 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		Subsystem:  "echo",
 		Registerer: groprometheus.Registry(),
 		Skipper: func(c echo.Context) bool {
-			return c.Path() == "/metrics"
+			path := c.Path()
+			// note: empty path means that the route was not matched, so a 404 was _conceptually_ returned (401s would be returned if the user was unauthenticated)
+			return path == "" || path == "/metrics"
 		},
 	})
 	e.Use(promHTTP)
