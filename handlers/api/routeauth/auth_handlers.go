@@ -70,8 +70,8 @@ func Register(
 			oauth2.SetAuthURLParam("code_verifier", body.CodeVerifier),
 		)
 		if err != nil {
-			logger.Error("discord token exchange failed", zap.Error(err))
-			return echo.NewHTTPError(502, "Could not complete login with Discord.")
+			logger.Warn("discord token exchange failed", zap.Error(err))
+			return echo.NewHTTPError(400, "Could not complete login with Discord. Please try again.")
 		}
 
 		client := oauthSetup.OAuth2.Client(ctx, token)
