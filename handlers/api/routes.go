@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -109,6 +110,30 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 			GroceryLists:   groceryLists,
 		}
 		return c.JSON(200, out)
+	})
+	e.DELETE("/groceries", func(c echo.Context) error {
+		defer handlers.Recover(logger)
+		authContext := c.(*apimw.AuthContext)
+		ctx := c.Request().Context()
+		guildID := authContext.GuildID
+
+		req := dto.GroceryBatchDeleteRequest{}
+		if err := c.Bind(&req); err != nil {
+			return echo.NewHTTPError(400, "Invalid request body.")
+		}
+		if err := c.Validate(&req); err != nil {
+			return echo.NewHTTPError(400, err.Error())
+		}
+
+		if err := grocery.Service.DeleteGroceriesByIDs(ctx, guildID, req.IDs); err != nil {
+			var notFound *grocery.GroceryEntriesNotFoundError
+			if errors.As(err, &notFound) {
+				return echo.NewHTTPError(404, err.Error())
+			}
+			return err
+		}
+
+		return c.NoContent(204)
 	})
 	e.DELETE("/groceries/:id", func(c echo.Context) error {
 		defer handlers.Recover(logger)

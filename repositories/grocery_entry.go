@@ -36,6 +36,8 @@ type GroceryEntryRepository interface {
 	Put(g *models.GroceryEntry) error
 	GetCount(query *models.GroceryEntry) (count int64, err error)
 	Delete(ctx context.Context, entry *models.GroceryEntry) error
+	FindByGuildAndIDs(ctx context.Context, guildID string, ids []uint) ([]models.GroceryEntry, error)
+	DeleteByGuildAndIDs(ctx context.Context, guildID string, ids []uint) (int64, error)
 }
 
 type GroceryEntryRepositoryImpl struct {
@@ -203,4 +205,27 @@ func (r *GroceryEntryRepositoryImpl) Delete(ctx context.Context, entry *models.G
 		return res.Error
 	}
 	return nil
+}
+
+func (r *GroceryEntryRepositoryImpl) FindByGuildAndIDs(ctx context.Context, guildID string, ids []uint) ([]models.GroceryEntry, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var entries []models.GroceryEntry
+	res := r.DB.WithContext(ctx).Where("guild_id = ? AND id IN ?", guildID, ids).Find(&entries)
+	if res.Error != nil && res.Error != gorm.ErrRecordNotFound {
+		return nil, res.Error
+	}
+	return entries, nil
+}
+
+func (r *GroceryEntryRepositoryImpl) DeleteByGuildAndIDs(ctx context.Context, guildID string, ids []uint) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	res := r.DB.WithContext(ctx).Where("guild_id = ? AND id IN ?", guildID, ids).Delete(&models.GroceryEntry{})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
 }

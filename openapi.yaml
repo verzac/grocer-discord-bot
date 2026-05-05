@@ -8,7 +8,7 @@ info:
   # license:
   #   name: Apache 2.0
   #   url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: v2.11.x
+  version: v2.12.x
 externalDocs:
   description: GroceryBot's Website
   url: https://grocerybot.net
@@ -129,6 +129,28 @@ paths:
         "403":
           $ref: "#/components/responses/ForbiddenError"
   /groceries:
+    delete:
+      summary: BATCH DELETE Grocery Entries
+      description: "Delete multiple grocery entries by primary key IDs in one request (at most 300 IDs). IDs must belong to the guild selected by credentials (`X-Guild-ID` for Bearer). Duplicate IDs in the request are ignored. If any ID does not exist in this guild, the request fails with 404 and nothing is deleted."
+      parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GroceryBatchDeleteRequest"
+      responses:
+        "204":
+          description: All requested grocery entries were deleted.
+        "400":
+          description: Invalid JSON, missing `ids`, empty `ids`, more than 300 IDs, or invalid ID values.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          description: One or more grocery entry IDs were not found in this guild; no entries were deleted.
     post:
       # tags:
       #   - grocery
@@ -297,6 +319,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/GroceryList"
+    GroceryBatchDeleteRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 300
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Primary keys of grocery entries to delete (see GET /grocery-lists). At most 300 IDs per request.
     GroceryEntry:
       type: object
       description: Represents a grocery entry (e.g. added by /gro).

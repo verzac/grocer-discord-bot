@@ -20,6 +20,7 @@ type GroceryService interface {
 	ValidateGroceryEntryLimit(ctx context.Context, registrationContext *dto.RegistrationContext, guildID string, newItemCount int) (limitOk bool, limit int, err error)
 	ValidateGroceryEntryLimitUsingTotalCount(ctx context.Context, registrationContext *dto.RegistrationContext, guildID string, totalItemCount int) (limitOk bool, limit int, err error)
 	OnGroceryListEdit(ctx context.Context, groceryList *models.GroceryList, guildID string) error
+	DeleteGroceriesByIDs(ctx context.Context, guildID string, ids []int64) error
 	UpdateGuildGrohere(ctx context.Context, guildID string) error
 	ProcessListlessGroceries(ctx context.Context, groceries []models.GroceryEntry) error
 }
