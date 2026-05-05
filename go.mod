@@ -23,7 +23,7 @@ require (
 	gorm.io/gorm v1.21.14
 )
 
-replace github.com/bwmarrin/discordgo => github.com/verzac/discordgo-new-components v0.29.1-0.20260330022609-874d4bcdeb68
+replace github.com/bwmarrin/discordgo => github.com/verzac/discordgo-new-components v0.29.1-0.20260505070713-be8e18feaa36
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
