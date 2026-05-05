@@ -34,3 +34,7 @@ jobs:
           curl -X POST -H 'Content-Type: application/json' \
             -d '{"content":"<@183947835467759617> Healthcheck failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","allowed_mentions":{"users":["183947835467759617"]}}' \
             "${{ secrets.HEALTHCHECK_ALERT_DISCORD_WEBHOOK_URL }}"
+          curl -X POST -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer ${{ secrets.OPS_WEBHOOK_AUTH_TOKEN }}" \
+            -d '{"source":"github_actions","workflow":"healthcheck","run_url":"'"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"'"}' \
+            "${{ secrets.OPS_WEBHOOK_RESTART }}"
