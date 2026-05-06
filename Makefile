@@ -16,6 +16,10 @@ full_e2e:
 e2e:
 	go test -tags=integration ./e2e/... -v -count=1
 
+.PHONY: e2e_api
+e2e_api:
+	go test -tags=api ./e2e/api/... -v -count=1
+
 .PHONY: healthcheck
 healthcheck:
 	go test -tags=healthcheck ./e2e/healthcheck/... -v -count=1
