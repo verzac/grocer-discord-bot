@@ -57,6 +57,7 @@ func (s *GroceryServiceImpl) DeleteGroceriesByIDs(ctx context.Context, guildID s
 		return err
 	}
 
+	// process grohere
 	listIDSet := make(map[uint]struct{})
 	hasListless := false
 	for i := range entries {
