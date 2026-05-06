@@ -58,26 +58,27 @@ func (s *GroceryServiceImpl) DeleteGroceriesByIDs(ctx context.Context, guildID s
 	}
 
 	// process grohere
-	listIDSet := make(map[uint]struct{})
+	changedListIDSet := make(map[uint]struct{})
 	hasListless := false
 	for i := range entries {
 		if entries[i].GroceryListID == nil || *entries[i].GroceryListID == 0 {
 			hasListless = true
 			continue
 		}
-		listIDSet[*entries[i].GroceryListID] = struct{}{}
+		changedListIDSet[*entries[i].GroceryListID] = struct{}{}
 	}
 
-	if len(listIDSet) > 0 {
+	if len(changedListIDSet) > 0 {
 		allLists, lErr := s.groceryListRepo.FindByQuery(&models.GroceryList{GuildID: guildID})
 		if lErr != nil {
 			return lErr
 		}
+		// find the changed grocery lists
 		listsByID := make(map[uint]*models.GroceryList, len(allLists))
 		for i := range allLists {
 			listsByID[allLists[i].ID] = &allLists[i]
 		}
-		for listID := range listIDSet {
+		for listID := range changedListIDSet {
 			gl := listsByID[listID]
 			if err := s.OnGroceryListEdit(ctx, gl, guildID); err != nil {
 				s.logger.Error("Failed to run OnGroceryListEdit", zap.Error(err))
