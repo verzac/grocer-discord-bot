@@ -10,39 +10,25 @@ import (
 
 // GroceryEntriesNotFoundError is returned when one or more grocery entry IDs do not exist in the guild.
 type GroceryEntriesNotFoundError struct {
-	IDs []int64
+	IDs []uint
 }
 
 func (e *GroceryEntriesNotFoundError) Error() string {
 	return fmt.Sprintf("Grocery entries not found for IDs: %v.", e.IDs)
 }
 
-func uintSliceFromPositiveInt64IDs(ids []int64) ([]uint, error) {
-	maxU := ^uint(0)
-	out := make([]uint, 0, len(ids))
-	for _, id := range ids {
-		if id < 1 {
-			return nil, fmt.Errorf("grocery id must be positive")
-		}
-		if uint64(id) > uint64(maxU) {
-			return nil, fmt.Errorf("grocery id out of range: %d", id)
-		}
-		out = append(out, uint(id))
-	}
-	return out, nil
-}
-
 // DeleteGroceriesByIDs removes all entries for the given IDs in guildID. IDs may contain duplicates.
 // If any ID is missing in the guild, it returns *GroceryEntriesNotFoundError and deletes nothing.
-func (s *GroceryServiceImpl) DeleteGroceriesByIDs(ctx context.Context, guildID string, ids []int64) error {
-	uintIDs, err := uintSliceFromPositiveInt64IDs(ids)
-	if err != nil {
-		return err
+func (s *GroceryServiceImpl) DeleteGroceriesByIDs(ctx context.Context, guildID string, ids []uint) error {
+	for _, id := range ids {
+		if id == 0 {
+			return fmt.Errorf("grocery id must be positive")
+		}
 	}
 
-	seen := make(map[uint]struct{}, len(uintIDs))
-	uniqueIDs := make([]uint, 0, len(uintIDs))
-	for _, id := range uintIDs {
+	seen := make(map[uint]struct{}, len(ids))
+	uniqueIDs := make([]uint, 0, len(ids))
+	for _, id := range ids {
 		if _, ok := seen[id]; ok {
 			continue
 		}
@@ -60,10 +46,10 @@ func (s *GroceryServiceImpl) DeleteGroceriesByIDs(ctx context.Context, guildID s
 	for i := range entries {
 		foundSet[entries[i].ID] = struct{}{}
 	}
-	var notFound []int64
+	var notFound []uint
 	for _, id := range uniqueIDs {
 		if _, ok := foundSet[id]; !ok {
-			notFound = append(notFound, int64(id))
+			notFound = append(notFound, id)
 		}
 	}
 	if len(notFound) > 0 {

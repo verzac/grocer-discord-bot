@@ -329,9 +329,8 @@ components:
           maxItems: 300
           items:
             type: integer
-            format: int64
             minimum: 1
-          description: Primary keys of grocery entries to delete (see GET /grocery-lists). At most 300 IDs per request.
+          description: Primary keys of grocery entries to delete (see GET /grocery-lists). Values are unsigned (positive integers). At most 300 IDs per request.
     GroceryEntry:
       type: object
       description: Represents a grocery entry (e.g. added by /gro).
