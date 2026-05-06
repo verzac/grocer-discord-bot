@@ -20,12 +20,7 @@ func (e *GroceryEntriesNotFoundError) Error() string {
 // DeleteGroceriesByIDs removes all entries for the given IDs in guildID. IDs may contain duplicates.
 // If any ID is missing in the guild, it returns *GroceryEntriesNotFoundError and deletes nothing.
 func (s *GroceryServiceImpl) DeleteGroceriesByIDs(ctx context.Context, guildID string, ids []uint) error {
-	for _, id := range ids {
-		if id == 0 {
-			return fmt.Errorf("grocery id must be positive")
-		}
-	}
-
+	// process and dedupe IDs
 	seen := make(map[uint]struct{}, len(ids))
 	uniqueIDs := make([]uint, 0, len(ids))
 	for _, id := range ids {
@@ -42,25 +37,23 @@ func (s *GroceryServiceImpl) DeleteGroceriesByIDs(ctx context.Context, guildID s
 		return err
 	}
 
-	foundSet := make(map[uint]struct{}, len(entries))
-	for i := range entries {
-		foundSet[entries[i].ID] = struct{}{}
-	}
-	var notFound []uint
-	for _, id := range uniqueIDs {
-		if _, ok := foundSet[id]; !ok {
-			notFound = append(notFound, id)
+	if len(entries) != len(uniqueIDs) {
+		// some IDs were not found, causing a mismatch
+		// figure out which IDs were not found
+		foundSet := make(map[uint]struct{}, len(entries))
+		for i := range entries {
+			foundSet[entries[i].ID] = struct{}{}
 		}
-	}
-	if len(notFound) > 0 {
+		notFound := make([]uint, 0)
+		for _, id := range uniqueIDs {
+			if _, ok := foundSet[id]; !ok {
+				notFound = append(notFound, id)
+			}
+		}
 		return &GroceryEntriesNotFoundError{IDs: notFound}
 	}
 
-	deletedIDs := make([]uint, len(entries))
-	for i := range entries {
-		deletedIDs[i] = entries[i].ID
-	}
-	if _, err := repo.DeleteByGuildAndIDs(ctx, guildID, deletedIDs); err != nil {
+	if _, err := repo.DeleteByGuildAndIDs(ctx, guildID, uniqueIDs); err != nil {
 		return err
 	}
 
