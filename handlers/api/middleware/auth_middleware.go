@@ -52,16 +52,19 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 	rateLimiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{Rate: 10, Burst: 0, ExpiresIn: 30 * time.Second},
 	)
-	rateLimitMiddleware := middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+	rateLimitCfg := middleware.RateLimiterConfig{
 		IdentifierExtractor: func(c echo.Context) (string, error) {
 			if clientID, ok := c.Get(CtxKeyIdentifier).(string); ok {
 				return clientID, nil
-			} else {
-				return c.RealIP(), nil
 			}
+			return c.RealIP(), nil
 		},
 		Store: rateLimiterStore,
-	})
+	}
+	if grobotVersion == config.GrobotVersionLocal {
+		rateLimitCfg.Skipper = func(c echo.Context) bool { return true }
+	}
+	rateLimitMiddleware := middleware.RateLimiterWithConfig(rateLimitCfg)
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if _, ok := skipAuthForPathsMap[c.Request().URL.Path]; ok {
