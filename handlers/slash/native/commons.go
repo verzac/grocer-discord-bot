@@ -2,6 +2,7 @@ package native
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
@@ -23,6 +24,7 @@ type NativeSlashHandlingContext struct {
 	replyCount            int
 	guildConfigRepository repositories.GuildConfigRepository
 	cachedConfig          *models.GuildConfig
+	customIDSuffix        string
 }
 
 type replyOptions struct {
@@ -85,6 +87,9 @@ var (
 		"developer":               handleDeveloper,
 		"generate_new_api_client": handleDeveloperCreateNewApiClient,
 		"config":                  handleConfig,
+		"ingredients":             handleIngredients,
+		"ingredients_confirm":     handleIngredientsConfirm,
+		"ingredients_cancel":      handleIngredientsCancel,
 	}
 )
 
@@ -97,7 +102,13 @@ type NativeSlashHandlingParams struct {
 }
 
 func Handle(p NativeSlashHandlingParams) bool {
-	handler, ok := nativeSlashHandlerMap[p.CommandName]
+	handlerKey := p.CommandName
+	suffix := ""
+	if parts := strings.SplitN(p.CommandName, ":", 2); len(parts) == 2 {
+		handlerKey = parts[0]
+		suffix = parts[1]
+	}
+	handler, ok := nativeSlashHandlerMap[handlerKey]
 	if !ok {
 		return false
 	}
@@ -107,6 +118,7 @@ func Handle(p NativeSlashHandlingParams) bool {
 		apiClientRepository:   &repositories.ApiClientRepositoryImpl{DB: p.DB},
 		guildConfigRepository: &repositories.GuildConfigRepositoryImpl{DB: p.DB},
 		logger:                p.Logger.Named("native"),
+		customIDSuffix:        suffix,
 	}
 	handler(ctx)
 	return true
