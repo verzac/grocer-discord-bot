@@ -23,6 +23,14 @@ type n8nResponse struct {
 	Error string   `json:"error,omitempty"`
 }
 
+func IsErrFetchRecipeNotFound(err error) bool {
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "No recipe URL found in video description.") {
+		return true
+	}
+	return false
+}
+
 func (s *IngredientsServiceImpl) FetchIngredients(ctx context.Context, url string) ([]string, error) {
 	url = strings.TrimSpace(url)
 	if url == "" {
@@ -55,6 +63,13 @@ func (s *IngredientsServiceImpl) FetchIngredients(ctx context.Context, url strin
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var errObj struct {
+			Error string `json:"error"`
+		}
+		_ = json.Unmarshal(respBody, &errObj)
+		if errObj.Error != "" {
+			return nil, fmt.Errorf("%s", errObj.Error)
+		}
 		return nil, fmt.Errorf("n8n webhook returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 	var parsed n8nResponse

@@ -45,7 +45,9 @@ func handleIngredients(c *NativeSlashHandlingContext) {
 
 	if err := c.s.InteractionRespond(c.i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{},
+		Data: &discordgo.InteractionResponseData{
+			Content: ":eyes: Fetching ingredients from your link - this may take up to 20 seconds...",
+		},
 	}); err != nil {
 		c.logger.Error("ingredients: deferred respond failed", zap.Error(err))
 		return
@@ -62,8 +64,12 @@ func handleIngredients(c *NativeSlashHandlingContext) {
 	items, err := ingredients.Service.FetchIngredients(ctx, url)
 	if err != nil {
 		c.logger.Error("ingredients: fetch error", zap.Error(err))
+		fetchErrMsg := "Could not fetch ingredients, please try again later. If the problem persists, please contact my hooman. Thanks!"
+		if ingredients.IsErrFetchRecipeNotFound(err) {
+			fetchErrMsg = "I couldn't find a recipe in the given URL. Please try a different URL or add items manually with `/grobulk`."
+		}
 		if _, ferr := c.s.FollowupMessageCreate(c.i.Interaction, true, &discordgo.WebhookParams{
-			Content: "Could not fetch ingredients, please try again later. If the problem persists, please contact my hooman. Thanks!",
+			Content: fetchErrMsg,
 		}); ferr != nil {
 			c.logger.Error("ingredients: followup after fetch error", zap.Error(ferr))
 		}
