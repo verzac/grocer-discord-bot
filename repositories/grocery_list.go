@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"errors"
 
 	"github.com/verzac/grocer-discord-bot/models"
@@ -15,6 +16,7 @@ var (
 var _ GroceryListRepository = &GroceryListRepositoryImpl{}
 
 type GroceryListRepository interface {
+	WithContext(ctx context.Context) GroceryListRepository
 	GetByQuery(q *models.GroceryList) (*models.GroceryList, error)
 	FindByQuery(q *models.GroceryList) ([]models.GroceryList, error)
 	Count(q *models.GroceryList) (existingCount int64, err error)
@@ -25,6 +27,10 @@ type GroceryListRepository interface {
 
 type GroceryListRepositoryImpl struct {
 	DB *gorm.DB
+}
+
+func (r *GroceryListRepositoryImpl) WithContext(ctx context.Context) GroceryListRepository {
+	return &GroceryListRepositoryImpl{DB: r.DB.WithContext(ctx)}
 }
 
 func (r *GroceryListRepositoryImpl) GetByQuery(q *models.GroceryList) (*models.GroceryList, error) {

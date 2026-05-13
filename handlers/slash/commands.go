@@ -217,6 +217,20 @@ var (
 				},
 			},
 		},
+		{
+			Name:        "ingredients",
+			Description: "Import ingredients from a recipe or video URL into your grocery list.",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "url",
+					Description: "Recipe page or video URL (e.g. YouTube).",
+					Required:    true,
+				},
+				defaults.DefaultListLabelOption,
+			},
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {

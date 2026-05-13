@@ -87,3 +87,5 @@ You may need the following env vars set up:
 
 - GROCER_BOT_TOKEN - your Discord bot token
 - GROCER_BOT_DSN - DSN target, by default it's set to "db/gorm.db"
+- N8N_API_JWT (optional) — with `N8N_WEBHOOK_INGREDIENTS`, turns on recipe fetch for `/ingredients`; sent as the `Authorization` header to that webhook. The `/ingredients` command is always registered; without both vars the bot replies that import is not configured yet.
+- N8N_WEBHOOK_INGREDIENTS (optional) — full URL of the n8n webhook that accepts `{"url":"..."}` and returns ingredient JSON; use together with `N8N_API_JWT` for a working `/ingredients` flow

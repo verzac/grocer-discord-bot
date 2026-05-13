@@ -14,6 +14,7 @@ A Discord bot that maintains grocery lists per-guild, using Go, discordgo, GORM,
 - SQLite DB is embedded — no external database process needed. Migrations run automatically from `db/changelog/` on startup.
 - The REST API starts on `:8080` (in a goroutine) before Discord connects. With an invalid token, the process exits almost immediately after API starts (~250ms window).
 - Environment variables are loaded from `.env` via `godotenv`. See `README.md` for the full list.
+- Optional: set `N8N_API_JWT` and `N8N_WEBHOOK_INGREDIENTS` (webhook URL) together so `/ingredients` can fetch recipes via n8n. The command is always registered; if those are missing, users get a “not configured yet” reply instead.
 - The `db/gorm.db` file is auto-created on first run; the `db/` directory must exist.
 
 ### Docs site (`/docs`)
