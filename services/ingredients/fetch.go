@@ -50,7 +50,7 @@ func (s *IngredientsServiceImpl) FetchIngredients(ctx context.Context, url strin
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", config.GetN8NApiJWT())
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.GetN8NApiJWT()))
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
