@@ -20,6 +20,7 @@ type NativeSlashHandlingContext struct {
 	s                     *discordgo.Session
 	i                     *discordgo.InteractionCreate
 	apiClientRepository   repositories.ApiClientRepository
+	waitlistIosRepository repositories.WaitlistIosRepository
 	logger                *zap.Logger
 	replyCount            int
 	guildConfigRepository repositories.GuildConfigRepository
@@ -90,6 +91,8 @@ var (
 		"ingredients":             handleIngredients,
 		"ingredients_confirm":     handleIngredientsConfirm,
 		"ingredients_cancel":      handleIngredientsCancel,
+		"waitlist":                handleWaitlistIos,
+		waitlistIosModalCustomID:  handleWaitlistIosSubmit,
 	}
 )
 
@@ -116,6 +119,7 @@ func Handle(p NativeSlashHandlingParams) bool {
 		s:                     p.Session,
 		i:                     p.InteractionCreate,
 		apiClientRepository:   &repositories.ApiClientRepositoryImpl{DB: p.DB},
+		waitlistIosRepository: &repositories.WaitlistIosRepositoryImpl{DB: p.DB},
 		guildConfigRepository: &repositories.GuildConfigRepositoryImpl{DB: p.DB},
 		logger:                p.Logger.Named("native"),
 		customIDSuffix:        suffix,

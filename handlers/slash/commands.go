@@ -231,6 +231,18 @@ var (
 				defaults.DefaultListLabelOption,
 			},
 		},
+		{
+			Name:        "waitlist",
+			Description: "Sign up for GroceryBot waitlists.",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "ios",
+					Description: "Sign up for the iOS app waitlist — we'll email you when it's on the App Store.",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+			},
+		},
 	}
 	commandsMetadata = map[string]slashCommandHandlerMetadata{
 		"gro": {
