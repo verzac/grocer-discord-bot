@@ -2,6 +2,7 @@ package native
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,7 +17,7 @@ const (
 	waitlistIosNameInputCustomID  = "waitlist_ios_name"
 	waitlistIosInteractionTimeout = 10 * time.Second
 	waitlistIosModalTitleMaxRunes = 45
-	waitlistIosModalIntroText     = "Thanks for your interest - we'll let you know once we've released GroceryBot App on iOS!\n\n[Android Play Store Link](https://play.google.com/store/apps/details?id=net.grocerybot.app)\n\nFYI: we will ONLY use your email when GroceryBot App is released on iOS. We will not use your email for any other purposes without your consent."
+	waitlistIosModalIntroText     = "Thanks for your interest - we'll let you know once we've released GroceryBot App on iOS!\n\n[Android Play Store Link](https://play.google.com/store/apps/details?id=net.grocerybot.app)\n\n_We will not use your email collected here for any other purposes._"
 )
 
 var handleWaitlistIos NativeSlashHandler = func(c *NativeSlashHandlingContext) {
@@ -112,27 +113,35 @@ var handleWaitlistIosSubmit NativeSlashHandler = func(c *NativeSlashHandlingCont
 		}
 		return
 	}
+	var msg string
 	if existing != nil {
-		if err := respondWaitlistIosEphemeral(c.s, c.i, "You're already on the iOS waitlist with this Discord account. We'll email you when the app hits the App Store!"); err != nil {
-			c.logger.Error("waitlist_ios_submit: duplicate respond failed", zap.Error(err))
+		previousEmail := existing.Email
+		if err := c.waitlistIosRepository.UpdateByDiscordUserID(ctx, userID, email, name); err != nil {
+			c.logger.Error("waitlist_ios_submit: update failed", zap.Error(err))
+			if err := respondWaitlistIosEphemeral(c.s, c.i, "Something went wrong saving your signup. Please try again later."); err != nil {
+				c.logger.Error("waitlist_ios_submit: update error respond failed", zap.Error(err))
+			}
+			return
 		}
-		return
-	}
-
-	entry := &models.WaitlistIos{
-		DiscordUserID: userID,
-		Email:         email,
-		Name:          name,
-	}
-	if err := c.waitlistIosRepository.Create(ctx, entry); err != nil {
-		c.logger.Error("waitlist_ios_submit: create failed", zap.Error(err))
-		if err := respondWaitlistIosEphemeral(c.s, c.i, "Something went wrong saving your signup. Please try again later."); err != nil {
-			c.logger.Error("waitlist_ios_submit: create error respond failed", zap.Error(err))
+		msg = fmt.Sprintf(
+			"You're still on the list! We've replaced the email we had for your Discord account (%s) with the one you just submitted.",
+			previousEmail,
+		)
+	} else {
+		entry := &models.WaitlistIos{
+			DiscordUserID: userID,
+			Email:         email,
+			Name:          name,
 		}
-		return
+		if err := c.waitlistIosRepository.Create(ctx, entry); err != nil {
+			c.logger.Error("waitlist_ios_submit: create failed", zap.Error(err))
+			if err := respondWaitlistIosEphemeral(c.s, c.i, "Something went wrong saving your signup. Please try again later."); err != nil {
+				c.logger.Error("waitlist_ios_submit: create error respond failed", zap.Error(err))
+			}
+			return
+		}
+		msg = "You're on the list! We'll let you know once GroceryBot for iOS is available on the App Store."
 	}
-
-	msg := "You're on the list! We'll let you know once GroceryBot for iOS is available on the App Store."
 	if err := respondWaitlistIosEphemeral(c.s, c.i, msg); err != nil {
 		c.logger.Error("waitlist_ios_submit: success respond failed", zap.Error(err))
 	}

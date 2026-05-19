@@ -13,6 +13,7 @@ var _ WaitlistIosRepository = &WaitlistIosRepositoryImpl{}
 type WaitlistIosRepository interface {
 	Create(ctx context.Context, entry *models.WaitlistIos) error
 	FindByDiscordUserID(ctx context.Context, discordUserID string) (*models.WaitlistIos, error)
+	UpdateByDiscordUserID(ctx context.Context, discordUserID, email, name string) error
 }
 
 type WaitlistIosRepositoryImpl struct {
@@ -32,4 +33,13 @@ func (r *WaitlistIosRepositoryImpl) FindByDiscordUserID(ctx context.Context, dis
 		return nil, err
 	}
 	return &row, nil
+}
+
+func (r *WaitlistIosRepositoryImpl) UpdateByDiscordUserID(ctx context.Context, discordUserID, email, name string) error {
+	return r.DB.WithContext(ctx).Model(&models.WaitlistIos{}).
+		Where("discord_user_id = ?", discordUserID).
+		Updates(map[string]interface{}{
+			"email": email,
+			"name":  name,
+		}).Error
 }
