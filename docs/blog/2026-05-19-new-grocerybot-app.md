@@ -15,7 +15,7 @@ _Read more below._
 
 It also comes with the ability to view your grocery list when you're offline. This is extremely useful for when you need to duck into a supermarket that has terrible signal reception. Combined with our lightweight design, looking at your grocery list is now as simple as, well, looking at your grocery list.
 
-We're currently rolling this out to Android users **for free** (iOS coming soon!). In the future, we're planning to make features that are exclusive to our Patreon members, so do sign-up there and support GroceryBot's development if you like the app!
+We're currently rolling this out to Android users **for free** (iOS coming soon!). In the future, we're planning to make features that are exclusive to our Patreon members, so do sign-up to our [Patreon](https://www.patreon.com/verzac) and support GroceryBot's development if you like the app!
 
 You can install GroceryBot App here: https://play.google.com/store/apps/details?id=net.grocerybot.app.
 
@@ -34,7 +34,7 @@ _*Why an email, you ask? Because I don't want to send people DMs through Discord
 Since GroceryBot has reached the "currently in 900+ servers" milestone, it means that 900+ people have - at one point in time - thought GroceryBot is an useful addition to their lives. I'd like to expand on that, and I'd like to do it sustainably.
 
 ### I have feedback about the app, where do I go?
-You can head to our support server here. We'd love to hear from you, or how we can improve your experience of using the app and the bot.
+You can head to our support server [here](https://discord.com/invite/rBjUaZyskg). We'd love to hear from you, or how we can improve your experience of using the app and the bot.
 
 ### Why no iOS?
 I'm strapped for cash 😂
