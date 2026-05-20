@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	CurrentAnnouncementVersion = 1
-	AnnouncementMessage        = "Psst... You can now use the `/grobulk` command to **edit your existing grocery lists in one go** - no more running `/groremove` and `/groclear` once you're done. Try it out now using `/config set use_grobulk_replace=True`!"
+	CurrentAnnouncementVersion = 2
+	AnnouncementMessage        = "📱 **GroceryBot now has an app!** Check your grocery lists across all your Discord servers in one tap — no more navigating between servers and channels. Works offline too!\n\n[For Android](<https://play.google.com/store/apps/details?id=net.grocerybot.app>) | [Blog Post (Where's the iOS version?)](<https://grocerybot.net/blog/new-grocerybot-app>)"
 )
 
 func (s *AnnouncementServiceImpl) AugmentMessageWithAnnouncement(ctx context.Context, guildID string, message string) (string, error) {
