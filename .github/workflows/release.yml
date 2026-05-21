@@ -19,6 +19,13 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: "ap-southeast-1"
+      - name: Notify release webhook
+        continue-on-error: true
+        run: |
+          curl -fsS -X POST -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer ${{ secrets.OPS_WEBHOOK_AUTH_TOKEN }}" \
+            -d '{"tag":"'"${{ github.ref_name }}"'","repository":"'"${{ github.repository }}"'","run_url":"'"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"'"}' \
+            "${{ secrets.OPS_WEBHOOK_DEPLOY }}"
       # - name: Create Release
       #   id: create_release
       #   uses: actions/create-release@v1
