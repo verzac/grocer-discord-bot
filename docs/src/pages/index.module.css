@@ -20,4 +20,135 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.buttons .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.heroBanner .heroButtonOutline {
+  background-color: rgba(0, 0, 0, 0.12);
+  color: #000;
+  border: 2px solid #000;
+}
+
+.heroBanner .heroButtonOutline:hover,
+.heroBanner .heroButtonOutline:focus {
+  background-color: rgba(0, 0, 0, 0.22);
+  color: #000;
+  border-color: #000;
+  text-decoration: none;
+}
+
+.appPromo {
+  padding: 4rem 0;
+  background: var(--ifm-color-emphasis-100);
+}
+
+.appPromoInner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+}
+
+.appScreenshot {
+  flex-shrink: 0;
+}
+
+.appScreenshot img {
+  width: 280px;
+  border-radius: 24px;
+  transform: rotate(3deg);
+  transition: transform 0.3s ease;
+}
+
+.appScreenshot img:hover {
+  transform: rotate(-2deg) scale(1.04);
+}
+
+@media screen and (max-width: 768px) {
+  .appPromoInner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .appScreenshot img {
+    width: 220px;
+  }
+}
+
+.appPromoContent {
+  flex: 1;
+  text-align: left;
+}
+
+.appPromoContent h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.appPromoTagline {
+  font-size: 1.2rem;
+  color: var(--ifm-color-emphasis-700);
+  margin-bottom: 2rem;
+}
+
+.appBenefits {
+  list-style: none;
+  padding: 0;
+  text-align: left;
+  max-width: 520px;
+  margin: 0 auto 2rem;
+}
+
+.appBenefits li {
+  padding: 0.5rem 0;
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+.appBenefits li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--ifm-color-success);
+  font-weight: bold;
+}
+
+.appPromoButtons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+@media screen and (max-width: 768px) {
+  .appPromoContent {
+    text-align: center;
+  }
+
+  .appPromoButtons {
+    justify-content: center;
+  }
+}
+
+.appPromoButtons .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.iosNote {
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-600);
 }
