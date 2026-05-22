@@ -8,6 +8,7 @@ import (
 
 	"fmt"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/verzac/grocer-discord-bot/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,9 +59,15 @@ func (m *MessageHandlerContext) onAttachList() error {
 		}
 	}
 	attachMsg, err := m.sess.ChannelMessageSend(m.commandContext.ChannelID, "Placeholder")
-	if err != nil || attachMsg == nil {
-		m.GetLogger().Error("Unable to attach a message to the channel for !grohere.", zap.Error(err))
-		return m.sendDirectMessage("Oops, I can't seem to attach the grocery list through `grohere`. Have you added the \"Send Message\" permission for me in your server / channel?", m.commandContext.AuthorID)
+	if err != nil {
+		if discordErr, ok := err.(*discordgo.RESTError); ok && discordErr.Response.StatusCode == 403 {
+			m.GetLogger().Warn("Unable to attach a message to the channel for !grohere.", zap.Error(err))
+			return m.sendDirectMessage("Oops, I can't seem to attach the grocery list through `grohere`. Have you added the \"Send Message\" permission for me in your server / channel?", m.commandContext.AuthorID)
+		}
+		return m.onError(err)
+	}
+	if attachMsg == nil {
+		return m.onError(errors.New("ChannelMessageSend returned nil message, but no error is returned"))
 	}
 	grohereRecord := models.GrohereRecord{
 		GuildID:          m.commandContext.GuildID,
