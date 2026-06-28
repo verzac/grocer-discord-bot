@@ -18,6 +18,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/handlers"
 	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routeauth"
+	"github.com/verzac/grocer-discord-bot/handlers/api/routegrocerylists"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routeguilds"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routetest"
 	"github.com/verzac/grocer-discord-bot/models"
@@ -92,6 +93,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	}
 
 	e.GET("/metrics", groprometheus.PrometheusHandler())
+	// TODO move this to routegrocerylists - opted to not do it right now to keep diff small and easy to review
 	e.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*apimw.AuthContext)
@@ -111,6 +113,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		}
 		return c.JSON(200, out)
 	})
+	routegrocerylists.Register(e, logger, groceryListRepo, groceryEntryRepo)
 	e.DELETE("/groceries", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*apimw.AuthContext)

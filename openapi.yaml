@@ -128,6 +128,89 @@ paths:
           $ref: "#/components/responses/UnauthorizedError"
         "403":
           $ref: "#/components/responses/ForbiddenError"
+    post:
+      summary: POST Grocery List
+      description: "Create a new grocery list for your server."
+      parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGroceryListRequest"
+      responses:
+        "201":
+          description: A new grocery list has been created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryList"
+        "400":
+          description: Bearer requests require `X-Guild-ID`; validation failure, duplicate label, or list limit reached.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+  /grocery-lists/{id}:
+    delete:
+      summary: DELETE Grocery List
+      description: "Delete a grocery list by its ID. The list must have no grocery entries."
+      parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
+        - name: id
+          in: path
+          required: true
+          description: The ID of the grocery list to delete.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: The grocery list has been successfully deleted.
+        "400":
+          description: Bearer requests require `X-Guild-ID`; or invalid ID format.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          description: Grocery list not found in this guild.
+        "409":
+          description: Grocery list still has grocery entries.
+    patch:
+      summary: PATCH Grocery List
+      description: "Update a grocery list's display name (`fancy_name`)."
+      parameters:
+        - $ref: "#/components/parameters/XGuildIDHeader"
+        - name: id
+          in: path
+          required: true
+          description: The ID of the grocery list to update.
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGroceryListRequest"
+      responses:
+        "200":
+          description: The grocery list has been successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroceryList"
+        "400":
+          description: Bearer requests require `X-Guild-ID`; or invalid ID format or request body.
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          description: Grocery list not found in this guild.
   /groceries:
     delete:
       summary: BATCH DELETE Grocery Entries
@@ -331,6 +414,25 @@ components:
             type: integer
             minimum: 1
           description: Primary keys of grocery entries to delete (see GET /grocery-lists). Values are unsigned (positive integers). At most 300 IDs per request.
+    CreateGroceryListRequest:
+      type: object
+      required: [list_label]
+      properties:
+        list_label:
+          type: string
+          description: "The unique label used to refer to this grocery list in commands (e.g. `gro:amazon`)."
+        fancy_name:
+          type: string
+          nullable: true
+          description: Optional display name shown alongside the label.
+    UpdateGroceryListRequest:
+      type: object
+      required: [fancy_name]
+      properties:
+        fancy_name:
+          type: string
+          nullable: true
+          description: Display name for the grocery list. Send `null` to clear it.
     GroceryEntry:
       type: object
       description: Represents a grocery entry (e.g. added by /gro).
