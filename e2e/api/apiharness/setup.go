@@ -174,9 +174,6 @@ func (s *APITestSession) CleanupAllGroceryLists() error {
 			return err
 		}
 		_, _ = ReadBodyAndClose(res)
-		if res.StatusCode == http.StatusNotImplemented {
-			continue
-		}
 		if res.StatusCode != http.StatusNoContent {
 			return fmt.Errorf("delete grocery list %d: unexpected status %d", gl.ID, res.StatusCode)
 		}
@@ -220,4 +217,3 @@ func (s *APITestSession) CleanupAllGroceries() error {
 	}
 	return nil
 }
-

@@ -165,6 +165,7 @@ paths:
           schema:
             type: integer
             format: int64
+            minimum: 1
       responses:
         "204":
           description: The grocery list has been successfully deleted.
@@ -190,6 +191,7 @@ paths:
           schema:
             type: integer
             format: int64
+            minimum: 1
       requestBody:
         required: true
         content:

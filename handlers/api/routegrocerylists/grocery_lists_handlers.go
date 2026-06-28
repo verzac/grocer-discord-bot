@@ -1,9 +1,11 @@
 package routegrocerylists
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 	"github.com/verzac/grocer-discord-bot/dto"
 	"github.com/verzac/grocer-discord-bot/handlers"
@@ -24,6 +26,7 @@ func Register(
 	groceryListRepo repositories.GroceryListRepository,
 	groceryEntryRepo repositories.GroceryEntryRepository,
 	grohereRecordRepo repositories.GrohereRecordRepository,
+	discordSess *discordgo.Session,
 ) {
 	logger = logger.Named("grocery-lists")
 
@@ -48,11 +51,12 @@ func Register(
 		if err != nil {
 			return err
 		}
-		existingCount, err := groceryListRepo.WithContext(c.Request().Context()).Count(&models.GroceryList{GuildID: guildID})
+		ctx := c.Request().Context()
+		existingCount, err := groceryListRepo.WithContext(ctx).Count(&models.GroceryList{GuildID: guildID})
 		if err != nil {
 			return err
 		}
-		if existingCount+1 >= int64(registrationContext.MaxGroceryListsPerServer) {
+		if existingCount >= int64(registrationContext.MaxGroceryListsPerServer) {
 			return echo.NewHTTPError(400, fmt.Sprintf(
 				"You've reached the max number of grocery lists for this server (%d).",
 				registrationContext.MaxGroceryListsPerServer,
@@ -64,12 +68,15 @@ func Register(
 			fancyName = *req.FancyName
 		}
 
-		newList, err := groceryListRepo.WithContext(c.Request().Context()).CreateGroceryList(guildID, req.ListLabel, fancyName)
+		newList, err := groceryListRepo.WithContext(ctx).CreateGroceryList(guildID, req.ListLabel, fancyName)
 		if err != nil {
 			if err == repositories.ErrGroceryListDuplicate {
 				return echo.NewHTTPError(400, err.Error())
 			}
 			return err
+		}
+		if err := grocery.Service.UpdateGuildGrohere(ctx, guildID); err != nil {
+			logger.Error("Failed to update grohere after grocery list creation", zap.Error(err))
 		}
 		return c.JSON(201, newList)
 	})
@@ -80,7 +87,7 @@ func Register(
 
 		idStr := c.Param("id")
 		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil {
+		if err != nil || id == 0 {
 			return echo.NewHTTPError(400, "Invalid ID format.")
 		}
 
@@ -104,12 +111,26 @@ func Register(
 			return echo.NewHTTPError(409, fmt.Sprintf("Cannot delete: grocery list still has %d entries.", count))
 		}
 
-		grohereRecords, err := grohereRecordRepo.FindByQuery(&models.GrohereRecord{GroceryListID: &groceryList.ID})
+		grohereRecords, err := grohereRecordRepo.FindByQuery(&models.GrohereRecord{
+			GuildID:       guildID,
+			GroceryListID: &groceryList.ID,
+		})
 		if err != nil {
 			return err
 		}
 		for i := range grohereRecords {
-			if err := grohereRecordRepo.Delete(&grohereRecords[i]); err != nil {
+			record := &grohereRecords[i]
+			if discordSess != nil {
+				_, err := discordSess.ChannelMessageEdit(
+					record.GrohereChannelID,
+					record.GrohereMessageID,
+					fmt.Sprintf(":shopping_cart: %s\n *:wave: This grocery list has been deleted. Type `!grohere:<your-new-grocery-list>` to get a self-updating message for your grocery list!*", groceryList.GetName()),
+				)
+				if err != nil {
+					logger.Error("Failed to edit grohere message after grocery list deletion", zap.Error(err))
+				}
+			}
+			if err := grohereRecordRepo.Delete(record); err != nil {
 				return err
 			}
 		}
@@ -134,16 +155,21 @@ func Register(
 
 		idStr := c.Param("id")
 		id, err := strconv.ParseUint(idStr, 10, 64)
-		if err != nil {
+		if err != nil || id == 0 {
 			return echo.NewHTTPError(400, "Invalid ID format.")
 		}
 
-		req := dto.UpdateGroceryListRequest{}
-		if err := c.Bind(&req); err != nil {
+		req := map[string]json.RawMessage{}
+		if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
 			return echo.NewHTTPError(400, "Invalid request body.")
 		}
-		if err := c.Validate(&req); err != nil {
-			return echo.NewHTTPError(400, err.Error())
+		rawFancyName, ok := req["fancy_name"]
+		if !ok {
+			return echo.NewHTTPError(400, "fancy_name is required.")
+		}
+		var fancyName *string
+		if err := json.Unmarshal(rawFancyName, &fancyName); err != nil {
+			return echo.NewHTTPError(400, "Invalid request body.")
 		}
 
 		ctx := c.Request().Context()
@@ -158,7 +184,7 @@ func Register(
 			return echo.NewHTTPError(404, repositories.ErrGroceryListNotFound.Error())
 		}
 
-		groceryList.FancyName = req.FancyName
+		groceryList.FancyName = fancyName
 		if err := groceryListRepo.WithContext(ctx).Save(groceryList); err != nil {
 			return err
 		}

@@ -115,7 +115,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		}
 		return c.JSON(200, out)
 	})
-	routegrocerylists.Register(e, logger, groceryListRepo, groceryEntryRepo, grohereRecordRepo)
+	routegrocerylists.Register(e, logger, groceryListRepo, groceryEntryRepo, grohereRecordRepo, discordSess)
 	e.DELETE("/groceries", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*apimw.AuthContext)

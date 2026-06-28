@@ -314,11 +314,11 @@ func TestCreateGroceryListLimitReached(t *testing.T) {
 	cleanupGroceryLists(t)
 	defer cleanupGroceryLists(t)
 
-	// default limit is 3, but the >= condition means only 2 can be created
 	postGroceryList(t, `{"list_label":"listA"}`)
 	postGroceryList(t, `{"list_label":"listB"}`)
+	postGroceryList(t, `{"list_label":"listC"}`)
 
-	res, err := apiSess.PostGroceryList([]byte(`{"list_label":"listC"}`))
+	res, err := apiSess.PostGroceryList([]byte(`{"list_label":"listD"}`))
 	require.NoError(t, err)
 	b, err := apiharness.ReadBodyAndClose(res)
 	require.NoError(t, err)
@@ -361,6 +361,31 @@ func TestDeleteGroceryListNotFound(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, res.StatusCode, "%s", string(b))
 }
 
+func TestDeleteGroceryListZeroID(t *testing.T) {
+	cleanupGroceryLists(t)
+	defer cleanupGroceryLists(t)
+
+	gl := postGroceryList(t, `{"list_label":"zerodelete"}`)
+
+	res, err := apiSess.DeleteGroceryList(0)
+	require.NoError(t, err)
+	b, err := apiharness.ReadBodyAndClose(res)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, res.StatusCode, "%s", string(b))
+
+	lists, status, err := apiSess.FetchGroceryLists()
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, status)
+	found := false
+	for _, l := range lists.GroceryLists {
+		if l.ID == gl.ID {
+			found = true
+			break
+		}
+	}
+	require.True(t, found, "zero ID delete must not delete an existing list")
+}
+
 func TestPatchGroceryList(t *testing.T) {
 	cleanupGroceryLists(t)
 	defer cleanupGroceryLists(t)
@@ -379,12 +404,53 @@ func TestPatchGroceryList(t *testing.T) {
 	require.Equal(t, "My Patched List", *updated.FancyName)
 }
 
+func TestPatchGroceryListClearFancyName(t *testing.T) {
+	cleanupGroceryLists(t)
+	defer cleanupGroceryLists(t)
+
+	gl := postGroceryList(t, `{"list_label":"clearname","fancy_name":"Clear Me"}`)
+
+	res, err := apiSess.PatchGroceryList(gl.ID, []byte(`{"fancy_name":null}`))
+	require.NoError(t, err)
+	b, err := apiharness.ReadBodyAndClose(res)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode, "%s", string(b))
+
+	var updated models.GroceryList
+	require.NoError(t, json.Unmarshal(b, &updated))
+	require.Nil(t, updated.FancyName)
+}
+
 func TestPatchGroceryListNotFound(t *testing.T) {
 	res, err := apiSess.PatchGroceryList(999999999, []byte(`{"fancy_name":"Ghost"}`))
 	require.NoError(t, err)
 	b, err := apiharness.ReadBodyAndClose(res)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNotFound, res.StatusCode, "%s", string(b))
+}
+
+func TestPatchGroceryListZeroID(t *testing.T) {
+	cleanupGroceryLists(t)
+	defer cleanupGroceryLists(t)
+
+	gl := postGroceryList(t, `{"list_label":"zeropatch"}`)
+
+	res, err := apiSess.PatchGroceryList(0, []byte(`{"fancy_name":"Should Not Patch"}`))
+	require.NoError(t, err)
+	b, err := apiharness.ReadBodyAndClose(res)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, res.StatusCode, "%s", string(b))
+
+	lists, status, err := apiSess.FetchGroceryLists()
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, status)
+	for _, l := range lists.GroceryLists {
+		if l.ID == gl.ID {
+			require.Nil(t, l.FancyName)
+			return
+		}
+	}
+	require.Fail(t, "expected list to remain after zero ID patch")
 }
 
 func TestPatchGroceryListMissingFancyName(t *testing.T) {
