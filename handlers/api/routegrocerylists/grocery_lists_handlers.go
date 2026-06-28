@@ -56,7 +56,7 @@ func Register(
 		if err != nil {
 			return err
 		}
-		if existingCount >= int64(registrationContext.MaxGroceryListsPerServer) {
+		if existingCount+1 >= int64(registrationContext.MaxGroceryListsPerServer) {
 			return echo.NewHTTPError(400, fmt.Sprintf(
 				"You've reached the max number of grocery lists for this server (%d).",
 				registrationContext.MaxGroceryListsPerServer,

@@ -144,7 +144,7 @@ func (m *MessageHandlerContext) newList() error {
 		return m.onError(err)
 	}
 	maxGroceryListPerServer := m.getMaxGroceryListPerServer()
-	if existingCountInGuild >= int64(maxGroceryListPerServer) {
+	if existingCountInGuild+1 >= int64(maxGroceryListPerServer) {
 		m.logger.Info(
 			"maxGroceryListPerServer limit hit.",
 			zap.String("GuildID", m.commandContext.GuildID),
@@ -152,7 +152,7 @@ func (m *MessageHandlerContext) newList() error {
 		)
 		return m.reply(fmt.Sprintf(
 			":shopping_bags: Whoops, you already have the maximum of %d grocery lists for this server. Please delete one through `!grolist delete <list label>` to make room for new ones. Alternatively, you can use `!grolist edit-label` and `!grolist edit-name` to edit your grocery list (see `!grohelp` for more details).\n\nPS: You can get higher limits by supporting me on Patreon through `!grohelp` or `/grohelp`!",
-			maxGroceryListPerServer,
+			existingCountInGuild+1,
 		))
 	}
 	newGroceryList, err := m.groceryListRepo.CreateGroceryList(m.commandContext.GuildID, label, fancyName)

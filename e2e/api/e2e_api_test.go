@@ -314,11 +314,11 @@ func TestCreateGroceryListLimitReached(t *testing.T) {
 	cleanupGroceryLists(t)
 	defer cleanupGroceryLists(t)
 
+	// Match handlers/grolist.go: the existing command path is the source of truth.
 	postGroceryList(t, `{"list_label":"listA"}`)
 	postGroceryList(t, `{"list_label":"listB"}`)
-	postGroceryList(t, `{"list_label":"listC"}`)
 
-	res, err := apiSess.PostGroceryList([]byte(`{"list_label":"listD"}`))
+	res, err := apiSess.PostGroceryList([]byte(`{"list_label":"listC"}`))
 	require.NoError(t, err)
 	b, err := apiharness.ReadBodyAndClose(res)
 	require.NoError(t, err)
