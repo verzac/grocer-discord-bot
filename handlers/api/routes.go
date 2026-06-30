@@ -18,6 +18,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/handlers"
 	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routeauth"
+	"github.com/verzac/grocer-discord-bot/handlers/api/routegrocerylists"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routeguilds"
 	"github.com/verzac/grocer-discord-bot/handlers/api/routetest"
 	"github.com/verzac/grocer-discord-bot/models"
@@ -35,6 +36,7 @@ var (
 	groceryEntryRepo      repositories.GroceryEntryRepository
 	guildRegistrationRepo repositories.GuildRegistrationRepository
 	groceryListRepo       repositories.GroceryListRepository
+	grohereRecordRepo     repositories.GrohereRecordRepository
 	apiClientRepo         repositories.ApiClientRepository
 	userSessionRepo       repositories.UserSessionRepository
 )
@@ -74,6 +76,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 
 	groceryEntryRepo = &repositories.GroceryEntryRepositoryImpl{DB: db}
 	groceryListRepo = &repositories.GroceryListRepositoryImpl{DB: db}
+	grohereRecordRepo = &repositories.GrohereRecordRepositoryImpl{DB: db}
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
 	userSessionRepo = &repositories.UserSessionRepositoryImpl{DB: db}
@@ -92,6 +95,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	}
 
 	e.GET("/metrics", groprometheus.PrometheusHandler())
+	// TODO move this to routegrocerylists eventually as it's a grocery list endpoint
 	e.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*apimw.AuthContext)
@@ -111,6 +115,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		}
 		return c.JSON(200, out)
 	})
+	routegrocerylists.Register(e, logger, groceryListRepo, groceryEntryRepo, grohereRecordRepo, discordSess)
 	e.DELETE("/groceries", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*apimw.AuthContext)

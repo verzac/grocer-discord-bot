@@ -129,6 +129,58 @@ func (s *APITestSession) FetchGroceryLists() (*dto.GuildGroceryList, int, error)
 	return &out, res.StatusCode, nil
 }
 
+func (s *APITestSession) PostGroceryList(body []byte) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodPost, s.baseURL+"/grocery-lists", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	s.applyAuth(req)
+	return s.client.Do(req)
+}
+
+func (s *APITestSession) DeleteGroceryList(id uint) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodDelete,
+		fmt.Sprintf("%s/grocery-lists/%d", s.baseURL, id), nil)
+	if err != nil {
+		return nil, err
+	}
+	s.applyAuth(req)
+	return s.client.Do(req)
+}
+
+func (s *APITestSession) PatchGroceryList(id uint, body []byte) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodPatch,
+		fmt.Sprintf("%s/grocery-lists/%d", s.baseURL, id), bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	s.applyAuth(req)
+	return s.client.Do(req)
+}
+
+func (s *APITestSession) CleanupAllGroceryLists() error {
+	lists, status, err := s.FetchGroceryLists()
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("cleanup: GET /grocery-lists returned %d", status)
+	}
+	for _, gl := range lists.GroceryLists {
+		res, err := s.DeleteGroceryList(gl.ID)
+		if err != nil {
+			return err
+		}
+		_, _ = ReadBodyAndClose(res)
+		if res.StatusCode != http.StatusNoContent {
+			return fmt.Errorf("delete grocery list %d: unexpected status %d", gl.ID, res.StatusCode)
+		}
+	}
+	return nil
+}
+
 func (s *APITestSession) CleanupAllGroceries() error {
 	lists, status, err := s.FetchGroceryLists()
 	if err != nil {
@@ -165,4 +217,3 @@ func (s *APITestSession) CleanupAllGroceries() error {
 	}
 	return nil
 }
-

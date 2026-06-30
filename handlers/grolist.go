@@ -1,14 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
 	groceryutils "github.com/verzac/grocer-discord-bot/utils/grocery"
-
-	"go.uber.org/zap"
 )
 
 const (
@@ -139,20 +138,18 @@ func (m *MessageHandlerContext) newList() error {
 	if len(splitArgs) >= 3 && splitArgs[2] != "" {
 		fancyName = splitArgs[2]
 	}
-	existingCountInGuild, err := m.groceryListRepo.Count(&models.GroceryList{GuildID: m.commandContext.GuildID})
+	limitOk, groceryListLimit, err := m.groceryService.ValidateGroceryListLimit(
+		context.Background(),
+		m.GetRegistrationContext(),
+		m.commandContext.GuildID,
+	)
 	if err != nil {
 		return m.onError(err)
 	}
-	maxGroceryListPerServer := m.getMaxGroceryListPerServer()
-	if existingCountInGuild+1 >= int64(maxGroceryListPerServer) {
-		m.logger.Info(
-			"maxGroceryListPerServer limit hit.",
-			zap.String("GuildID", m.commandContext.GuildID),
-			zap.Int("maxGroceryListPerServer", maxGroceryListPerServer),
-		)
+	if !limitOk {
 		return m.reply(fmt.Sprintf(
 			":shopping_bags: Whoops, you already have the maximum of %d grocery lists for this server. Please delete one through `!grolist delete <list label>` to make room for new ones. Alternatively, you can use `!grolist edit-label` and `!grolist edit-name` to edit your grocery list (see `!grohelp` for more details).\n\nPS: You can get higher limits by supporting me on Patreon through `!grohelp` or `/grohelp`!",
-			existingCountInGuild+1,
+			groceryListLimit,
 		))
 	}
 	newGroceryList, err := m.groceryListRepo.CreateGroceryList(m.commandContext.GuildID, label, fancyName)
