@@ -422,6 +422,8 @@ components:
       properties:
         list_label:
           type: string
+          minLength: 1
+          pattern: "^[a-zA-Z]+$"
           description: "The unique label used to refer to this grocery list in commands (e.g. `gro:amazon`)."
         fancy_name:
           type: string
