@@ -19,7 +19,6 @@ import (
 )
 
 // Register mounts /grocery-lists mutation routes (POST, DELETE /:id, PATCH /:id).
-// Not yet implemented — see handlers/grolist.go (newList, deleteList, editList).
 func Register(
 	e *echo.Echo,
 	logger *zap.Logger,
