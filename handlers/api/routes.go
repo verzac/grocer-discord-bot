@@ -95,7 +95,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	}
 
 	e.GET("/metrics", groprometheus.PrometheusHandler())
-	// TODO move this to routegrocerylists - opted to not do it right now to keep diff small and easy to review
+	// TODO move this to routegrocerylists eventually as it's a grocery list endpoint
 	e.GET("/grocery-lists", func(c echo.Context) error {
 		defer handlers.Recover(logger)
 		authContext := c.(*apimw.AuthContext)
