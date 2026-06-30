@@ -8,7 +8,7 @@ info:
   # license:
   #   name: Apache 2.0
   #   url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: v2.12.x
+  version: v2.15.x
 externalDocs:
   description: GroceryBot's Website
   url: https://grocerybot.net
@@ -489,7 +489,7 @@ components:
           description: "The server ID to which the list belongs to."
         list_label:
           type: string
-          description: "The unique label that is used to refer to this grocery list in commands. For example, `!gro:ebay blah` would be referring to a grocery list with `list_label` as \"blah\"."
+          description: 'The unique label that is used to refer to this grocery list in commands. For example, `!gro:ebay blah` would be referring to a grocery list with `list_label` as "blah".'
         fancy_name:
           type: string
           description: The fancy name that is displayed to the users (alongside `list_label`) when displaying this grocery list in commands.

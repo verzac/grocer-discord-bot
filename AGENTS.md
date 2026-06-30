@@ -24,6 +24,13 @@ A Discord bot that maintains grocery lists per-guild, using Go, discordgo, GORM,
 - **Build**: `cd docs && yarn build`.
 - No tests for the docs site.
 
+### API docs and release versioning
+
+- When releasing a new or changed REST API endpoint, update `openapi.yaml` with the route, request/response schemas, auth requirements, and errors.
+- For API endpoint releases, bump `openapi.yaml` `info.version` to the release line. Example: git tag `v2.15.0` should use `version: v2.15.x`.
+- Release images get their runtime version from the pushed git tag. Create and push an annotated `vMAJOR.MINOR.PATCH` tag to trigger `.github/workflows/release.yml`.
+- GitHub Actions handles release publishing and docs deployment. Do not describe local docs builds as part of the release process; local builds are only optional verification.
+
 ### E2E tests
 
 - Require env vars: `GROCER_BOT_TOKEN`, `E2E_BOT_TOKEN`, `E2E_CHANNEL_ID`, `E2E_GROCER_BOT_ID`, `E2E_GUILD_ID`.
