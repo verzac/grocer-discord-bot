@@ -380,10 +380,6 @@ func (m *MessageHandlerContext) GetRegistrationContext() *dto.RegistrationContex
 	return registrationContext
 }
 
-func (m *MessageHandlerContext) getMaxGroceryListPerServer() int {
-	return m.GetRegistrationContext().MaxGroceryListsPerServer
-}
-
 func toItemIndex(argStr string) (int, error) {
 	itemIndex, err := strconv.Atoi(argStr)
 	if err != nil {

@@ -51,14 +51,14 @@ func Register(
 			return err
 		}
 		ctx := c.Request().Context()
-		existingCount, err := groceryListRepo.WithContext(ctx).Count(&models.GroceryList{GuildID: guildID})
+		limitOk, groceryListLimit, err := grocery.Service.ValidateGroceryListLimit(ctx, registrationContext, guildID)
 		if err != nil {
 			return err
 		}
-		if existingCount+1 >= int64(registrationContext.MaxGroceryListsPerServer) {
+		if !limitOk {
 			return echo.NewHTTPError(400, fmt.Sprintf(
 				"You've reached the max number of grocery lists for this server (%d).",
-				registrationContext.MaxGroceryListsPerServer,
+				groceryListLimit,
 			))
 		}
 
