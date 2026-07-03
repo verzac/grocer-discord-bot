@@ -4,99 +4,107 @@ sidebar_position: 3
 
 # Privacy Policy — GroceryBot App
 
-**Last updated:** May 2, 2026
+**Last updated:** July 3, 2026
 
-**Operator ("we"):** Benjamin Tanone, the maintainer of GroceryBot and ([github.com/verzac](https://github.com/verzac)).
+**Who's behind this:** GroceryBot is primarily built and maintained by Benjamin Tanone ([github.com/verzac](https://github.com/verzac)).
 
 **Contact:** [hello@benjamintanone.com](mailto:hello@benjamintanone.com)
 
-This policy explains how **GroceryBot App** — the mobile client for the GroceryBot service at [grocerybot.net](https://grocerybot.net) — handles your information. The app connects to **api.grocerybot.net** so you can manage grocery lists tied to Discord servers ("guilds") you belong to.
+This policy covers **GroceryBot App** — the mobile client that connects to [grocerybot.net](https://grocerybot.net) so you can manage grocery lists tied to your Discord servers.
 
-**Read alongside:** the [GroceryBot website privacy policy](https://grocerybot.net/privacy-policy/), which covers the bot itself, server-side storage, human access to data, backend performance aggregates, error-log retention (~14 days), and `/groreset`. This document adds the details specific to GroceryBot App: in-app OAuth login, the local offline cache, and planned mobile analytics and crash tooling. **If anything here conflicts with the website privacy policy, the website policy takes precedence.**
-
-## Where data lives
-
-Primary GroceryBot data — including the databases that hold your grocery lists — is processed and stored on infrastructure in **Singapore**. See the [GroceryBot website policy](https://grocerybot.net/privacy-policy/) for maintainer access and operational practices.
-
-Mobile analytics and crash-reporting vendors may process certain events or reports **outside Singapore**, depending on which services are integrated. Retention follows each vendor's dashboard settings and contracts.
+You should also read the [GroceryBot website privacy policy](https://grocerybot.net/privacy-policy/). That one covers the bot itself, server-side storage, who can access data, backend performance metrics, error-log retention (~14 days), and `/groreset`. This document adds what's specific to the app: OAuth login, the offline cache, and planned analytics and crash tooling. If the two ever conflict, the website policy wins.
 
 ---
 
-## Information the app uses
+## Where your data lives
 
-- **Account and sign-in.** You sign in with **Discord** via OAuth2. Discord processes your account under [Discord's Privacy Policy](https://discord.com/privacy). The app requests only the scopes it needs for identity and server membership (currently `identify`, `guilds`, and `guilds.members.read`).
+Your grocery list data is processed and stored on infrastructure in **Singapore**. The [website policy](https://grocerybot.net/privacy-policy/) has more detail on how things are managed day-to-day.
 
-- **Grocery and server data.** Content and metadata synced with GroceryBot's servers — server IDs, channel IDs where applicable, list names, grocery entries, authoring user IDs, timestamps, and similar. See the website policy for the authoritative list.
+Analytics and crash-reporting services may process some events **outside Singapore**, depending on the vendor. Retention follows each vendor's own settings and contracts.
 
-- **Data on your device.** Session tokens are kept in **secure storage**. A local copy of your lists and guild metadata is cached to support **offline viewing**. Your last selected server may also be stored locally.
+---
 
-- **Analytics (usage and performance).** We may use services such as **Google Analytics** or similar tools for **anonymous, aggregate** product insight — screens viewed, timings, app version, coarse device/OS. Grocery list contents are **not** intentionally captured or tied to ad profiles.
+## What the app collects and why
 
-- **Crash and error reports.** Crash reports sent to our chosen provider intentionally include your **Discord user ID** — the primary account identifier the app uses — plus technical context (stack traces, device/OS level, timestamps) so incidents can be matched to affected users. Grocery list contents and other in-app user content are **not** deliberately included in crash payloads.
+**Sign-in.** You log in through Discord's OAuth2 flow — Discord handles that under [its own privacy policy](https://discord.com/privacy). We only request the scopes the app actually needs: `identify`, `guilds`, and `guilds.members.read` (mostly to check which Discord server you belong to).
 
-- **API request logs.** Calls to **api.grocerybot.net** are logged with standard request information (such as IP address, request path, status code, and timestamp) for security, debugging, and abuse prevention. These logs are not used to build advertising profiles.
+**Grocery and server data.** Everything that syncs with GroceryBot's servers — server IDs, channel IDs where relevant, list names, grocery entries, who added what, timestamps, and so on. The website policy has the full list.
 
-Human access to backend data follows the stance set out on [grocerybot.net](https://grocerybot.net/privacy-policy/): no routine browsing of the production database, except **with your written consent** for support or debugging.
+**Data on your device.** Session tokens are stored in secure storage. A local copy of your lists and guild info is cached so you can browse offline (handy for supermarkets with terrible reception). Your last selected server is also stored locally.
+
+**Analytics.** We may use tools like Google Analytics for **anonymous, aggregate** insight — screens visited, load times, app version, rough device/OS info. We don't capture grocery list contents, and none of this feeds ad profiles.
+
+**Crash reports.** When the app crashes, the report includes your **Discord user ID** (that's how we identify accounts) plus technical context like stack traces, device info, and timestamps. Grocery list contents and other personal content are **not** deliberately included.
+
+**API logs.** Calls to **api.grocerybot.net** are logged with standard request info (IP address, path, status code, timestamp) for security, debugging, and abuse prevention — not for ads.
+
+We don't routinely browse the production database. We only look at your data **with your written consent** — typically for support or debugging. More on this in the [website policy](https://grocerybot.net/privacy-policy/).
+
+---
 
 ## How we use this information
 
-To operate GroceryBot, to improve reliability and usability through aggregated analytics and crash diagnosis, and to address abuse where needed. We do **not** sell your grocery content to unrelated parties for advertising.
-
-## Sharing with third parties
-
-We do **not** sell personal information for marketing, and we do **not** pass grocery entries to unrelated third parties for resale or profiling.
-
-Recipients that may process data on our behalf:
-
-- **Discord** — OAuth sign-in; Discord's terms apply during that step.
-- **Analytics providers** (e.g. Google Analytics) — see the [Google Privacy Policy](https://policies.google.com/privacy).
-- **Crash-reporting providers** — Discord user ID plus technical diagnostics, as described above.
-- **App stores, Expo / EAS (updates), and hosting providers (AWS)** — ordinary operational telemetry provided by those platforms.
+To run GroceryBot, improve its reliability through aggregate analytics, diagnose crashes, and deal with abuse. We don't sell your grocery data to anyone for advertising.
 
 ---
 
-## Removing your data
+## Who else gets access
 
-- **Individual entries.** Delete in the app; while online, the deletion syncs to the server and the entry is removed permanently, consistent with backend practice.
+We don't sell personal information for marketing, and we don't hand grocery entries to third parties for resale or profiling.
 
-- **`/groreset` (Discord).** Clears essentially everything for that server in GroceryBot's database, **except** individual users' Patreon tier records, which are retained so patrons can continue to register and link servers.
+That said, some services process data on our behalf:
 
-- **Removing GroceryBot from a server.** Documented on grocerybot.net as part of leaving the service entirely.
+- **Discord** — handles OAuth sign-in under its own terms.
+- **Analytics providers** (e.g. Google Analytics) — see the [Google Privacy Policy](https://policies.google.com/privacy).
+- **Crash-reporting providers** — receive your Discord user ID and technical diagnostics as described above.
+- **App stores, Expo/EAS (updates), and hosting (AWS)** — standard operational telemetry from those platforms.
 
-- **Signing out.** Clears local session tokens. Your data on GroceryBot's servers is **not** deleted — sign in again with the same Discord account and your lists will be there. Cached groceries may remain on your device until you clear the app's cache or uninstall it.
+---
 
-See also "Removing your data" on [grocerybot.net](https://grocerybot.net/privacy-policy/), including backend error-log disposal (~14 days).
+## Deleting your data
 
-Backend analytics described on grocerybot.net is fully anonymous aggregates. Mobile analytics inside this app is **planned** under the restrictions above and not yet shipped.
+**Individual entries.** Delete them in the app. While you're online, the deletion syncs to the server and the entry is gone for good.
+
+**`/groreset` on Discord.** Wipes essentially everything for that server in GroceryBot's database, **except** Patreon tier records — those are kept so patrons can continue linking servers. Please reach-out to the maintainer if you'd like to completely erase your data.
+
+**Removing the bot from a server.** Covered on [grocerybot.net](https://grocerybot.net/privacy-policy/).
+
+**Signing out.** Clears your local session tokens but does **not** delete your data on GroceryBot's servers — sign back in and your lists will still be there. Cached data may stick around on your device until you clear the app's storage or uninstall it.
+
+More detail in the "Removing your data" section of the [website policy](https://grocerybot.net/privacy-policy/), including error-log cleanup (~14 days).
+
+Backend analytics on grocerybot.net uses fully anonymous aggregates. In-app mobile analytics is **planned** under the restrictions above but hasn't shipped yet.
 
 ---
 
 ## Children
 
-The service is not directed at minors. It supports Discord communities and tooling aimed at teenagers and adults, and Discord's own minimum age applies independently. Parents and guardians are responsible for supervising minors' Discord use.
+GroceryBot isn't aimed at children. It's built for Discord communities of teenagers and adults, and Discord's own minimum-age requirement applies independently. Parents and guardians are responsible for supervising minors' use.
 
 ## Security
 
-Protect your device and your Discord account — anyone with access to either controls the linked data.
+Keep your device and Discord account secure — anyone with access to either can reach the data linked to them.
 
 ---
 
-## Regional notices
+## Your rights
 
-Privacy laws vary by country and region. We have not added jurisdiction-specific annexes (such as GDPR-style rights wording for the EEA/UK, California CPRA disclosures, or Brazilian LGPD notices), because GroceryBot App is a hobby-scale service without commercial ad-tech or storefront-driven compliance requirements.
+Privacy laws vary by region. We haven't added formal jurisdiction-specific annexes (GDPR for the EEA/UK, CPRA for California, LGPD for Brazil, etc.) — GroceryBot is a hobby-scale project without commercial ad-tech or data-driven revenue.
 
-This policy already covers Singapore storage, operator identity, contact email, the minors stance, the `/groreset` Patreon carve-out, analytics and crash scopes, and links to the [grocerybot.net policy](https://grocerybot.net/privacy-policy/). If you are in a region that gives you statutory rights — such as access, erasure, portability, objection, restriction, or the right to complain to a supervisory authority — you can exercise them by emailing **[hello@benjamintanone.com](mailto:hello@benjamintanone.com)**.
+That said, this policy already covers the essentials: where data is stored, who we are, how to reach us, the stance on minors, the `/groreset` Patreon carve-out, what analytics and crash reports include, and links to the [website policy](https://grocerybot.net/privacy-policy/).
 
-A business postal address is intentionally not published. Formal regulatory notices can be initiated by email.
+**If your region gives you statutory rights** — access, rectification, erasure, portability, restriction of processing, objection, or the right to lodge a complaint with a supervisory authority — you can exercise them by emailing **[hello@benjamintanone.com](mailto:hello@benjamintanone.com)**. We'll do our best to respond promptly.
+
+We don't publish a business postal address. Formal regulatory correspondence can be initiated by email.
 
 ---
 
-## Contact for privacy requests
+## Contact
 
-For any privacy question or rights request — access, correction, deletion, or anything else covered above — email **[hello@benjamintanone.com](mailto:hello@benjamintanone.com)**. Please mention your Discord user ID (or the username/handle you signed in with) so we can locate the right account.
+For any privacy question or request — access, correction, deletion, or anything else — email **[hello@benjamintanone.com](mailto:hello@benjamintanone.com)**. Please include your Discord user ID or username so we can find the right account.
 
 ---
 
 ## Changes
 
-We update **Last updated** above when the text changes materially.
+We update the **Last updated** date at the top when the text changes materially.
