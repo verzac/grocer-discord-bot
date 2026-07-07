@@ -18,5 +18,5 @@ func InitServices(db *gorm.DB, logger *zap.Logger, sess *discordgo.Session) {
 	ingredients.Init(db, logger)
 	guildconfig.Init(db, logger)
 	announcement.Init(db, logger)
-	guilds.Init(db)
+	guilds.Init(db, logger)
 }

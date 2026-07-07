@@ -87,7 +87,7 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		auth.InitDefaultJWTIssuer(logger)
 		oauthsession.Init(oauthSetup, userSessionRepo, logger)
 		routeauth.Register(e, logger, oauthSetup, userSessionRepo)
-		routeguilds.Register(e, logger, discordSess)
+		routeguilds.Register(e, discordSess)
 	}
 
 	if grobotVersion == config.GrobotVersionLocal {
