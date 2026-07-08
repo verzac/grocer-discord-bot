@@ -24,8 +24,6 @@ GroceryBot allows you to maintain a grocery list for your server/guild/household
 
 **!groedit \<n\> \<new name\>**: Updates item #n to a new name/entry
 
-**!grodeets \<n\>**: Views the full detail of item #n (e.g. who made the entry)
-
 **!grohere**: Attaches a self-updating grocery list to the current channel.
 
 **!groreset**: When you want to clear all of your data from this bot.

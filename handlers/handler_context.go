@@ -48,7 +48,6 @@ const (
 	CmdGroPatron = "!gropatron"
 	CmdGroBulk   = "!grobulk"
 	CmdGroClear  = "!groclear"
-	CmdGroDeets  = "!grodeets"
 	CmdGroEdit   = "!groedit"
 	CmdGroHelp   = "!grohelp"
 	CmdGroHere   = "!grohere"
@@ -532,8 +531,6 @@ func (mh *MessageHandlerContext) Handle() (err error) {
 		err = mh.OnClear()
 	case CmdGroHelp:
 		err = mh.OnHelp()
-	case CmdGroDeets:
-		err = mh.OnDetail()
 	case CmdGroHere:
 		err = mh.OnAttach()
 	case CmdGroReset:

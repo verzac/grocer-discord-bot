@@ -3,9 +3,7 @@
 package e2e
 
 import (
-	"fmt"
 	"os"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -73,15 +71,12 @@ func TestClear(t *testing.T) {
 	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "You have no groceries")
 }
 
-func TestEditAndDeets(t *testing.T) {
+func TestEdit(t *testing.T) {
 	setup(t, tss)
 	defer tss.RecoverTestPanic(t)
 	assert := require.New(t)
 	tss.SendAndAwaitReply("!groedit 1 HEEY WASSUP")
-	assert.Regexp(
-		regexp.MustCompile(fmt.Sprintf("^.*HEEY WASSUP.*(updated by <@%s> (\\d+ seconds* ago|just now))", tss.ClientUserID())),
-		tss.SendAndAwaitReply("!grodeets 1").Content,
-	)
+	assert.Contains(tss.SendAndAwaitReply("!grolist").Content, "HEEY WASSUP")
 }
 
 func TestAdd(t *testing.T) {

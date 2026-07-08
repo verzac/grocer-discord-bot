@@ -55,8 +55,6 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/ClickHouse/clickhouse-go v1.4.3/go.mod h1:EaI/sW7Azgz9UATzd5ZdZHRUhHgv5+JMS9NSr2smCJI=
 github.com/Microsoft/go-winio v0.4.16/go.mod h1:XB6nPKklQyQ7GC9LdcBEcBl8PF76WugXOPRXwdLnMv0=
-github.com/andanhm/go-prettytime v1.1.0 h1:7Zr0ZiYUhV+aG7fFaVx+z/8di961R6btNyidMo9Gptw=
-github.com/andanhm/go-prettytime v1.1.0/go.mod h1:uizwLzwLZu1FTvSz8DSGkqm8Vc4edGa2VIMu16aoiZg=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/arrow/go/arrow v0.0.0-20200601151325-b2287a20f230/go.mod h1:QNYViu/X0HXDHw7m3KXzWSVXIbfUvJqBFe6Gj8/pYA0=
 github.com/apache/arrow/go/arrow v0.0.0-20210521153258-78c88a9f517b/go.mod h1:R4hW3Ug0s+n4CUsWHKOj00Pu01ZqU4x/hSF5kXUcXKQ=
