@@ -24,6 +24,7 @@ import (
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/monitoring/groprometheus"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/services/demo"
 	"github.com/verzac/grocer-discord-bot/services/grocery"
 	"github.com/verzac/grocer-discord-bot/services/oauthsession"
 	"github.com/verzac/grocer-discord-bot/services/registration"
@@ -87,6 +88,10 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 		auth.InitDefaultJWTIssuer(logger)
 		oauthsession.Init(oauthSetup, userSessionRepo, logger)
 		routeauth.Register(e, logger, oauthSetup, userSessionRepo)
+		demo.Init(logger, userSessionRepo)
+		if demo.Service != nil {
+			routeauth.RegisterDemoLogin(e, logger, demo.Service)
+		}
 		routeguilds.Register(e, discordSess)
 	}
 

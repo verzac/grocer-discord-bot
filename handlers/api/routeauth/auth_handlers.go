@@ -11,6 +11,7 @@ import (
 	apimw "github.com/verzac/grocer-discord-bot/handlers/api/middleware"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/services/demo"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
@@ -153,6 +154,9 @@ func Register(
 	e.POST("/auth/logout", func(c echo.Context) error {
 		ctx := c.Request().Context()
 		authContext := c.(*apimw.AuthContext)
+		if demo.Service != nil && demo.Service.IsDemoUser(authContext.UserID) {
+			return c.NoContent(204)
+		}
 		if err := userSessionRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
 			logger.Error("delete user session on logout", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot log out.")
