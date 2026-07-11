@@ -24,6 +24,7 @@ func demoLoginRequestFields(c echo.Context) []zap.Field {
 	}
 }
 
+// RegisterDemoLogin mounts POST /auth/demo-login. Intentionally omitted from openapi.yaml.
 func RegisterDemoLogin(e *echo.Echo, logger *zap.Logger, demoService *demo.DemoService) {
 	logger = logger.Named("auth.demo-login")
 
