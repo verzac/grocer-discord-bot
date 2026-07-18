@@ -8,6 +8,8 @@ import HomepageFeatures from "../components/HomepageFeatures";
 
 const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=net.grocerybot.app";
+const APP_STORE_URL =
+  "https://apps.apple.com/us/app/grocerybot-app/id6780291729?itscg=30200&itsct=apps_box_link&mttnsubad=6780291729";
 
 function HomepageHeader() {
   const { siteConfig } = useDocusaurusContext();
@@ -38,28 +40,27 @@ function AppPromoSection() {
             <h2>Now available as an app!</h2>
             <p className={styles.appPromoTagline}>
               Check your grocery lists from any Discord server in one tap.
-              Lightweight, fast, and works offline.
+              Lightweight, fast, and works offline.{" "}
+              <Link to="/blog/new-grocerybot-app">Learn more...</Link>
             </p>
             <div className={styles.appPromoButtons}>
-              <Link
-                className="button button--primary button--lg"
-                href={PLAY_STORE_URL}
-              >
-                Download on Google Play
+              <Link href={APP_STORE_URL} className={styles.storeBadge}>
+                <img
+                  src="/img/download-ios.svg"
+                  alt="Download on the App Store"
+                  height={40}
+                />
               </Link>
-              <Link
-                className="button button--outline button--primary button--lg"
-                to="/blog/new-grocerybot-app"
-              >
-                Learn more
+              <Link href={PLAY_STORE_URL} className={styles.storeBadge}>
+                <img
+                  src="/img/download-android.svg"
+                  alt="Get it on Google Play"
+                  height={40}
+                />
               </Link>
             </div>
-            <div className={styles.iosNote}>
+            <div className={styles.storeNote}>
               <ul>
-                <li>
-                  On iOS? Use <code>/waitlist ios</code> in Discord to get
-                  notified when it launches.
-                </li>
                 <li>Needs your Discord account to sign-in.</li>
               </ul>
             </div>

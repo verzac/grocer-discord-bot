@@ -141,14 +141,29 @@
   }
 }
 
-.appPromoButtons .button {
+.storeBadge {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
+  line-height: 0;
 }
 
-.iosNote {
+.storeBadge img {
+  height: 40px;
+  width: auto;
+}
+
+.storeNote {
   font-size: 0.9rem;
   color: var(--ifm-color-emphasis-600);
+}
+
+.storeNote ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+@media screen and (max-width: 768px) {
+  .storeNote ul {
+    display: inline-block;
+    text-align: left;
+  }
 }
