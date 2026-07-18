@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	CurrentAnnouncementVersion = 2
-	AnnouncementMessage        = "📱 **GroceryBot now has an app!** Check your grocery lists across all your Discord servers in one tap — no more navigating between servers and channels. Works offline too!\n\n[For Android](<https://play.google.com/store/apps/details?id=net.grocerybot.app>) | [Blog Post (Where's the iOS version?)](<https://grocerybot.net/blog/new-grocerybot-app>)"
+	CurrentAnnouncementVersion = 3
+	AnnouncementMessage        = "📱 **GroceryBot's app is now available on iOS too!** Check your grocery lists across all your Discord servers in one tap — no more navigating between servers and channels. Works offline too!\n\n[For Android](<https://play.google.com/store/apps/details?id=net.grocerybot.app>) | [For iOS](<https://apps.apple.com/us/app/grocerybot-app/id6780291729?itscg=30200&itsct=apps_box_link&mttnsubad=6780291729>) | [Blog Post](<https://grocerybot.net/blog/new-grocerybot-app>)"
 )
 
 func (s *AnnouncementServiceImpl) AugmentMessageWithAnnouncement(ctx context.Context, guildID string, message string) (string, error) {
