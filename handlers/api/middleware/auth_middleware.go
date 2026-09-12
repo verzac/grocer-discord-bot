@@ -9,11 +9,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/patrickmn/go-cache"
 	"github.com/verzac/grocer-discord-bot/auth"
 	"github.com/verzac/grocer-discord-bot/config"
 	"github.com/verzac/grocer-discord-bot/models"
 	"github.com/verzac/grocer-discord-bot/repositories"
+	"github.com/verzac/grocer-discord-bot/services/guilds"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -29,8 +29,6 @@ type AuthContext struct {
 	UserID  string
 	GuildID string
 }
-
-var bearerGuildOKCache = cache.New(60*time.Second, 2*time.Minute)
 
 const (
 	CtxKeyIdentifier = "sub"
@@ -151,18 +149,37 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 					if discordSess == nil {
 						return echo.NewHTTPError(500, "Cannot verify token.")
 					}
-					cacheKey := discordUserID + ":" + guildID
-					if _, ok := bearerGuildOKCache.Get(cacheKey); !ok {
-						if _, err := discordSess.Guild(guildID); err != nil {
-							logger.Debug("bearer auth: guild lookup failed (bot may not be in guild)", zap.Error(err))
-							return errIncorrectToken
-						}
-						if _, err := discordSess.GuildMember(guildID, discordUserID); err != nil {
-							logger.Debug("bearer auth: user is not a member of guild", zap.Error(err))
-							return errIncorrectToken
-						}
-						bearerGuildOKCache.Set(cacheKey, true, cache.DefaultExpiration)
+
+					// is the user in the guild?
+					userGuilds, err := guilds.Service.GetUserGuilds(c.Request().Context(), discordUserID)
+					if err != nil {
+						return err
 					}
+					userInGuild := false
+					for _, ug := range userGuilds {
+						if ug.ID == guildID {
+							userInGuild = true
+							break
+						}
+					}
+					if !userInGuild {
+						logger.Debug("bearer auth: user is not a member of guild", zap.String("guildID", guildID))
+						return errIncorrectToken
+					}
+
+					// is the bot in the guild?
+					botInGuild := false
+					for _, g := range discordSess.State.Guilds {
+						if g != nil && g.ID == guildID {
+							botInGuild = true
+							break
+						}
+					}
+					if !botInGuild {
+						logger.Debug("bearer auth: bot is not in guild", zap.String("guildID", guildID))
+						return errIncorrectToken
+					}
+
 					return next(&AuthContext{
 						Context: c,
 						UserID:  discordUserID,
