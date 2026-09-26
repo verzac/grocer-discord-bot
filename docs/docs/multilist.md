@@ -8,37 +8,32 @@ Maintaining a single grocery list for your server is good and all, but if you've
 
 GroceryBot allows you to make multiple grocery lists (since late 2021), so that you can have a main grocery list and have separate grocery lists for your other, not-so-essential items, such as items that is only purchasable from your local Sunday Market. It's also great if you want to maintain other list-y things such as wishlists.
 
-ALL of GroceryBot's commands support multiple grocery lists.
+Most GroceryBot slash commands support multiple grocery lists through the optional `list-label` field.
 
 ## TL:DR;
 
 **Making a new grocery list**
 
 ```
-!grolist new <your-new-list-label> <optional - a pretty name for your list>
-!grolist new amazon My Amazon Shopping List
+/grolist-new label:amazon pretty-name:"My Amazon Shopping List"
 ```
 
 **Using that new grocery list**
 
 ```
-<command>:<your-new-list-label>
-
-!gro:amazon A brand new PS5
-!gro:sunday-market Chicken fillet
-!grolist:sunday-market
-!groremove:sunday-market Chicken fillet
-!grohere:sunday-market
-
-...and a bunch of other commands following the same format above
+/gro entry:"A brand new PS5" list-label:amazon
+/gro entry:"Chicken fillet" list-label:sunday-market
+/grolist list-label:sunday-market
+/groremove entry:"Chicken fillet" list-label:sunday-market
+/grohere list-label:sunday-market
 ```
 
 ## Making a new grocery list
 
-In order to make a new grocery list, use `!grolist new <your-new-list-label> <optional - a pretty name for your list>`:
+In order to make a new grocery list, use `/grolist-new`:
 
 ```
-!grolist new amazon My Amazon Shopping List
+/grolist-new label:amazon pretty-name:"My Amazon Shopping List"
 ```
 
 ![create a new grocery list](./assets/grolist-new.jpg)
@@ -47,20 +42,17 @@ In order to make a new grocery list, use `!grolist new <your-new-list-label> <op
 
 Alrighty, so you've made a new grocery list - sweet!
 
-To access your grocery list, you can use the following format: `<command>:<your-new-list-label>`
+To access a custom list with slash commands, use the command's `list-label` option.
 
 For example:
 
 ```
-!gro:amazon PS5
-!grolist:amazon
-!grohere:amazon
-```
-
-Slash command counterpart:
-
-```
-/grolist new label:amazon pretty-name PS5
+/gro entry:"PS5" list-label:amazon
+/grolist list-label:amazon
+/grohere list-label:amazon
+/groclear list-label:amazon
+/groedit entry-index:1 new-name:"PS5 Slim" list-label:amazon
+/groremove entry:1 list-label:amazon
 ```
 
 ![using grocery bot commands on other grocery lists](./assets/multilist-sample.jpg)
@@ -69,11 +61,12 @@ Slash command counterpart:
 
 Oops, did you name your grocery list wrong? That's okay!
 
-To edit your grocery list's name/label, use the following commands:
+To delete a grocery list, use:
 
 ```
-!grolist:amazon edit-label ebay
-!grolist:amazon edit-name Kyle's Amazon Shopping List
+/grolist-delete list-label:amazon
 ```
 
 ![editing your grocery lists' name and label](./assets/grolist-edit.jpg)
+
+For now, renaming list labels and list display names (`edit-label` / `edit-name`) is only available through legacy message commands. See [Legacy Message Commands](./legacy/message-commands.md) for that syntax.
