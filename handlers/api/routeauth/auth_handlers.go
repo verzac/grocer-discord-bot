@@ -38,18 +38,24 @@ type refreshTokenResponse struct {
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
+type intentTokenResponse struct {
+	IntentToken string `json:"intent_token"`
+	ExpiresIn   int64  `json:"expires_in"`
+}
+
 type tokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
-// Register mounts Discord OAuth and refresh-token routes on e.
+// Register mounts Discord OAuth, refresh-token, and intent-token routes on e.
 func Register(
 	e *echo.Echo,
 	logger *zap.Logger,
 	oauthSetup *auth.OAuthSetup,
 	userSessionRepo repositories.UserSessionRepository,
+	intentTokenRepo repositories.IntentTokenRepository,
 ) {
 	logger = logger.Named("auth")
 
@@ -130,6 +136,10 @@ func Register(
 			logger.Error("delete prior user sessions", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue session.")
 		}
+		if err := intentTokenRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, du.ID); err != nil {
+			logger.Error("delete prior intent tokens", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot issue session.")
+		}
 		logger.Debug("received user info", zap.Any("userInfo", du))
 		sess := &models.UserSession{
 			DiscordUserID:                du.ID,
@@ -161,7 +171,42 @@ func Register(
 			logger.Error("delete user session on logout", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot log out.")
 		}
+		if err := intentTokenRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
+			logger.Error("delete intent tokens on logout", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot log out.")
+		}
 		return c.NoContent(204)
+	})
+
+	// Mints the user's single intent token (replacing any existing one). Auth is a Bearer JWT; see decision-docs/002-intent-tokens.md.
+	e.POST("/auth/intent-token", func(c echo.Context) error {
+		ctx := c.Request().Context()
+		authContext := c.(*apimw.AuthContext)
+		if authContext.IsIntentToken || authContext.UserID == "" {
+			return echo.NewHTTPError(403, "Token not permitted for this endpoint.")
+		}
+		plaintext, hash, err := auth.GenerateIntentToken()
+		if err != nil {
+			logger.Error("generate intent token", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot issue intent token.")
+		}
+		if err := intentTokenRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
+			logger.Error("delete prior intent tokens", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot issue intent token.")
+		}
+		it := &models.IntentToken{
+			DiscordUserID: authContext.UserID,
+			TokenHash:     hash,
+			ExpiresAt:     time.Now().UTC().Add(auth.DefaultIntentTokenTTL),
+		}
+		if err := intentTokenRepo.WithContext(ctx).Create(ctx, it); err != nil {
+			logger.Error("save intent token", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot issue intent token.")
+		}
+		return c.JSON(201, intentTokenResponse{
+			IntentToken: plaintext,
+			ExpiresIn:   int64(auth.DefaultIntentTokenTTL.Seconds()),
+		})
 	})
 
 	e.POST("/auth/refresh", func(c echo.Context) error {

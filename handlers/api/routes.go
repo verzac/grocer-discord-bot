@@ -40,6 +40,7 @@ var (
 	grohereRecordRepo     repositories.GrohereRecordRepository
 	apiClientRepo         repositories.ApiClientRepository
 	userSessionRepo       repositories.UserSessionRepository
+	intentTokenRepo       repositories.IntentTokenRepository
 )
 
 // RegisterAndStart starts the API handler goroutine
@@ -81,13 +82,14 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	guildRegistrationRepo = &repositories.GuildRegistrationRepositoryImpl{DB: db}
 	apiClientRepo = &repositories.ApiClientRepositoryImpl{DB: db}
 	userSessionRepo = &repositories.UserSessionRepositoryImpl{DB: db}
+	intentTokenRepo = &repositories.IntentTokenRepositoryImpl{DB: db}
 
-	e.Use(apimw.AuthMiddleware(apiClientRepo, logger, grobotVersion, discordSess))
+	e.Use(apimw.AuthMiddleware(apiClientRepo, intentTokenRepo, logger, grobotVersion, discordSess))
 
 	if oauthSetup := auth.LoadOAuthSetup(logger); oauthSetup != nil {
 		auth.InitDefaultJWTIssuer(logger)
 		oauthsession.Init(oauthSetup, userSessionRepo, logger)
-		routeauth.Register(e, logger, oauthSetup, userSessionRepo)
+		routeauth.Register(e, logger, oauthSetup, userSessionRepo, intentTokenRepo)
 		demo.Init(logger, userSessionRepo)
 		if demo.Service != nil {
 			routeauth.RegisterDemoLogin(e, logger, demo.Service)

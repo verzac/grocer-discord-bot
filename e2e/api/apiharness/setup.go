@@ -23,6 +23,8 @@ type APITestSession struct {
 	client    *http.Client
 	baseURL   string
 	authValue string
+	// guildID is sent as X-Guild-ID when non-empty (Bearer sessions).
+	guildID string
 }
 
 func dotEnvPath() string {
@@ -56,6 +58,34 @@ func SetupAPI() *APITestSession {
 	}
 }
 
+// SetupBearerAPI returns a session that authenticates with E2E_API_BEARER_TOKEN (a GroceryBot access JWT for a
+// user who has logged in through /auth/token, so the server holds their Discord session) and sends
+// E2E_API_GUILD_ID as X-Guild-ID. It returns nil when either variable is unset.
+func SetupBearerAPI() *APITestSession {
+	token := stringsTrimQuotes(strings.TrimSpace(os.Getenv("E2E_API_BEARER_TOKEN")))
+	guildID := strings.TrimSpace(os.Getenv("E2E_API_GUILD_ID"))
+	if token == "" || guildID == "" {
+		return nil
+	}
+	baseURL := strings.TrimSpace(os.Getenv("E2E_API_BASE_URL"))
+	if baseURL == "" {
+		baseURL = "http://localhost:8080"
+	}
+	return &APITestSession{
+		client:    http.DefaultClient,
+		baseURL:   baseURL,
+		authValue: "Bearer " + token,
+		guildID:   guildID,
+	}
+}
+
+// WithAuthorization returns a copy of the session that sends authValue as the Authorization header.
+func (s *APITestSession) WithAuthorization(authValue string) *APITestSession {
+	cp := *s
+	cp.authValue = authValue
+	return &cp
+}
+
 func stringsTrimQuotes(s string) string {
 	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
 		return s[1 : len(s)-1]
@@ -65,6 +95,9 @@ func stringsTrimQuotes(s string) string {
 
 func (s *APITestSession) applyAuth(req *http.Request) {
 	req.Header.Set("Authorization", s.authValue)
+	if s.guildID != "" {
+		req.Header.Set("X-Guild-ID", s.guildID)
+	}
 }
 
 func (s *APITestSession) Get(path string) (*http.Response, error) {
@@ -82,6 +115,15 @@ func (s *APITestSession) PostJSON(path string, body []byte) (*http.Response, err
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	s.applyAuth(req)
+	return s.client.Do(req)
+}
+
+func (s *APITestSession) PostNoBody(path string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodPost, s.baseURL+path, nil)
+	if err != nil {
+		return nil, err
+	}
 	s.applyAuth(req)
 	return s.client.Do(req)
 }
