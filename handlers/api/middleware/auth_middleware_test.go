@@ -16,9 +16,8 @@ import (
 )
 
 type fakeIntentTokenRepo struct {
-	byHash     map[string]*models.IntentToken
-	lookups    int
-	touchedIDs []uint
+	byHash  map[string]*models.IntentToken
+	lookups int
 }
 
 var _ repositories.IntentTokenRepository = &fakeIntentTokenRepo{}
@@ -38,11 +37,6 @@ func (f *fakeIntentTokenRepo) FindByTokenHash(ctx context.Context, hash string) 
 
 func (f *fakeIntentTokenRepo) DeleteByDiscordUserID(ctx context.Context, discordUserID string) error {
 	return errors.New("not implemented")
-}
-
-func (f *fakeIntentTokenRepo) TouchLastUsed(ctx context.Context, id uint, at time.Time) error {
-	f.touchedIDs = append(f.touchedIDs, id)
-	return nil
 }
 
 const (
@@ -119,9 +113,6 @@ func TestIntentTokenUnknownOrExpired(t *testing.T) {
 			status, nextCalled := runAuth(t, repo, http.MethodPost, "/groceries", "Bearer "+token)
 			if status != http.StatusUnauthorized || nextCalled {
 				t.Fatalf("got status %d nextCalled=%v, want 401 without next", status, nextCalled)
-			}
-			if len(repo.touchedIDs) != 0 {
-				t.Fatalf("rejected token must not be touched")
 			}
 		})
 	}

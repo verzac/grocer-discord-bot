@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"time"
 
 	"github.com/verzac/grocer-discord-bot/models"
 	"gorm.io/gorm"
@@ -15,7 +14,6 @@ type IntentTokenRepository interface {
 	Create(ctx context.Context, token *models.IntentToken) error
 	FindByTokenHash(ctx context.Context, hash string) (*models.IntentToken, error)
 	DeleteByDiscordUserID(ctx context.Context, discordUserID string) error
-	TouchLastUsed(ctx context.Context, id uint, at time.Time) error
 }
 
 type IntentTokenRepositoryImpl struct {
@@ -43,8 +41,4 @@ func (r *IntentTokenRepositoryImpl) FindByTokenHash(ctx context.Context, hash st
 
 func (r *IntentTokenRepositoryImpl) DeleteByDiscordUserID(ctx context.Context, discordUserID string) error {
 	return r.DB.WithContext(ctx).Where("discord_user_id = ?", discordUserID).Delete(&models.IntentToken{}).Error
-}
-
-func (r *IntentTokenRepositoryImpl) TouchLastUsed(ctx context.Context, id uint, at time.Time) error {
-	return r.DB.WithContext(ctx).Model(&models.IntentToken{}).Where("id = ?", id).UpdateColumn("last_used_at", at).Error
 }

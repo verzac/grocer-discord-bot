@@ -16,7 +16,7 @@ Author: verzac (github.com/verzac), drafted with Claude Code
 - **Lifetime:** fixed 30 days from minting, not extended on use. The app re-mints from JS while it has a live session; expiry bounds the damage if the device is lost without a logout.
 - **One token per user:** minting deletes the user's existing intent tokens, then creates the new one.
 - **Revocation:** `POST /auth/token` (new login) and `POST /auth/logout` delete the user's intent tokens. `POST /auth/refresh` does not touch them, since refresh happens constantly and must not break Siri. There is no `DELETE` endpoint; logout or re-mint covers it.
-- **Storage:** only the SHA-256 hex hash of the full plaintext token is stored (`intent_tokens.token_hash`, unique index), the same scheme as refresh tokens. A database leak does not yield usable tokens. `last_used_at` is updated on each accepted request on a best-effort basis (a failed update is logged and does not fail the request).
+- **Storage:** only the SHA-256 hex hash of the full plaintext token is stored (`intent_tokens.token_hash`, unique index), the same scheme as refresh tokens. A database leak does not yield usable tokens.
 - **Rate limiting:** the middleware sets the request identifier to the Discord user ID after the lookup, so intent token requests share the existing per-user rate limit with the user's JWT requests.
 
 ## Why the `gbi_` prefix?

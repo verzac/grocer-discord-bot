@@ -141,10 +141,6 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, intentTokenRepo
 			if err != nil {
 				return err
 			}
-			ctx := c.Request().Context()
-			if err := intentTokenRepo.WithContext(ctx).TouchLastUsed(ctx, it.ID, time.Now().UTC()); err != nil {
-				logger.Warn("intent token: cannot update last_used_at", zap.Error(err))
-			}
 			return next(&AuthContext{
 				Context:       c,
 				UserID:        discordUserID,
