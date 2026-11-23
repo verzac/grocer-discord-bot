@@ -92,7 +92,7 @@ paths:
     post:
       tags: [Auth]
       summary: Mint an intent token
-      description: "**Unstable (internal):** Not covered by public API stability guarantees; breaking changes may occur without a major version bump.\n\nIssues a long-lived, narrowly scoped intent token for the authenticated user, for clients that cannot share the refreshing session (e.g. a Siri App Intent on a locked device). Requires `Authorization: Bearer` with the GroceryBot JWT. Does not use `X-Guild-ID` and takes no request body.\n\nEach user has at most one intent token: minting deletes the user's previous intent token. Intent tokens are also revoked by `POST /auth/token` (new login) and `POST /auth/logout`. The lifetime is fixed at 30 days and is not extended on use.\n\nThe token is accepted only on `POST /groceries`, as `Authorization: Bearer gbi_...` together with `X-Guild-ID`; every other endpoint, including this one, returns 403 for it."
+      description: "**Unstable (internal):** Not covered by public API stability guarantees; breaking changes may occur without a major version bump.\n\nIssues a long-lived, narrowly scoped intent token for the authenticated user, for clients that cannot share the refreshing session (e.g. a Siri App Intent on a locked device). Requires `Authorization: Bearer` with the GroceryBot JWT. Does not use `X-Guild-ID` and takes no request body.\n\nEach user has at most one intent token: minting deletes the user's previous intent token. Intent tokens are also revoked by `POST /auth/token` (new login) and `POST /auth/logout`. The lifetime is fixed at 30 days and is not extended on use. Demo accounts cannot mint intent tokens.\n\nThe token is accepted only on `POST /groceries`, as `Authorization: Bearer gbi_...` together with `X-Guild-ID`; every other endpoint, including this one, returns 403 for it."
       security:
         - bearerAuth: []
       responses:
@@ -105,7 +105,7 @@ paths:
         "401":
           $ref: "#/components/responses/UnauthorizedError"
         "403":
-          description: Called with an intent token or with Basic (API client) credentials.
+          description: Called with an intent token, with Basic (API client) credentials, or by a demo account.
         "500":
           description: Server failed to persist the intent token.
   /guilds:

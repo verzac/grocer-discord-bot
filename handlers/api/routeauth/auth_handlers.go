@@ -185,6 +185,9 @@ func Register(
 		if authContext.IsIntentToken || authContext.UserID == "" {
 			return echo.NewHTTPError(403, "Token not permitted for this endpoint.")
 		}
+		if demo.Service != nil && demo.Service.IsDemoUser(authContext.UserID) {
+			return echo.NewHTTPError(403, "Intent tokens are not available for demo accounts.")
+		}
 		plaintext, hash, err := auth.GenerateIntentToken()
 		if err != nil {
 			logger.Error("generate intent token", zap.Error(err))

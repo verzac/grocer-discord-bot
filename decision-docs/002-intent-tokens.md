@@ -15,6 +15,7 @@ Author: verzac (github.com/verzac), drafted with Claude Code
 - **Guild checks:** the request still sends `X-Guild-ID`. The same user-in-guild and bot-in-guild checks as the JWT path run (one shared helper), so revoking the user's guild membership or kicking the bot still blocks the token.
 - **Lifetime:** fixed 30 days from minting, not extended on use. The app re-mints from JS while it has a live session; expiry bounds the damage if the device is lost without a logout.
 - **One token per user:** minting deletes the user's existing intent tokens, then creates the new one.
+- **Demo accounts excluded:** `POST /auth/intent-token` returns `403` for the demo user (`DEMO_USER_DISCORD_ID`), whether it authenticated through `/auth/demo-login` or a real Discord login. The demo account is shared across devices and demo sessions are meant to be short (no refresh token), so a 30-day token for it doesn't fit. The check runs at mint time only; the app should hide the Siri feature for demo sessions.
 - **Revocation:** `POST /auth/token` (new login) and `POST /auth/logout` delete the user's intent tokens. `POST /auth/refresh` does not touch them, since refresh happens constantly and must not break Siri. There is no `DELETE` endpoint; logout or re-mint covers it.
 - **Storage:** only the SHA-256 hex hash of the full plaintext token is stored (`intent_tokens.token_hash`, unique index), the same scheme as refresh tokens. A database leak does not yield usable tokens.
 - **Rate limiting:** the middleware sets the request identifier to the Discord user ID after the lookup, so intent token requests share the existing per-user rate limit with the user's JWT requests.
@@ -25,5 +26,4 @@ Author: verzac (github.com/verzac), drafted with Claude Code
 3. **Secret scanning:** a distinctive prefix plus fixed-length base64url body (`gbi_[A-Za-z0-9_-]{43}`) can be registered as a custom secret-scanning pattern, so a token committed or pasted somewhere is detectable.
 
 ## Known limitations
-- **Demo login:** `POST /auth/demo-login` reuses a single seeded session for the shared demo account and creates no session per device. All demo devices therefore share one intent token slot: each mint replaces the previous one, so only the most recently minted demo device's Siri token works. Demo logout returns early (as before) and does not revoke the demo intent token, so it doesn't log out other demo devices.
 - **Concurrent mints:** delete-then-create is not wrapped in a transaction. Two simultaneous mints by the same user can leave two valid tokens until the next mint, login, or logout. Both are still scoped to the same user and endpoint.
