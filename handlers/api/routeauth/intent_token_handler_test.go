@@ -3,6 +3,7 @@ package routeauth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,10 +40,43 @@ func (f *fakeIntentTokenRepo) DeleteByDiscordUserID(ctx context.Context, discord
 	return nil
 }
 
+type fakeUserSessionRepo struct {
+	sessions map[string]bool
+}
+
+var _ repositories.UserSessionRepository = &fakeUserSessionRepo{}
+
+func (f *fakeUserSessionRepo) WithContext(ctx context.Context) repositories.UserSessionRepository {
+	return f
+}
+
+func (f *fakeUserSessionRepo) CreateSession(ctx context.Context, session *models.UserSession) error {
+	return errors.New("not implemented")
+}
+
+func (f *fakeUserSessionRepo) FindByRefreshTokenHash(ctx context.Context, hash string) (*models.UserSession, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (f *fakeUserSessionRepo) FindByDiscordUserID(ctx context.Context, discordUserID string) (*models.UserSession, error) {
+	if f.sessions[discordUserID] {
+		return &models.UserSession{DiscordUserID: discordUserID}, nil
+	}
+	return nil, nil
+}
+
+func (f *fakeUserSessionRepo) UpdateSession(ctx context.Context, session *models.UserSession) error {
+	return errors.New("not implemented")
+}
+
+func (f *fakeUserSessionRepo) DeleteByDiscordUserID(ctx context.Context, discordUserID string) error {
+	return errors.New("not implemented")
+}
+
 const demoUserID = "demo-user"
 
 // mintIntentToken calls POST /auth/intent-token with an AuthContext built from userID and isIntentToken,
-// standing in for AuthMiddleware.
+// standing in for AuthMiddleware. user-1 and the demo user have sessions; other users do not.
 func mintIntentToken(t *testing.T, repo *fakeIntentTokenRepo, userID string, isIntentToken bool) *httptest.ResponseRecorder {
 	t.Helper()
 	t.Setenv("DEMO_USER_DISCORD_ID", demoUserID)
@@ -56,7 +90,8 @@ func mintIntentToken(t *testing.T, repo *fakeIntentTokenRepo, userID string, isI
 			return next(&apimw.AuthContext{Context: c, UserID: userID, IsIntentToken: isIntentToken})
 		}
 	})
-	Register(e, zap.NewNop(), &auth.OAuthSetup{}, nil, repo)
+	sessions := &fakeUserSessionRepo{sessions: map[string]bool{"user-1": true, demoUserID: true}}
+	Register(e, zap.NewNop(), &auth.OAuthSetup{}, sessions, repo)
 
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/auth/intent-token", nil))
@@ -111,5 +146,16 @@ func TestMintIntentTokenForbidden(t *testing.T) {
 				t.Fatalf("repository must not be touched: %+v", repo)
 			}
 		})
+	}
+}
+
+func TestMintIntentTokenWithoutSession(t *testing.T) {
+	repo := &fakeIntentTokenRepo{}
+	rec := mintIntentToken(t, repo, "logged-out-user", false)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(repo.upserted) != 0 {
+		t.Fatalf("no token may be stored without a session, got %d", len(repo.upserted))
 	}
 }

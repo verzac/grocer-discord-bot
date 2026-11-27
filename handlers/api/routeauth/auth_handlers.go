@@ -188,6 +188,15 @@ func Register(
 		if demo.Service != nil && demo.Service.IsDemoUser(authContext.UserID) {
 			return echo.NewHTTPError(403, "Intent tokens are not available for demo accounts.")
 		}
+		// The access JWT outlives logout by up to its TTL; require a live session so a logged-out JWT cannot mint.
+		sess, err := userSessionRepo.WithContext(ctx).FindByDiscordUserID(ctx, authContext.UserID)
+		if err != nil {
+			logger.Error("lookup user session for intent token", zap.Error(err))
+			return echo.NewHTTPError(500, "Cannot issue intent token.")
+		}
+		if sess == nil {
+			return echo.NewHTTPError(401, "Session not found.")
+		}
 		plaintext, hash, err := auth.GenerateIntentToken()
 		if err != nil {
 			logger.Error("generate intent token", zap.Error(err))

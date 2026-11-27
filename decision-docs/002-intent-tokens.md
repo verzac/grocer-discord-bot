@@ -10,7 +10,7 @@ Author: verzac (github.com/verzac), drafted with Claude Code
 3. Therefore, the app mints a dedicated **intent token** from JS (where the session lives) and hands it to Swift. Swift only presents it; it never refreshes anything.
 
 ## Design
-- **Endpoint:** `POST /auth/intent-token`, authenticated with the normal Bearer JWT. No `X-Guild-ID`, no body. Returns `201 {"intent_token": "gbi_...", "expires_in": 2592000}`.
+- **Endpoint:** `POST /auth/intent-token`, authenticated with the normal Bearer JWT. No `X-Guild-ID`, no body. The user must also still have a session (`user_sessions` row): an access JWT stays valid for up to 15 minutes after logout, and without this check it could mint a token after the user logged out. Returns `201 {"intent_token": "gbi_...", "expires_in": 2592000}`.
 - **Scope:** the token is accepted only on `POST /groceries`. The auth middleware rejects it with `403` on every other method/path before looking it up. That includes `/auth/intent-token`, so an intent token cannot mint another one, and `/auth/logout`. A leaked token can add grocery entries to guilds the user is in. It cannot read, delete, or change anything.
 - **Guild checks:** the request still sends `X-Guild-ID`. The same user-in-guild and bot-in-guild checks as the JWT path run (one shared helper), so revoking the user's guild membership or kicking the bot still blocks the token.
 - **Lifetime:** fixed 30 days from minting, not extended on use. The app re-mints from JS while it has a live session; expiry bounds the damage if the device is lost without a logout.
@@ -18,7 +18,7 @@ Author: verzac (github.com/verzac), drafted with Claude Code
 - **Demo accounts excluded:** `POST /auth/intent-token` returns `403` for the demo user (`DEMO_USER_DISCORD_ID`), whether it authenticated through `/auth/demo-login` or a real Discord login. The demo account is shared across devices and demo sessions are meant to be short (no refresh token), so a 30-day token for it doesn't fit. The check runs at mint time only; the app should hide the Siri feature for demo sessions.
 - **Revocation:** `POST /auth/token` (new login) and `POST /auth/logout` delete the user's intent tokens. `POST /auth/refresh` does not touch them, since refresh happens constantly and must not break Siri. There is no `DELETE` endpoint; logout or re-mint covers it.
 - **Storage:** only the SHA-256 hex hash of the full plaintext token is stored (`intent_tokens.token_hash`, unique index), the same scheme as refresh tokens. A database leak does not yield usable tokens.
-- **Rate limiting:** the middleware sets the request identifier to the Discord user ID after the lookup, so intent token requests share the existing per-user rate limit with the user's JWT requests.
+- **Rate limiting:** the token lookup runs inside the existing rate limiter keyed by client IP, so floods of invalid `gbi_` tokens are limited before they reach the database. Once the token is found, the request identifier becomes the Discord user ID and the request also counts against the per-user limit it shares with the user's JWT requests.
 
 ## Why the `gbi_` prefix?
 1. **Routing:** both token types arrive as `Authorization: Bearer ...`. JWTs always start with `eyJ` (base64 of `{"`), so a `gbi_` prefix tells the middleware which verifier to use without trying JWT parsing first and without a new header or auth scheme.

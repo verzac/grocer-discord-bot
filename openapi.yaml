@@ -103,7 +103,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/IntentTokenResponse"
         "401":
-          $ref: "#/components/responses/UnauthorizedError"
+          description: Missing or invalid JWT, or the user no longer has a session (logged out).
         "403":
           description: Called with an intent token, with Basic (API client) credentials, or by a demo account.
         "500":

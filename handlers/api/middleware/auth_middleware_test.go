@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -49,6 +50,15 @@ func newFakeIntentTokenRepo() *fakeIntentTokenRepo {
 			ID: 2, DiscordUserID: "user-2", ExpiresAt: time.Now().UTC().Add(-time.Second),
 		},
 	}}
+}
+
+func TestMain(m *testing.M) {
+	issuer, err := auth.NewJWTIssuer([]byte("test-signing-key"))
+	if err != nil {
+		panic(err)
+	}
+	auth.DefaultJWTIssuer = issuer
+	os.Exit(m.Run())
 }
 
 // runAuth runs AuthMiddleware for one request and reports the HTTP status the middleware chose
@@ -139,5 +149,57 @@ func TestAuthPathExemptions(t *testing.T) {
 		if status != http.StatusOK || !nextCalled {
 			t.Fatalf("%s: got status %d nextCalled=%v, want pass-through", path, status, nextCalled)
 		}
+	}
+}
+
+func TestIntentTokenWithoutOAuthSetup(t *testing.T) {
+	issuer := auth.DefaultJWTIssuer
+	auth.DefaultJWTIssuer = nil
+	t.Cleanup(func() { auth.DefaultJWTIssuer = issuer })
+
+	repo := newFakeIntentTokenRepo()
+	status, nextCalled := runAuth(t, repo, http.MethodPost, "/groceries", "Bearer "+validIntentToken)
+	if status != http.StatusUnauthorized || nextCalled {
+		t.Fatalf("got status %d nextCalled=%v, want 401 without next", status, nextCalled)
+	}
+	if repo.lookups != 0 {
+		t.Fatalf("token should not be looked up without OAuth setup")
+	}
+}
+
+func TestInvalidIntentTokensAreRateLimited(t *testing.T) {
+	repo := newFakeIntentTokenRepo()
+	e := echo.New()
+	h := AuthMiddleware(nil, repo, zap.NewNop(), "test", nil)(func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
+	const requests = 40
+	limited := 0
+	for i := 0; i < requests; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/groceries", nil)
+		req.Header.Set("Authorization", "Bearer gbi_garbage")
+		rec := httptest.NewRecorder()
+		err := h(e.NewContext(req, rec))
+		// Echo's rate limiter writes its 429 through c.Error and returns nil.
+		code := rec.Code
+		var he *echo.HTTPError
+		if errors.As(err, &he) {
+			code = he.Code
+		} else if err != nil {
+			t.Fatalf("request %d: unexpected error %v", i, err)
+		}
+		switch code {
+		case http.StatusTooManyRequests:
+			limited++
+		case http.StatusUnauthorized:
+		default:
+			t.Fatalf("request %d: unexpected status %d", i, code)
+		}
+	}
+	if limited == 0 {
+		t.Fatalf("expected some of %d invalid-token requests from one IP to be rate limited", requests)
+	}
+	if repo.lookups+limited != requests {
+		t.Fatalf("rate-limited requests must not reach the token lookup: lookups=%d limited=%d", repo.lookups, limited)
 	}
 }
