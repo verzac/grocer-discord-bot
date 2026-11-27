@@ -182,6 +182,9 @@ func Register(
 	e.POST("/auth/intent-token", func(c echo.Context) error {
 		ctx := c.Request().Context()
 		authContext := c.(*apimw.AuthContext)
+		if auth.IntentTokensDisabled() {
+			return echo.NewHTTPError(403, "Intent tokens are disabled.")
+		}
 		if authContext.IsIntentToken || authContext.UserID == "" {
 			return echo.NewHTTPError(403, "Token not permitted for this endpoint.")
 		}

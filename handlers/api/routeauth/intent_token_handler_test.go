@@ -159,3 +159,16 @@ func TestMintIntentTokenWithoutSession(t *testing.T) {
 		t.Fatalf("no token may be stored without a session, got %d", len(repo.upserted))
 	}
 }
+
+func TestMintIntentTokenDisabled(t *testing.T) {
+	t.Setenv("DISABLE_INTENT_TOKENS", "true")
+
+	repo := &fakeIntentTokenRepo{}
+	rec := mintIntentToken(t, repo, "user-1", false)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("got %d: %s", rec.Code, rec.Body.String())
+	}
+	if len(repo.upserted) != 0 {
+		t.Fatalf("no token may be stored while intent tokens are disabled, got %d", len(repo.upserted))
+	}
+}

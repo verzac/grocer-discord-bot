@@ -203,3 +203,21 @@ func TestInvalidIntentTokensAreRateLimited(t *testing.T) {
 		t.Fatalf("rate-limited requests must not reach the token lookup: lookups=%d limited=%d", repo.lookups, limited)
 	}
 }
+
+func TestIntentTokensDisabled(t *testing.T) {
+	t.Setenv("DISABLE_INTENT_TOKENS", "true")
+
+	repo := newFakeIntentTokenRepo()
+	status, nextCalled := runAuth(t, repo, http.MethodPost, "/groceries", "Bearer "+validIntentToken)
+	if status != http.StatusUnauthorized || nextCalled {
+		t.Fatalf("got status %d nextCalled=%v, want 401 without next", status, nextCalled)
+	}
+	if repo.lookups != 0 {
+		t.Fatalf("token should not be looked up while intent tokens are disabled")
+	}
+
+	status, _ = runAuth(t, repo, http.MethodGet, "/grocery-lists", "Bearer "+validIntentToken)
+	if status != http.StatusForbidden {
+		t.Fatalf("disallowed routes should still return 403, got %d", status)
+	}
+}

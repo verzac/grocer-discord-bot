@@ -84,6 +84,9 @@ func RegisterAndStart(logger *zap.Logger, db *gorm.DB, grobotVersion string, dis
 	userSessionRepo = &repositories.UserSessionRepositoryImpl{DB: db}
 	intentTokenRepo = &repositories.IntentTokenRepositoryImpl{DB: db}
 
+	if auth.IntentTokensDisabled() {
+		logger.Warn("Intent tokens are disabled (DISABLE_INTENT_TOKENS=true): minting returns 403 and existing tokens are rejected.")
+	}
 	e.Use(apimw.AuthMiddleware(apiClientRepo, intentTokenRepo, logger, grobotVersion, discordSess))
 
 	if oauthSetup := auth.LoadOAuthSetup(logger); oauthSetup != nil {

@@ -125,6 +125,9 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, intentTokenRepo
 		if !intentTokenAllowedRoutes[req.Method+" "+req.URL.Path] {
 			return echo.NewHTTPError(403, "Token not permitted for this endpoint.")
 		}
+		if auth.IntentTokensDisabled() {
+			return echo.NewHTTPError(401, "Invalid token.")
+		}
 		// Same guard as the JWT branch: without OAuth setup there is no Discord session service to check guilds with.
 		if auth.DefaultJWTIssuer == nil {
 			return echo.NewHTTPError(401, "Bearer authentication is not available.")
