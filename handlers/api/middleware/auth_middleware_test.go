@@ -22,10 +22,6 @@ type fakeIntentTokenRepo struct {
 
 var _ repositories.IntentTokenRepository = &fakeIntentTokenRepo{}
 
-func (f *fakeIntentTokenRepo) WithContext(ctx context.Context) repositories.IntentTokenRepository {
-	return f
-}
-
 func (f *fakeIntentTokenRepo) Create(ctx context.Context, token *models.IntentToken) error {
 	return errors.New("not implemented")
 }

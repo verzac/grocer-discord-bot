@@ -10,7 +10,6 @@ import (
 var _ IntentTokenRepository = &IntentTokenRepositoryImpl{}
 
 type IntentTokenRepository interface {
-	WithContext(ctx context.Context) IntentTokenRepository
 	Create(ctx context.Context, token *models.IntentToken) error
 	FindByTokenHash(ctx context.Context, hash string) (*models.IntentToken, error)
 	DeleteByDiscordUserID(ctx context.Context, discordUserID string) error
@@ -18,10 +17,6 @@ type IntentTokenRepository interface {
 
 type IntentTokenRepositoryImpl struct {
 	DB *gorm.DB
-}
-
-func (r *IntentTokenRepositoryImpl) WithContext(ctx context.Context) IntentTokenRepository {
-	return &IntentTokenRepositoryImpl{DB: r.DB.WithContext(ctx)}
 }
 
 func (r *IntentTokenRepositoryImpl) Create(ctx context.Context, token *models.IntentToken) error {

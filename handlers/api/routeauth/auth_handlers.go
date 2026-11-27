@@ -136,7 +136,7 @@ func Register(
 			logger.Error("delete prior user sessions", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue session.")
 		}
-		if err := intentTokenRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, du.ID); err != nil {
+		if err := intentTokenRepo.DeleteByDiscordUserID(ctx, du.ID); err != nil {
 			logger.Error("delete prior intent tokens", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue session.")
 		}
@@ -171,7 +171,7 @@ func Register(
 			logger.Error("delete user session on logout", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot log out.")
 		}
-		if err := intentTokenRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
+		if err := intentTokenRepo.DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
 			logger.Error("delete intent tokens on logout", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot log out.")
 		}
@@ -193,7 +193,7 @@ func Register(
 			logger.Error("generate intent token", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue intent token.")
 		}
-		if err := intentTokenRepo.WithContext(ctx).DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
+		if err := intentTokenRepo.DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
 			logger.Error("delete prior intent tokens", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue intent token.")
 		}
@@ -202,7 +202,7 @@ func Register(
 			TokenHash:     hash,
 			ExpiresAt:     time.Now().UTC().Add(auth.DefaultIntentTokenTTL),
 		}
-		if err := intentTokenRepo.WithContext(ctx).Create(ctx, it); err != nil {
+		if err := intentTokenRepo.Create(ctx, it); err != nil {
 			logger.Error("save intent token", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue intent token.")
 		}

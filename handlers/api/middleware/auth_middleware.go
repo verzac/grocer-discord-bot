@@ -125,7 +125,7 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, intentTokenRepo
 			return echo.NewHTTPError(403, "Token not permitted for this endpoint.")
 		}
 		ctx := req.Context()
-		it, err := intentTokenRepo.WithContext(ctx).FindByTokenHash(ctx, auth.HashIntentToken(token))
+		it, err := intentTokenRepo.FindByTokenHash(ctx, auth.HashIntentToken(token))
 		if err != nil {
 			logger.Error("intent token lookup failed", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot verify token.")
