@@ -20,13 +20,13 @@ import (
 
 type fakeIntentTokenRepo struct {
 	deletedFor []string
-	created    []*models.IntentToken
+	upserted   []*models.IntentToken
 }
 
 var _ repositories.IntentTokenRepository = &fakeIntentTokenRepo{}
 
-func (f *fakeIntentTokenRepo) Create(ctx context.Context, token *models.IntentToken) error {
-	f.created = append(f.created, token)
+func (f *fakeIntentTokenRepo) Upsert(ctx context.Context, token *models.IntentToken) error {
+	f.upserted = append(f.upserted, token)
 	return nil
 }
 
@@ -76,13 +76,13 @@ func TestMintIntentToken(t *testing.T) {
 	if !strings.HasPrefix(body.IntentToken, auth.IntentTokenPrefix) || body.ExpiresIn != 2592000 {
 		t.Fatalf("unexpected body: %+v", body)
 	}
-	if len(repo.deletedFor) != 1 || repo.deletedFor[0] != "user-1" {
-		t.Fatalf("expected prior tokens deleted for user-1, got %v", repo.deletedFor)
+	if len(repo.deletedFor) != 0 {
+		t.Fatalf("mint should replace via upsert, not delete; got deletes for %v", repo.deletedFor)
 	}
-	if len(repo.created) != 1 {
-		t.Fatalf("expected one token created, got %d", len(repo.created))
+	if len(repo.upserted) != 1 {
+		t.Fatalf("expected one token upserted, got %d", len(repo.upserted))
 	}
-	it := repo.created[0]
+	it := repo.upserted[0]
 	if it.DiscordUserID != "user-1" || it.TokenHash != auth.HashIntentToken(body.IntentToken) {
 		t.Fatalf("stored token does not match response: %+v", it)
 	}
@@ -107,7 +107,7 @@ func TestMintIntentTokenForbidden(t *testing.T) {
 			if rec.Code != http.StatusForbidden {
 				t.Fatalf("got %d: %s", rec.Code, rec.Body.String())
 			}
-			if len(repo.deletedFor) != 0 || len(repo.created) != 0 {
+			if len(repo.deletedFor) != 0 || len(repo.upserted) != 0 {
 				t.Fatalf("repository must not be touched: %+v", repo)
 			}
 		})

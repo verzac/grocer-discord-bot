@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS `intent_tokens` (
   `created_at` datetime
 );
 
-CREATE INDEX `idx_intent_tokens_discord_user_id` ON `intent_tokens`(`discord_user_id`);
+CREATE UNIQUE INDEX `idx_intent_tokens_discord_user_id` ON `intent_tokens`(`discord_user_id`);
 CREATE UNIQUE INDEX `idx_intent_tokens_token_hash` ON `intent_tokens`(`token_hash`);

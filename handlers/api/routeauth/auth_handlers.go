@@ -193,16 +193,12 @@ func Register(
 			logger.Error("generate intent token", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue intent token.")
 		}
-		if err := intentTokenRepo.DeleteByDiscordUserID(ctx, authContext.UserID); err != nil {
-			logger.Error("delete prior intent tokens", zap.Error(err))
-			return echo.NewHTTPError(500, "Cannot issue intent token.")
-		}
 		it := &models.IntentToken{
 			DiscordUserID: authContext.UserID,
 			TokenHash:     hash,
 			ExpiresAt:     time.Now().UTC().Add(auth.DefaultIntentTokenTTL),
 		}
-		if err := intentTokenRepo.Create(ctx, it); err != nil {
+		if err := intentTokenRepo.Upsert(ctx, it); err != nil {
 			logger.Error("save intent token", zap.Error(err))
 			return echo.NewHTTPError(500, "Cannot issue intent token.")
 		}
