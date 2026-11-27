@@ -3,6 +3,7 @@ package middleware
 import (
 	"encoding/base64"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -28,6 +29,8 @@ type AuthContext struct {
 	// UserID is set for Bearer auth (JWT sub); empty for Basic auth.
 	UserID  string
 	GuildID string
+	// IsIntentToken is true when the request authenticated with a "gbi_" intent token.
+	IsIntentToken bool
 }
 
 const (
@@ -37,15 +40,25 @@ const (
 var (
 	errIncorrectToken             = echo.NewHTTPError(403, "Forbidden.")
 	bearerPathSkipGuildIDCheckMap = map[string]bool{
-		"/guilds":      false,
-		"/auth/logout": false,
+		"/guilds":            false,
+		"/auth/logout":       false,
+		"/auth/intent-token": false,
+	}
+	// authPathsRequiringAuth lists /auth/* paths that are not exempt from authentication.
+	authPathsRequiringAuth = map[string]bool{
+		"/auth/logout":       true,
+		"/auth/intent-token": true,
+	}
+	// intentTokenAllowedRoutes lists the method+path pairs an intent token may call.
+	intentTokenAllowedRoutes = map[string]bool{
+		http.MethodPost + " /groceries": true,
 	}
 	skipAuthForPathsMap = map[string]bool{
 		"/metrics": true, // prometheus metrics endpoint
 	}
 )
 
-func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Logger, grobotVersion string, discordSess *discordgo.Session) echo.MiddlewareFunc {
+func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, intentTokenRepo repositories.IntentTokenRepository, logger *zap.Logger, grobotVersion string, discordSess *discordgo.Session) echo.MiddlewareFunc {
 	logger = logger.Named("middleware.auth")
 	rateLimiterStore := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{Rate: 10, Burst: 0, ExpiresIn: 30 * time.Second},
@@ -63,12 +76,98 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 		rateLimitCfg.Skipper = func(c echo.Context) bool { return true }
 	}
 	rateLimitMiddleware := middleware.RateLimiterWithConfig(rateLimitCfg)
+
+	// verifyBearerGuild resolves X-Guild-ID and checks that both the user and the bot are in that guild.
+	// logPrefix identifies the credential type in debug logs.
+	verifyBearerGuild := func(c echo.Context, discordUserID string, logPrefix string) (string, error) {
+		guildID := strings.TrimSpace(c.Request().Header.Get(HeaderXGuildID))
+		if guildID == "" {
+			return "", echo.NewHTTPError(400, "X-Guild-ID header is required.")
+		}
+		if discordSess == nil {
+			return "", echo.NewHTTPError(500, "Cannot verify token.")
+		}
+
+		// is the user in the guild?
+		userGuilds, err := guilds.Service.GetUserGuilds(c.Request().Context(), discordUserID)
+		if err != nil {
+			return "", err
+		}
+		userInGuild := false
+		for _, ug := range userGuilds {
+			if ug.ID == guildID {
+				userInGuild = true
+				break
+			}
+		}
+		if !userInGuild {
+			logger.Debug(logPrefix+": user is not a member of guild", zap.String("guildID", guildID))
+			return "", errIncorrectToken
+		}
+
+		// is the bot in the guild?
+		botInGuild := false
+		for _, g := range discordSess.State.Guilds {
+			if g != nil && g.ID == guildID {
+				botInGuild = true
+				break
+			}
+		}
+		if !botInGuild {
+			logger.Debug(logPrefix+": bot is not in guild", zap.String("guildID", guildID))
+			return "", errIncorrectToken
+		}
+		return guildID, nil
+	}
+
+	handleIntentToken := func(c echo.Context, next echo.HandlerFunc, token string) error {
+		req := c.Request()
+		if !intentTokenAllowedRoutes[req.Method+" "+req.URL.Path] {
+			return echo.NewHTTPError(403, "Token not permitted for this endpoint.")
+		}
+		if auth.IntentTokensDisabled() {
+			return echo.NewHTTPError(401, "Invalid token.")
+		}
+		// Same guard as the JWT branch: without OAuth setup there is no Discord session service to check guilds with.
+		if auth.DefaultJWTIssuer == nil {
+			return echo.NewHTTPError(401, "Bearer authentication is not available.")
+		}
+		// The lookup runs inside the limiter keyed by client IP (no identifier is set yet), so invalid tokens are
+		// rate limited too. Accepted requests then also count against the per-user key shared with JWT requests.
+		return rateLimitMiddleware(func(c echo.Context) error {
+			ctx := c.Request().Context()
+			it, err := intentTokenRepo.FindByTokenHash(ctx, auth.HashIntentToken(token))
+			if err != nil {
+				logger.Error("intent token lookup failed", zap.Error(err))
+				return echo.NewHTTPError(500, "Cannot verify token.")
+			}
+			if it == nil || !time.Now().UTC().Before(it.ExpiresAt) {
+				return echo.NewHTTPError(401, "Invalid token.")
+			}
+			discordUserID := it.DiscordUserID
+			c.Set(CtxKeyIdentifier, discordUserID)
+
+			return rateLimitMiddleware(func(c echo.Context) error {
+				guildID, err := verifyBearerGuild(c, discordUserID, "intent token auth")
+				if err != nil {
+					return err
+				}
+				return next(&AuthContext{
+					Context:       c,
+					UserID:        discordUserID,
+					GuildID:       guildID,
+					IsIntentToken: true,
+				})
+			})(c)
+		})(c)
+	}
+
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if _, ok := skipAuthForPathsMap[c.Request().URL.Path]; ok {
 				return next(c)
 			}
-			if strings.HasPrefix(c.Request().URL.Path, "/auth/") && c.Request().URL.Path != "/auth/logout" {
+			if strings.HasPrefix(c.Request().URL.Path, "/auth/") && !authPathsRequiringAuth[c.Request().URL.Path] {
 				return next(c)
 			}
 			if grobotVersion == config.GrobotVersionLocal && strings.HasPrefix(c.Request().URL.Path, "/.test/issue-jwt") {
@@ -121,6 +220,9 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 					})
 				})(c)
 			case HeaderTypeBearer:
+				if strings.HasPrefix(headerValue, auth.IntentTokenPrefix) {
+					return handleIntentToken(c, next, headerValue)
+				}
 				ctx := c.Request().Context()
 				if auth.DefaultJWTIssuer == nil {
 					return echo.NewHTTPError(401, "Bearer authentication is not available.")
@@ -142,42 +244,9 @@ func AuthMiddleware(apiKeyRepo repositories.ApiClientRepository, logger *zap.Log
 							GuildID: "",
 						})
 					}
-					guildID := strings.TrimSpace(c.Request().Header.Get(HeaderXGuildID))
-					if guildID == "" {
-						return echo.NewHTTPError(400, "X-Guild-ID header is required.")
-					}
-					if discordSess == nil {
-						return echo.NewHTTPError(500, "Cannot verify token.")
-					}
-
-					// is the user in the guild?
-					userGuilds, err := guilds.Service.GetUserGuilds(c.Request().Context(), discordUserID)
+					guildID, err := verifyBearerGuild(c, discordUserID, "bearer auth")
 					if err != nil {
 						return err
-					}
-					userInGuild := false
-					for _, ug := range userGuilds {
-						if ug.ID == guildID {
-							userInGuild = true
-							break
-						}
-					}
-					if !userInGuild {
-						logger.Debug("bearer auth: user is not a member of guild", zap.String("guildID", guildID))
-						return errIncorrectToken
-					}
-
-					// is the bot in the guild?
-					botInGuild := false
-					for _, g := range discordSess.State.Guilds {
-						if g != nil && g.ID == guildID {
-							botInGuild = true
-							break
-						}
-					}
-					if !botInGuild {
-						logger.Debug("bearer auth: bot is not in guild", zap.String("guildID", guildID))
-						return errIncorrectToken
 					}
 
 					return next(&AuthContext{

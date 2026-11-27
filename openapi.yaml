@@ -8,7 +8,7 @@ info:
   # license:
   #   name: Apache 2.0
   #   url: http://www.apache.org/licenses/LICENSE-2.0.html
-  version: v2.16.x
+  version: v2.17.x
 externalDocs:
   description: GroceryBot's Website
   url: https://grocerybot.net
@@ -22,7 +22,7 @@ tags:
     description: |
       **Unstable — internal use.** These endpoints are not covered by public API stability guarantees; request and response shapes may change without a major version bump.
 
-      Discord OAuth token exchange, JWT refresh, and session logout.
+      Discord OAuth token exchange, JWT refresh, session logout, and intent tokens.
 paths:
   /auth/token:
     post:
@@ -88,6 +88,26 @@ paths:
           $ref: "#/components/responses/UnauthorizedError"
         "500":
           description: Server failed to delete sessions.
+  /auth/intent-token:
+    post:
+      tags: [Auth]
+      summary: Mint an intent token
+      description: "**Unstable (internal):** Not covered by public API stability guarantees; breaking changes may occur without a major version bump.\n\nIssues a long-lived, narrowly scoped intent token for the authenticated user, for clients that cannot share the refreshing session (e.g. a Siri App Intent on a locked device). Requires `Authorization: Bearer` with the GroceryBot JWT. Does not use `X-Guild-ID` and takes no request body.\n\nEach user has at most one intent token: minting replaces the user's previous intent token. Intent tokens are also revoked by `POST /auth/token` (new login) and `POST /auth/logout`. The lifetime is fixed at 30 days and is not extended on use. Demo accounts cannot mint intent tokens. The server can turn intent tokens off: minting then returns 403 and existing tokens get 401.\n\nThe token is accepted only on `POST /groceries`, as `Authorization: Bearer gbi_...` together with `X-Guild-ID`; every other endpoint, including this one, returns 403 for it."
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Intent token issued. The plaintext token is returned only in this response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntentTokenResponse"
+        "401":
+          description: Missing or invalid JWT, or the user no longer has a session (logged out).
+        "403":
+          description: Called with an intent token, with Basic (API client) credentials, or by a demo account; or intent tokens are disabled on the server.
+        "500":
+          description: Server failed to persist the intent token.
   /guilds:
     get:
       summary: List guilds shared by the user and bot
@@ -240,7 +260,7 @@ paths:
       # tags:
       #   - grocery
       summary: POST Grocery Entry
-      description: "Create a new grocery entry for your server. To attach it to a grocery list, obtain your server's grocery lists from GET /grocery-lists and put it into `grocery_list_id`."
+      description: "Create a new grocery entry for your server. To attach it to a grocery list, obtain your server's grocery lists from GET /grocery-lists and put it into `grocery_list_id`.\n\nIn addition to Basic and Bearer JWT credentials, this endpoint accepts an intent token from `POST /auth/intent-token` as `Authorization: Bearer gbi_...` (with `X-Guild-ID`). Intent tokens are rejected with 403 on every other endpoint."
       parameters:
         - $ref: "#/components/parameters/XGuildIDHeader"
       requestBody:
@@ -330,6 +350,17 @@ components:
         redirect_uri:
           type: string
           description: Must match the redirect URI used with Discord and must be allowed on the server.
+    IntentTokenResponse:
+      type: object
+      required: [intent_token, expires_in]
+      properties:
+        intent_token:
+          type: string
+          description: "Opaque intent token prefixed with `gbi_`. Send as `Authorization: Bearer gbi_...` to POST /groceries only."
+        expires_in:
+          type: integer
+          format: int64
+          description: Lifetime in seconds (2592000, i.e. 30 days). Not extended on use.
     TokenResponse:
       type: object
       required: [access_token, refresh_token, expires_in]

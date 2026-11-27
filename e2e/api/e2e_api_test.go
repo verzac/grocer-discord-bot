@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -497,4 +498,108 @@ func TestDeleteGroceryListWithEntries(t *testing.T) {
 
 func uintToStr(id uint) string {
 	return strconv.FormatUint(uint64(id), 10)
+}
+
+// Intent token cases need a real Bearer user: set E2E_API_BEARER_TOKEN and E2E_API_GUILD_ID.
+// TestIntentTokenRevokedOnLogout also needs E2E_API_BEARER_ALLOW_LOGOUT=1 because it deletes that user's session.
+
+func bearerSessionOrSkip(t *testing.T) *apiharness.APITestSession {
+	t.Helper()
+	s := apiharness.SetupBearerAPI()
+	if s == nil {
+		t.Skip("E2E_API_BEARER_TOKEN and E2E_API_GUILD_ID are required for intent token tests")
+	}
+	return s
+}
+
+func mintIntentToken(t *testing.T, s *apiharness.APITestSession) string {
+	t.Helper()
+	res, err := s.PostNoBody("/auth/intent-token")
+	require.NoError(t, err)
+	b, err := apiharness.ReadBodyAndClose(res)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, res.StatusCode, "%s", string(b))
+	var out struct {
+		IntentToken string `json:"intent_token"`
+		ExpiresIn   int64  `json:"expires_in"`
+	}
+	require.NoError(t, json.Unmarshal(b, &out))
+	require.True(t, strings.HasPrefix(out.IntentToken, "gbi_"), out.IntentToken)
+	require.Equal(t, int64(2592000), out.ExpiresIn)
+	return out.IntentToken
+}
+
+func intentStatus(t *testing.T, s *apiharness.APITestSession, method, path string) int {
+	t.Helper()
+	var res *http.Response
+	var err error
+	switch method {
+	case http.MethodGet:
+		res, err = s.Get(path)
+	case http.MethodPost:
+		res, err = s.PostJSON(path, []byte(`{"item_desc":"api-e2e-intent-rejected"}`))
+	default:
+		t.Fatalf("unsupported method %s", method)
+	}
+	require.NoError(t, err)
+	_, err = apiharness.ReadBodyAndClose(res)
+	require.NoError(t, err)
+	return res.StatusCode
+}
+
+func TestIntentTokenCreateGrocery(t *testing.T) {
+	bearer := bearerSessionOrSkip(t)
+	intent := bearer.WithAuthorization("Bearer " + mintIntentToken(t, bearer))
+
+	res, err := intent.PostJSON("/groceries", []byte(`{"item_desc":"api-e2e-intent-token"}`))
+	require.NoError(t, err)
+	b, err := apiharness.ReadBodyAndClose(res)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, res.StatusCode, "%s", string(b))
+	var e models.GroceryEntry
+	require.NoError(t, json.Unmarshal(b, &e))
+	require.Equal(t, "api-e2e-intent-token", e.ItemDesc)
+
+	res, err = bearer.DeleteNoBody("/groceries/" + uintToStr(e.ID))
+	require.NoError(t, err)
+	_, _ = apiharness.ReadBodyAndClose(res)
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+}
+
+func TestIntentTokenForbiddenElsewhere(t *testing.T) {
+	bearer := bearerSessionOrSkip(t)
+	intent := bearer.WithAuthorization("Bearer " + mintIntentToken(t, bearer))
+
+	require.Equal(t, http.StatusForbidden, intentStatus(t, intent, http.MethodGet, "/grocery-lists"))
+	require.Equal(t, http.StatusForbidden, intentStatus(t, intent, http.MethodPost, "/auth/intent-token"))
+}
+
+func TestIntentTokenGarbage(t *testing.T) {
+	bearer := bearerSessionOrSkip(t)
+	intent := bearer.WithAuthorization("Bearer gbi_not-a-real-token")
+
+	require.Equal(t, http.StatusUnauthorized, intentStatus(t, intent, http.MethodPost, "/groceries"))
+}
+
+func TestIntentTokenRevokedOnRemint(t *testing.T) {
+	bearer := bearerSessionOrSkip(t)
+	old := bearer.WithAuthorization("Bearer " + mintIntentToken(t, bearer))
+	_ = mintIntentToken(t, bearer)
+
+	require.Equal(t, http.StatusUnauthorized, intentStatus(t, old, http.MethodPost, "/groceries"))
+}
+
+func TestIntentTokenRevokedOnLogout(t *testing.T) {
+	bearer := bearerSessionOrSkip(t)
+	if os.Getenv("E2E_API_BEARER_ALLOW_LOGOUT") != "1" {
+		t.Skip("set E2E_API_BEARER_ALLOW_LOGOUT=1 to run; this logs the E2E user out")
+	}
+	intent := bearer.WithAuthorization("Bearer " + mintIntentToken(t, bearer))
+
+	res, err := bearer.PostNoBody("/auth/logout")
+	require.NoError(t, err)
+	_, _ = apiharness.ReadBodyAndClose(res)
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+
+	require.Equal(t, http.StatusUnauthorized, intentStatus(t, intent, http.MethodPost, "/groceries"))
 }
